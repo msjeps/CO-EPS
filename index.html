@@ -294,7 +294,7 @@ function vueGroupes(){
   h+='<p class="petit">'+r.eleves.length+' élèves ('+nF+' F, '+nG+' G) · '+nP+' présents à cette séance</p>';
   h+='<div class="ligne" style="align-items:flex-end"><div style="flex:1;min-width:170px"><label>Ajouter un élève</label><input type="text" id="inEleve" placeholder="NOM Prénom"></div><button class="bouton bouton-secondaire bouton-petit" data-act="addeleve" data-s="F">+ Fille</button><button class="bouton bouton-secondaire bouton-petit" data-act="addeleve" data-s="G">+ Garçon</button></div>';
   h+='<label>Ou coller la liste (une ligne par élève, ex. « DUPONT Léa;F »)</label><textarea id="inListe" placeholder="DUPONT Léa;F&#10;MARTIN Tom;G"></textarea><button class="bouton bouton-clair" data-act="importeleves">Importer la liste collée</button>';
-  h+='<label>Ou importer un fichier CSV (Nom ; Prénom ; Sexe F/G)</label><input type="file" accept=".csv,.txt,text/csv,text/plain" data-chg="fichiereleves" style="padding:8px">';
+  h+='<label>Ou importer un fichier CSV / texte (colonnes Nom Prénom + Sexe, dans n\'importe quel ordre)</label><input type="file" accept=".csv,.txt,text/csv,text/plain" data-chg="fichiereleves" style="padding:8px">';
   r.eleves.forEach(function(e){
     h+='<div class="rangee"><div class="corps" data-act="renom" data-id="'+e.id+'"><b>'+esc(e.nom)+'</b>'+(groupeDe(r,e.id)?' <span class="tag">'+esc(groupeDe(r,e.id))+'</span>':'')+'</div>'+
        '<button class="chip" data-act="sexe" data-id="'+e.id+'" style="margin:0 8px 0 0;min-width:48px'+(e.sexe==='?'?';border-color:#f57c00':'')+'" aria-label="Changer le genre">'+esc(e.sexe)+'</button>'+
@@ -330,18 +330,24 @@ function selectGroupes(cur){ var h='<option value="">— aucun —</option>'; S.
 
 function decoderTexte(buf){ try{ return new TextDecoder('utf-8',{fatal:true}).decode(buf); }catch(e){ try{ return new TextDecoder('windows-1252').decode(buf); }catch(e2){ return ''; } } }
 function decoupeCsv(ln,sep){ var out=[],cur='',q=false; for(var i=0;i<ln.length;i++){ var ch=ln.charAt(i); if(ch==='"'){ if(q&&ln.charAt(i+1)==='"'){cur+='"';i++;} else q=!q; } else if(ch===sep&&!q){ out.push(cur); cur=''; } else cur+=ch; } out.push(cur); return out.map(function(x){return x.trim();}); }
-function sexeDe(v){ v=(v||'').trim().toUpperCase().replace(/[ÉÈ]/g,'E'); var c=v.charAt(0); return c==='F'?'F':(c==='G'||c==='M')?'G':'?'; }
-/* Formats acceptés : "Nom;Prénom;Sexe" | "Nom Prénom;Sexe" | "Nom Prénom" ; séparateur ; , ou tabulation ; ligne d'en-tête ignorée */
+/* Import tolérant : séparateur ; , ou tabulation (détecté ligne par ligne), colonnes dans n'importe quel ordre.
+   - Avec en-tête (Nom, Prénom, Élève, Sexe, Genre…) : seules les colonnes nom/prénom/élève/sexe sont lues (les autres sont ignorées).
+   - Sans en-tête : la colonne qui vaut F/G/M/Fille/Garçon/Féminin/Masculin est le sexe, le reste forme le nom. */
+var RE_SEXE=/^(f|g|m|h|fille|garcon|garçon|feminin|féminin|masculin|homme|femme)$/i;
+function sexeDe(v){ v=(v||'').trim().toUpperCase().replace(/[ÉÈ]/g,'E'); var c=v.charAt(0); return (c==='F')?'F':(c==='G'||c==='M'||c==='H')?'G':'?'; }
 function importerEleves(r,texte){
-  texte=texte.replace(/^﻿/,''); var lignes=texte.split(/\r?\n/).filter(function(x){return x.trim();}); if(!lignes.length) return {ajoutes:0,doublons:0};
-  var ajoutes=0,doublons=0;
+  texte=texte.replace(/^﻿/,''); var lignes=texte.split(/\r?\n/).filter(function(x){return x.trim();});
+  var ajoutes=0,doublons=0, colsNom=null, colSexe=-1;
   lignes.forEach(function(ln,i){
-    var sep=['\t',';',','].filter(function(x){return ln.indexOf(x)>=0;})[0]||';'; var p=decoupeCsv(ln,sep); if(i===0&&/^(nom|name|élève|eleve)/i.test(p[0])&&/(sexe|genre|pr[ée]nom|f\/g)/i.test(p.join(' '))) return;
-    var nom,sx;
-    if(p.length>=3){ nom=(p[0]+' '+p[1]).trim(); sx=sexeDe(p[2]); }
-    else if(p.length===2){ nom=p[0]; sx=sexeDe(p[1]); }
-    else { nom=p[0]; sx='?'; }
-    if(!nom) return;
+    var sep=['\t',';',','].filter(function(x){return ln.indexOf(x)>=0;})[0]||';'; var p=decoupeCsv(ln,sep);
+    if(i===0){
+      var ent=p.map(function(x){return x.toLowerCase();}), estEnt=ent.some(function(x){return /^(sexe|genre|pr[ée]nom|nom|[ée]l[èe]ve)/.test(x);}) && !p.some(function(x){return RE_SEXE.test(x);});
+      if(estEnt){ colsNom=[]; ent.forEach(function(x,k){ if(/^(sexe|genre)/.test(x)) colSexe=k; else if(/^(nom|pr[ée]nom|[ée]l[èe]ve)/.test(x)) colsNom.push(k); }); if(!colsNom.length) colsNom=null; return; }
+    }
+    var nomParts=[], sx='?';
+    if(colSexe>=0||colsNom){ if(colSexe>=0) sx=sexeDe(p[colSexe]); (colsNom||p.map(function(x,k){return k;})).forEach(function(k){ if(k!==colSexe&&p[k]) nomParts.push(p[k]); }); }
+    else { var done=false; p.forEach(function(x){ if(!done&&RE_SEXE.test(x)&&p.length>1){ sx=sexeDe(x); done=true; } else if(x) nomParts.push(x); }); }
+    var nom=nomParts.join(' ').replace(/\s+/g,' ').trim(); if(!nom) return;
     if(r.eleves.some(function(e){return e.nom.toLowerCase()===nom.toLowerCase();})){ doublons++; return; }
     ajouterEleve(r,nom,sx); ajoutes++;
   });
