@@ -89,7 +89,7 @@ table.tab tr.podium-1 td{background:rgba(245,196,0,.22)}
 table.tab tr.podium-2 td{background:rgba(160,160,160,.2)}
 table.tab tr.podium-3 td{background:rgba(176,110,60,.18)}
 .barre{position:fixed;left:0;right:0;bottom:0;background:var(--couleur-primaire);display:flex;z-index:50;padding-bottom:env(safe-area-inset-bottom)}
-.barre button{flex:1;background:none;border:none;color:#fff;opacity:.7;padding:8px 2px 6px;font-size:.72em;min-height:56px;cursor:pointer;font-family:inherit}
+.barre button{flex:1;min-width:0;background:none;border:none;color:#fff;opacity:.7;padding:8px 1px 6px;font-size:.64em;min-height:56px;cursor:pointer;font-family:inherit}
 .barre button span{display:block;font-size:1.5em;line-height:1.2}
 .barre button.actif{opacity:1;background:rgba(0,0,0,.22);font-weight:700}
 .modale-fond{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.55);z-index:100;display:flex;align-items:center;justify-content:center;padding:14px}
@@ -118,7 +118,7 @@ table.tab tr.podium-3 td{background:rgba(176,110,60,.18)}
 
 <div class="en-tete">
   <h1>🧭 Course d'orientation EPS</h1>
-  <p>Version 1.0</p>
+  <p>Version 1.1</p>
 </div>
 
 <div class="conteneur" id="vue"></div>
@@ -151,7 +151,7 @@ function etatInitial(){
     v:1, groupes:['A1','A2','A3','A4','B1','B2','B3','B4','C1','C2','C3'],
     sets:[], penSec:60, mdp:null, sombre:false, afficherAttendu:true,
     seance:{setIds:['Orange','Bleu'], assign:{}, parcours:1, pos:{}, etat:{}, poste:{}},
-    classes:[], cur:null, onglet:'pose'
+    classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
 function charger(){
@@ -238,8 +238,98 @@ function classement(c){
   return rows;
 }
 
+
+/* ============ ÉLÈVES & COMPOSITION DES GROUPES ============ */
+function roster(c){ if(!S.rosters[c.nom]) S.rosters[c.nom]={eleves:[],histo:[],compo:{},absent:{},nbG:0}; return S.rosters[c.nom]; }
+function eleveDe(r,id){ for(var i=0;i<r.eleves.length;i++) if(r.eleves[i].id===id) return r.eleves[i]; return null; }
+function nomsGroupe(c,g){ if(!c) return ''; var r=S.rosters[c.nom]; if(!r||!r.compo[g]) return ''; return r.compo[g].map(function(id){var e=eleveDe(r,id);return e?e.nom:'';}).filter(Boolean).join(' · '); }
+function pk(a,b){ return a<b?a+'|'+b:b+'|'+a; }
+function pairCounts(r){ var pc={}; r.histo.forEach(function(se){ for(var g in se){ var m=se[g]; for(var i=0;i<m.length;i++) for(var j=i+1;j<m.length;j++){ var k=pk(m[i],m[j]); pc[k]=(pc[k]||0)+1; } } }); return pc; }
+function melanger(a){ a=a.slice(); for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+function coutCompo(groups,pc,sx,mixte){
+  var c=0; groups.forEach(function(m){ var f=0,g=0;
+    for(var i=0;i<m.length;i++){ if(sx[m[i]]==='F') f++; else if(sx[m[i]]==='G') g++; for(var j=i+1;j<m.length;j++) c+=(pc[pk(m[i],m[j])]||0)*1000; }
+    if(mixte && m.length>=2 && (f===0||g===0)) c+=400; });
+  return c;
+}
+function nbGroupesAuto(r){ var N=r.eleves.filter(function(e){return !r.absent[e.id];}).length; return Math.max(1,Math.min(S.groupes.length,Math.round(N/3))); }
+function genererGroupes(r){
+  var pres=r.eleves.filter(function(e){return !r.absent[e.id];}); var N=pres.length; if(!N) return false;
+  var Gu=Math.min(S.groupes.length,r.nbG||nbGroupesAuto(r)); Gu=Math.max(1,Math.min(Gu,N));
+  var sx={}, F=[], G=[], U=[]; pres.forEach(function(e){ sx[e.id]=e.sexe; (e.sexe==='F'?F:e.sexe==='G'?G:U).push(e.id); });
+  var mixte=F.length>0&&G.length>0, pc=pairCounts(r);
+  var base=Math.floor(N/Gu), extra=N%Gu, best=null, bestC=Infinity;
+  var tDebut=Date.now();
+  for(var essai=0; essai<400 && bestC>0 && (essai<3 || Date.now()-tDebut<2500); essai++){
+    var sizes=[]; for(var i=0;i<Gu;i++) sizes.push(base+(i<extra?1:0)); sizes=melanger(sizes);
+    var order=melanger(F).concat(melanger(G),melanger(U)), groups=[], p=0;
+    for(i=0;i<Gu;i++) groups.push([]);
+    order.forEach(function(id){ while(groups[p%Gu].length>=sizes[p%Gu]) p++; groups[p%Gu].push(id); p++; });
+    var cur=coutCompo(groups,pc,sx,mixte);
+    for(var it=0; it<4000 && cur>0; it++){
+      var a=Math.floor(Math.random()*Gu), b=Math.floor(Math.random()*Gu); if(a===b) continue;
+      var ia=Math.floor(Math.random()*groups[a].length), ib=Math.floor(Math.random()*groups[b].length);
+      var t=groups[a][ia]; groups[a][ia]=groups[b][ib]; groups[b][ib]=t;
+      var n=coutCompo(groups,pc,sx,mixte);
+      if(n<=cur) cur=n; else { t=groups[a][ia]; groups[a][ia]=groups[b][ib]; groups[b][ib]=t; }
+    }
+    if(cur<bestC){ bestC=cur; best=groups.map(function(m){return m.slice();}); }
+  }
+  r.compo={}; best.forEach(function(m,i){ r.compo[S.groupes[i]]=m; });
+  return true;
+}
+function qualiteCompo(r){
+  var pc=pairCounts(r), rep=0, mono=0, mixte=false, f=0,g=0;
+  r.eleves.forEach(function(e){ if(!r.absent[e.id]){ if(e.sexe==='F') f++; else if(e.sexe==='G') g++; } }); mixte=f>0&&g>0;
+  for(var gn in r.compo){ var m=r.compo[gn], nf=0, ng=0;
+    for(var i=0;i<m.length;i++){ var e=eleveDe(r,m[i]); if(e&&e.sexe==='F') nf++; else if(e&&e.sexe==='G') ng++; for(var j=i+1;j<m.length;j++) if(pc[pk(m[i],m[j])]) rep++; }
+    if(mixte&&m.length>=2&&(nf===0||ng===0)) mono++; }
+  return {rep:rep,mono:mono,mixte:mixte};
+}
+function groupeDe(r,id){ for(var g in r.compo) if(r.compo[g].indexOf(id)>=0) return g; return ''; }
+function vueGroupes(){
+  var c=classe(), h='<div class="section"><h2>Élèves</h2>'+selecteurClasse();
+  if(!c) return h+'<p>Crée une classe (ex. 6eB) pour saisir ses élèves.</p></div>';
+  var r=roster(c), nF=0,nG=0,nP=0; r.eleves.forEach(function(e){ if(e.sexe==='F') nF++; else if(e.sexe==='G') nG++; if(!r.absent[e.id]) nP++; });
+  h+='<p class="petit">'+r.eleves.length+' élèves ('+nF+' F, '+nG+' G) · '+nP+' présents à cette séance</p>';
+  h+='<div class="ligne" style="align-items:flex-end"><div style="flex:1;min-width:170px"><label>Ajouter un élève</label><input type="text" id="inEleve" placeholder="NOM Prénom"></div><button class="bouton bouton-secondaire bouton-petit" data-act="addeleve" data-s="F">+ Fille</button><button class="bouton bouton-secondaire bouton-petit" data-act="addeleve" data-s="G">+ Garçon</button></div>';
+  h+='<label>Ou coller la liste (une ligne par élève, ex. « DUPONT Léa;F »)</label><textarea id="inListe" placeholder="DUPONT Léa;F&#10;MARTIN Tom;G"></textarea><button class="bouton bouton-clair" data-act="importeleves">Importer la liste</button>';
+  r.eleves.forEach(function(e){
+    h+='<div class="rangee"><div class="corps" data-act="renom" data-id="'+e.id+'"><b>'+esc(e.nom)+'</b>'+(groupeDe(r,e.id)?' <span class="tag">'+esc(groupeDe(r,e.id))+'</span>':'')+'</div>'+
+       '<button class="chip" data-act="sexe" data-id="'+e.id+'" style="margin:0 8px 0 0;min-width:48px'+(e.sexe==='?'?';border-color:#f57c00':'')+'" aria-label="Changer le genre">'+esc(e.sexe)+'</button>'+
+       '<label class="switch" style="margin:0 8px 0 0" title="Présent"><input type="checkbox" data-chg="eleveprs" data-id="'+e.id+'"'+(r.absent[e.id]?'':' checked')+'><span class="slider"></span></label>'+
+       '<button class="chip" data-act="deleve" data-id="'+e.id+'" style="margin:0" aria-label="Supprimer l\'élève">🗑️</button></div>';
+  });
+  if(!r.eleves.length) h+='<p class="petit">Aucun élève. Touche le nom pour le corriger, « F/G » pour changer le genre, l\'interrupteur pour signaler un absent.</p>';
+  h+='</div>';
+  h+='<div class="section"><h2>Composition des groupes</h2>';
+  h+='<label>Nombre de groupes</label><div class="stepper-nombre"><button class="stepper-btn" data-act="nbg" data-d="-1" aria-label="Moins de groupes">−</button><input type="number" readonly value="'+Math.min(S.groupes.length,r.nbG||nbGroupesAuto(r))+'"><button class="stepper-btn" data-act="nbg" data-d="1" aria-label="Plus de groupes">+</button></div>';
+  h+='<p class="petit">Contraintes : groupes mixtes (au moins une fille et un garçon quand c\'est possible) et jamais deux élèves déjà ensemble lors d\'une séance précédente. '+r.histo.length+' séance(s) en mémoire.</p>';
+  h+='<button class="bouton bouton-primaire" data-act="generer">🎲 Générer les groupes</button>';
+  var any=Object.keys(r.compo).length>0;
+  if(any){
+    var q=qualiteCompo(r);
+    h+='<p>'+(q.rep===0?'<span class="tag tag-ok">✓ aucune paire déjà vue ensemble</span>':'<span class="tag tag-att">⚠ '+q.rep+' paire(s) déjà ensemble</span>')+' '+(q.mixte?(q.mono===0?'<span class="tag tag-ok">✓ tous mixtes</span>':'<span class="tag tag-att">⚠ '+q.mono+' groupe(s) non mixte(s)</span>'):'<span class="tag">genre non renseigné</span>')+'</p>';
+    var pc=pairCounts(r), noms=Object.keys(r.compo).sort(function(a,b){return S.groupes.indexOf(a)-S.groupes.indexOf(b);});
+    noms.forEach(function(gn){
+      var m=r.compo[gn]; h+='<div class="rangee" style="display:block"><b>'+esc(gn)+'</b> <span class="petit">'+m.length+' élève(s)</span>';
+      m.forEach(function(id){ var e=eleveDe(r,id); if(!e) return; var deja=[]; m.forEach(function(o){ if(o!==id&&pc[pk(id,o)]){ var oe=eleveDe(r,o); if(oe) deja.push(oe.nom); } });
+        h+='<div class="ligne" style="margin-top:4px"><span style="flex:1;min-width:130px">'+esc(e.nom)+' <span class="tag">'+esc(e.sexe)+'</span>'+(deja.length?' <span class="tag tag-att" title="déjà ensemble">⚠ déjà avec '+esc(deja.join(', '))+'</span>':'')+'</span>'+
+           '<select data-chg="moveel" data-id="'+id+'" style="width:110px">'+selectGroupes(gn)+'</select></div>'; });
+      h+='</div>';
+    });
+    var nonAff=r.eleves.filter(function(e){ return !r.absent[e.id] && !groupeDe(r,e.id); });
+    if(nonAff.length){ h+='<div class="rangee" style="display:block"><b>Non affectés</b>'; nonAff.forEach(function(e){ h+='<div class="ligne" style="margin-top:4px"><span style="flex:1;min-width:130px">'+esc(e.nom)+'</span><select data-chg="moveel" data-id="'+e.id+'" style="width:110px">'+selectGroupes('')+'</select></div>'; }); h+='</div>'; }
+    h+='<button class="bouton bouton-clair" data-act="videcompo">Effacer la composition</button>';
+  }
+  h+='<button class="bouton bouton-clair" data-act="videhisto">Vider l\'historique des séances</button><button class="bouton bouton-clair" data-act="delclasse">Supprimer cette classe</button></div>';
+  return h;
+}
+function selectGroupes(cur){ var h='<option value="">— aucun —</option>'; S.groupes.forEach(function(g){ h+='<option value="'+esc(g)+'"'+(cur===g?' selected':'')+'>'+esc(g)+'</option>'; }); return h; }
+function ajouterEleve(r,nom,sexe){ nom=(nom||'').trim(); if(!nom) return; r.eleves.push({id:'e'+Date.now()+Math.floor(Math.random()*1000)+r.eleves.length,nom:nom,sexe:sexe||'?'}); }
+
 /* ============ NAVIGATION ============ */
-var ONGLETS=[['pose','📍','Pose'],['carte','🗺️','Carte'],['course','⏱️','Course'],['verif','✅','Vérif.'],['classement','🏆','Classement'],['reglages','⚙️','Réglages']];
+var ONGLETS=[['groupes','👥','Groupes'],['pose','📍','Pose'],['carte','🗺️','Carte'],['course','⏱️','Course'],['verif','✅','Vérif.'],['classement','🏆','Classement'],['reglages','⚙️','Réglages']];
 var deverrouille=false, uiVerifG=null, uiSel=null, uiZoom=1, uiCsvDetail=true;
 function allerA(o){
   if(o==='reglages' && !deverrouille){ demanderMdp(function(){ deverrouille=true; allerA('reglages'); }); return; }
@@ -252,7 +342,7 @@ function dessiner(){
   document.body.className=S.sombre?'mode-sombre':'';
   dessinerBarre();
   var v=$('vue'), o=S.onglet;
-  v.innerHTML = o==='pose'?vuePose():o==='carte'?vueCarte():o==='course'?vueCourse():o==='verif'?vueVerif():o==='classement'?vueClassement():vueReglages();
+  v.innerHTML = o==='groupes'?vueGroupes():o==='pose'?vuePose():o==='carte'?vueCarte():o==='course'?vueCourse():o==='verif'?vueVerif():o==='classement'?vueClassement():vueReglages();
   if(o==='verif') focusVerif();
 }
 
@@ -348,7 +438,7 @@ function vueCourse(){
     if(a&&d){ mid='<span class="temps">'+fmt(tempsFinal(c,g))+'</span> <span class="petit">('+fmt(tempsCourse(c,g))+(np?' + '+np+' pén.':'')+')</span>'; btn='<span class="tag tag-ok">arrivé '+heure(a)+'</span>'; }
     else if(d){ mid='<span class="temps" data-live="'+d+'">'+fmt((Date.now()-d)/1000)+'</span>'+(np?' <span class="petit">+'+np+' pén.</span>':''); btn='<button class="bouton bouton-danger bouton-petit" data-act="arrivee" data-g="'+esc(g)+'">Arrivée</button>'; }
     else { mid='<span class="petit">'+(c.mode==='tous'?'en attente du départ':'prêt')+'</span>'; btn= c.mode==='groupe'?'<button class="bouton bouton-primaire bouton-petit" data-act="depart" data-g="'+esc(g)+'">Départ</button>':''; }
-    h+='<div class="rangee"><div class="nom">'+esc(g)+'</div><div class="corps">'+mid+'</div><div>'+btn+'</div><button class="chip" data-act="grp" data-g="'+esc(g)+'" style="margin:0 0 0 8px" aria-label="Détails du groupe '+esc(g)+'">⋯</button></div>';
+    var nm0=nomsGroupe(c,g); h+='<div class="rangee"><div class="nom">'+esc(g)+'</div><div class="corps">'+(nm0?'<div class="petit">'+esc(nm0)+'</div>':'')+mid+'</div><div>'+btn+'</div><button class="chip" data-act="grp" data-g="'+esc(g)+'" style="margin:0 0 0 8px" aria-label="Détails du groupe '+esc(g)+'">⋯</button></div>';
   });
   return h+'<p class="petit">« ⋯ » : pénalités (+'+S.penSec/60+' min chacune), correction des heures, groupe absent.</p></div>';
 }
@@ -376,7 +466,7 @@ function vueVerif(){
   h+='</div></div>';
   if(uiVerifG && !c.absents[uiVerifG]){
     var g=uiVerifG, cd=c.codes[g]||{}, v=nbValides(c,g);
-    h+='<div class="section section-verif"><h2>Groupe '+esc(g)+'</h2><p>Balise posée par ce groupe : <b>'+esc(S.seance.assign[g]?baliseLabel(S.seance.assign[g]):'—')+'</b> (non cherchée)</p>';
+    h+='<div class="section section-verif"><h2>Groupe '+esc(g)+'</h2>'+(nomsGroupe(c,g)?'<p class="petit">'+esc(nomsGroupe(c,g))+'</p>':'')+'<p>Balise posée par ce groupe : <b>'+esc(S.seance.assign[g]?baliseLabel(S.seance.assign[g]):'—')+'</b> (non cherchée)</p>';
     h+='<p>Score : <b id="vscore">'+v.n+' / '+v.tot+'</b></p>';
     aChercher(g).forEach(function(b){
       var inv=invalide(b), att=codeAttendu(b,g), val=cd[b]||'';
@@ -411,7 +501,7 @@ function vueClassement(){
   h+='<p class="petit">Tri : nombre de balises validées, puis temps (course + pénalités de '+(S.penSec/60)+' min). Seuls les groupes arrivés sont classés.</p>';
   h+='<table class="tab"><thead><tr><th>#</th><th style="text-align:left">Groupe</th><th>Balises</th><th>Course</th><th>Pén.</th><th>Temps final</th></tr></thead><tbody>';
   rows.forEach(function(r){
-    h+='<tr class="'+(r.rang&&r.rang<=3?'podium-'+r.rang:'')+'"><td><b>'+(r.rang||'–')+'</b></td><td class="g">'+esc(r.g)+'</td><td>'+r.n+'/'+r.tot+'</td><td class="temps">'+(r.tc!=null?fmt(r.tc):'–')+'</td><td>'+(r.pen?'+'+r.pen:'')+'</td><td class="temps">'+(r.tf!=null?fmt(r.tf):'<span class="petit">en course</span>')+'</td></tr>';
+    h+='<tr class="'+(r.rang&&r.rang<=3?'podium-'+r.rang:'')+'"><td><b>'+(r.rang||'–')+'</b></td><td class="g">'+esc(r.g)+(nomsGroupe(c,r.g)?'<div class="petit" style="font-weight:400">'+esc(nomsGroupe(c,r.g))+'</div>':'')+'</td><td>'+r.n+'/'+r.tot+'</td><td class="temps">'+(r.tc!=null?fmt(r.tc):'–')+'</td><td>'+(r.pen?'+'+r.pen:'')+'</td><td class="temps">'+(r.tf!=null?fmt(r.tf):'<span class="petit">en course</span>')+'</td></tr>';
   });
   h+='</tbody></table></div>';
   h+='<div class="section section-classement"><h2>Export</h2><div class="rangee"><div class="corps">Inclure le détail balise par balise</div><label class="switch"><input type="checkbox" data-chg="csvdetail"'+(uiCsvDetail?' checked':'')+'><span class="slider"></span></label></div>'+
@@ -420,12 +510,12 @@ function vueClassement(){
 }
 function construireCsv(c,sep){
   var rows=classement(c), bals=balisesAssignees();
-  var ent=['Rang','Groupe','Balise posée','N° poste','Balises validées','Balises à chercher','Départ','Arrivée','Temps course','Pénalités (nb)','Pénalités (min)','Temps final'];
+  var ent=['Rang','Groupe','Élèves','Balise posée','N° poste','Balises validées','Balises à chercher','Départ','Arrivée','Temps course','Pénalités (nb)','Pénalités (min)','Temps final'];
   if(uiCsvDetail) bals.forEach(function(b){ ent.push(baliseLabel(b)); });
   var lignes=[ent];
   rows.forEach(function(r){
     var d=debut(c,r.g), a=c.arrivee[r.g];
-    var l=[r.rang,r.g,S.seance.assign[r.g]?baliseLabel(S.seance.assign[r.g]):'',S.seance.assign[r.g]?posteB(S.seance.assign[r.g]):'',r.n,r.tot,d?heure(d):'',a?heure(a):'',r.tc!=null?fmt(r.tc):'',r.pen,r.pen*S.penSec/60,r.tf!=null?fmt(r.tf):''];
+    var l=[r.rang,r.g,nomsGroupe(c,r.g).replace(/ · /g,' / '),S.seance.assign[r.g]?baliseLabel(S.seance.assign[r.g]):'',S.seance.assign[r.g]?posteB(S.seance.assign[r.g]):'',r.n,r.tot,d?heure(d):'',a?heure(a):'',r.tc!=null?fmt(r.tc):'',r.pen,r.pen*S.penSec/60,r.tf!=null?fmt(r.tf):''];
     if(uiCsvDetail) bals.forEach(function(b){
       if(S.seance.assign[r.g]===b){ l.push('(posée)'); return; }
       if(invalide(b)){ l.push('invalide'); return; }
@@ -458,7 +548,7 @@ function vueReglages(){
   h+='<div class="section"><h2>Affichage</h2><div class="rangee"><div class="corps">Mode sombre</div><label class="switch"><input type="checkbox" data-chg="sombre"'+(S.sombre?' checked':'')+'><span class="slider"></span></label></div>'+
      '<div class="rangee"><div class="corps">Afficher le code attendu quand une saisie est fausse</div><label class="switch"><input type="checkbox" data-chg="attendu"'+(S.afficherAttendu?' checked':'')+'><span class="slider"></span></label></div></div>';
   h+='<div class="section"><h2>Sécurité</h2><button class="bouton bouton-secondaire" data-act="chgmdp">Changer le mot de passe prof</button><button class="bouton bouton-clair" data-act="aide">Aide</button></div>';
-  h+='<div class="section" style="border-left-color:#FC466B"><h2>Nouvelle séance</h2><p class="petit">Efface les balises attribuées, les positions, les classes et tous les résultats. Les jeux de balises et réglages sont conservés.</p><button class="bouton bouton-danger" data-act="nouvelle">Nouvelle séance</button></div>';
+  h+='<div class="section" style="border-left-color:#FC466B"><h2>Nouvelle séance</h2><p class="petit">Efface les balises attribuées, les positions et tous les résultats (chronos, codes, pénalités). La composition actuelle des groupes est archivée dans l\'historique pour que les mêmes élèves ne soient plus regroupés. Les classes, listes d\'élèves, jeux de balises et réglages sont conservés.</p><button class="bouton bouton-danger" data-act="nouvelle">Nouvelle séance</button></div>';
   return h;
 }
 function modaleSet(id){
@@ -501,6 +591,16 @@ document.addEventListener('click',function(e){
   var el=e.target.closest('[data-act]'); if(!el) return;
   var a=el.getAttribute('data-act'), g=el.getAttribute('data-g'), b=el.getAttribute('data-b'), c=classe();
   switch(a){
+    case 'addeleve': if(c){ var inp=$('inEleve'); ajouterEleve(roster(c),inp.value,el.getAttribute('data-s')); sauver(); dessiner(); var i2=$('inEleve'); if(i2) i2.focus(); } break;
+    case 'importeleves': if(c){ var rr=roster(c); $('inListe').value.split(/\r?\n/).forEach(function(ln){ if(!ln.trim()) return; var p=ln.split(/[;\t]/); var sx=(p[1]||'').trim().toUpperCase().charAt(0); ajouterEleve(rr,p[0],sx==='F'?'F':(sx==='G'||sx==='M')?'G':'?'); }); sauver(); dessiner(); } break;
+    case 'renom': if(c){ var rn=roster(c), eo=eleveDe(rn,el.getAttribute('data-id')); var nn2=eo&&prompt('Nom de l\'élève :',eo.nom); if(nn2&&nn2.trim()){ eo.nom=nn2.trim(); sauver(); dessiner(); } } break;
+    case 'sexe': if(c){ var rs=roster(c), es=eleveDe(rs,el.getAttribute('data-id')); if(es){ es.sexe=es.sexe==='F'?'G':es.sexe==='G'?'?':'F'; sauver(); dessiner(); } } break;
+    case 'deleve': if(c){ var rd2=roster(c), ed=eleveDe(rd2,el.getAttribute('data-id')); if(ed&&confirm('Supprimer '+ed.nom+' ?')){ var idd2=ed.id; rd2.eleves=rd2.eleves.filter(function(x){return x.id!==idd2;}); for(var gk in rd2.compo) rd2.compo[gk]=rd2.compo[gk].filter(function(x){return x!==idd2;}); sauver(); dessiner(); } } break;
+    case 'nbg': if(c){ var rg=roster(c), cu=Math.min(S.groupes.length,rg.nbG||nbGroupesAuto(rg)); rg.nbG=Math.max(1,Math.min(S.groupes.length,cu+parseInt(el.getAttribute('data-d'),10))); sauver(); dessiner(); } break;
+    case 'generer': if(c){ var rgn=roster(c); if(Object.keys(rgn.compo).length&&!confirm('Remplacer la composition actuelle ?')) break; if(genererGroupes(rgn)){ sauver(); dessiner(); } else alert('Aucun élève présent.'); } break;
+    case 'videcompo': if(c&&confirm('Effacer la composition des groupes ?')){ roster(c).compo={}; sauver(); dessiner(); } break;
+    case 'videhisto': if(c&&confirm('Oublier les séances passées ? Les groupes pourront de nouveau se retrouver.')){ roster(c).histo=[]; sauver(); dessiner(); } break;
+    case 'delclasse': if(c&&confirm('Supprimer la classe '+c.nom+' (chronos et codes) ? La liste d\'élèves est conservée.')){ S.classes=S.classes.filter(function(x){return x.id!==c.id;}); S.cur=S.classes.length?S.classes[0].id:null; sauver(); dessiner(); } break;
     case 'nav': allerA(el.getAttribute('data-o')); break;
     case 'fermer': fermerModale(); break;
     case 'auto': attribuerAuto(); sauver(); dessiner(); break;
@@ -535,7 +635,7 @@ document.addEventListener('click',function(e){
       sauver(); fermerModale(); dessiner(); break;
     case 'chgmdp': var nv=prompt('Nouveau mot de passe (vide = revenir au mot de passe par défaut) :'); if(nv!==null){ S.mdp=nv.trim()||null; sauver(); toast('Mot de passe mis à jour'); } break;
     case 'aide': ouvrirModale('<div class="modale-header"><h3>Aide</h3><button class="btn-fermer" data-act="fermer">&times;</button></div><p><b>1. Pose</b> : choisis 2 couleurs, attribue les balises aux groupes, place chaque balise sur la carte, contrôle-les.</p><p><b>2. Course</b> : crée la classe, donne le départ (tous ou groupe par groupe), touche « Arrivée » à chaque retour, ajoute les pénalités.</p><p><b>3. Vérif.</b> : saisis les lettres relevées sur la feuille de chaque groupe.</p><p><b>4. Classement</b> : balises validées, puis temps. Export CSV.</p><p>Tout est enregistré automatiquement sur la tablette.</p>'); break;
-    case 'nouvelle': demanderMdp(function(){ if(confirm('Effacer toute la séance (balises, positions, classes, résultats) ?')){ var d=etatInitial(); d.sets=S.sets; d.groupes=S.groupes; d.penSec=S.penSec; d.mdp=S.mdp; d.sombre=S.sombre; d.afficherAttendu=S.afficherAttendu; d.onglet='pose'; S=d; uiVerifG=null; uiSel=null; sauver(); dessiner(); toast('Nouvelle séance prête'); } }); break;
+    case 'nouvelle': demanderMdp(function(){ if(confirm('Terminer la séance ? Balises, positions et résultats seront effacés ; les groupes actuels sont archivés.')){ for(var rn in S.rosters){ var ro=S.rosters[rn]; if(Object.keys(ro.compo).some(function(k){return ro.compo[k].length;})){ ro.histo.push(JSON.parse(JSON.stringify(ro.compo))); } ro.compo={}; ro.absent={}; } var d=etatInitial(); d.rosters=S.rosters; d.classes=S.classes.map(function(k){ k.depart={all:null,g:{}}; k.arrivee={}; k.pen={}; k.codes={}; k.absents={}; return k; }); d.cur=S.cur; d.sets=S.sets; d.groupes=S.groupes; d.penSec=S.penSec; d.mdp=S.mdp; d.sombre=S.sombre; d.afficherAttendu=S.afficherAttendu; d.onglet='pose'; S=d; uiVerifG=null; uiSel=null; sauver(); dessiner(); toast('Nouvelle séance prête'); } }); break;
     case 'okmdp': var v=$('inMdp').value.trim(); if(mdpOk(v)){ fermerModale(); var f=cbMdp; cbMdp=null; if(f) f(); } else { echecs++; afficherMdp('Mot de passe incorrect.'); } break;
     case 'resetmdp': S.mdp=null; echecs=0; sauver(); afficherMdp('Mot de passe réinitialisé : utilise celui par défaut.'); break;
   }
@@ -545,6 +645,8 @@ document.addEventListener('change',function(e){
   switch(k){
     case 'setid': S.seance.setIds[parseInt(t.getAttribute('data-i'),10)]=t.value; sauver(); dessiner(); break;
     case 'assign': var g=t.getAttribute('data-g'); if(t.value){ for(var x in S.seance.assign) if(S.seance.assign[x]===t.value) delete S.seance.assign[x]; S.seance.assign[g]=t.value; } else delete S.seance.assign[g]; sauver(); dessiner(); break;
+    case 'eleveprs': if(c){ var rp=roster(c); if(t.checked) delete rp.absent[t.getAttribute('data-id')]; else rp.absent[t.getAttribute('data-id')]=1; sauver(); dessiner(); } break;
+    case 'moveel': if(c){ var rm=roster(c), idm=t.getAttribute('data-id'); for(var gm in rm.compo) rm.compo[gm]=rm.compo[gm].filter(function(x){return x!==idm;}); if(t.value){ if(!rm.compo[t.value]) rm.compo[t.value]=[]; rm.compo[t.value].push(idm); } sauver(); var yy=window.pageYOffset; dessiner(); window.scrollTo(0,yy); } break;
     case 'poste': if(uiSel){ if(!S.seance.poste) S.seance.poste={}; var spp=S.seance.parcours; if(!S.seance.poste[spp]) S.seance.poste[spp]={}; if(t.value) S.seance.poste[spp][uiSel]=t.value; else delete S.seance.poste[spp][uiSel]; sauver(); dessiner(); } break;
     case 'classe': S.cur=t.value; sauver(); dessiner(); break;
     case 'mode': if(c){ c.mode=t.value; sauver(); dessiner(); } break;
