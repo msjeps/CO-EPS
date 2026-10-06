@@ -118,7 +118,7 @@ table.tab tr.podium-3 td{background:rgba(176,110,60,.18)}
 
 <div class="en-tete">
   <h1>🧭 Course d'orientation EPS</h1>
-  <p>Version 1.2</p>
+  <p>Version 1.3</p>
 </div>
 
 <div class="conteneur" id="vue"></div>
@@ -162,6 +162,8 @@ var timerSave=null;
 function sauver(){ try{localStorage.setItem(CLE,JSON.stringify(S));}catch(e){} }
 function sauverVite(){ clearTimeout(timerSave); timerSave=setTimeout(sauver,150); }
 S = charger();
+(function migrerRosters(){ var pris={}; S.classes.forEach(function(c){ if(!S.rosters[c.id] && S.rosters[c.nom] && !pris[c.nom]){ S.rosters[c.id]=S.rosters[c.nom]; pris[c.nom]=1; } });
+  Object.keys(S.rosters).forEach(function(k){ if(!S.classes.some(function(c){return c.id===k;})) delete S.rosters[k]; }); })();
 
 /* ============ OUTILS ============ */
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -240,9 +242,9 @@ function classement(c){
 
 
 /* ============ ÉLÈVES & COMPOSITION DES GROUPES ============ */
-function roster(c){ if(!S.rosters[c.nom]) S.rosters[c.nom]={eleves:[],histo:[],compo:{},absent:{},nbG:0}; return S.rosters[c.nom]; }
+function roster(c){ if(!S.rosters[c.id]) S.rosters[c.id]={eleves:[],histo:[],compo:{},absent:{},nbG:0}; return S.rosters[c.id]; }
 function eleveDe(r,id){ for(var i=0;i<r.eleves.length;i++) if(r.eleves[i].id===id) return r.eleves[i]; return null; }
-function nomsGroupe(c,g){ if(!c) return ''; var r=S.rosters[c.nom]; if(!r||!r.compo[g]) return ''; return r.compo[g].map(function(id){var e=eleveDe(r,id);return e?e.nom:'';}).filter(Boolean).join(' · '); }
+function nomsGroupe(c,g){ if(!c) return ''; var r=S.rosters[c.id]; if(!r||!r.compo[g]) return ''; return r.compo[g].map(function(id){var e=eleveDe(r,id);return e?e.nom:'';}).filter(Boolean).join(' · '); }
 function pk(a,b){ return a<b?a+'|'+b:b+'|'+a; }
 function pairCounts(r){ var pc={}; r.histo.forEach(function(se){ for(var g in se){ var m=se[g]; for(var i=0;i<m.length;i++) for(var j=i+1;j<m.length;j++){ var k=pk(m[i],m[j]); pc[k]=(pc[k]||0)+1; } } }); return pc; }
 function melanger(a){ a=a.slice(); for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
@@ -627,7 +629,7 @@ document.addEventListener('click',function(e){
     case 'generer': if(c){ var rgn=roster(c); if(Object.keys(rgn.compo).length&&!confirm('Remplacer la composition actuelle ?')) break; if(genererGroupes(rgn)){ sauver(); dessiner(); } else alert('Aucun élève présent.'); } break;
     case 'videcompo': if(c&&confirm('Effacer la composition des groupes ?')){ roster(c).compo={}; sauver(); dessiner(); } break;
     case 'videhisto': if(c&&confirm('Oublier les séances passées ? Les groupes pourront de nouveau se retrouver.')){ roster(c).histo=[]; sauver(); dessiner(); } break;
-    case 'delclasse': if(c&&confirm('Supprimer la classe '+c.nom+' (chronos et codes) ? La liste d\'élèves est conservée.')){ S.classes=S.classes.filter(function(x){return x.id!==c.id;}); S.cur=S.classes.length?S.classes[0].id:null; sauver(); dessiner(); } break;
+    case 'delclasse': if(c&&confirm('Supprimer la classe '+c.nom+' (chronos, codes et liste d\'élèves) ?')){ delete S.rosters[c.id]; S.classes=S.classes.filter(function(x){return x.id!==c.id;}); S.cur=S.classes.length?S.classes[0].id:null; sauver(); dessiner(); } break;
     case 'nav': allerA(el.getAttribute('data-o')); break;
     case 'fermer': fermerModale(); break;
     case 'auto': attribuerAuto(); sauver(); dessiner(); break;
@@ -636,7 +638,7 @@ document.addEventListener('click',function(e){
     case 'selb': uiSel=b; dessiner(); break;
     case 'zoom': uiZoom=Math.max(1,Math.min(4,uiZoom+parseInt(el.getAttribute('data-d'),10))); dessiner(); break;
     case 'retirerpos': if(uiSel&&S.seance.pos[S.seance.parcours]){ delete S.seance.pos[S.seance.parcours][uiSel]; sauver(); dessiner(); } break;
-    case 'newclasse': var nom=prompt('Nom de la classe (ex. 6eB) :'); if(nom&&nom.trim()){ nouvelleClasse(nom.trim()); sauver(); dessiner(); } break;
+    case 'newclasse': var nom=prompt('Nom de la classe (ex. 6eB) :'); if(nom&&nom.trim()){ if(S.classes.some(function(x){return x.nom.toLowerCase()===nom.trim().toLowerCase();})){ alert('Une classe porte déjà ce nom. Choisis un autre nom (ex. 6eB-lundi).'); break; } nouvelleClasse(nom.trim()); sauver(); dessiner(); } break;
     case 'departall': if(c){ c.depart.all=Date.now(); S.groupes.forEach(function(x){ if(!c.absents[x]) {} }); sauver(); dessiner(); } break;
     case 'annulerdepartall': if(c&&confirm('Annuler le départ de tous ?')){ c.depart.all=null; sauver(); dessiner(); } break;
     case 'depart': if(c){ c.depart.g[g]=Date.now(); sauver(); dessiner(); } break;
