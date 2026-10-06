@@ -118,7 +118,7 @@ table.tab tr.podium-3 td{background:rgba(176,110,60,.18)}
 
 <div class="en-tete">
   <h1>🧭 Course d'orientation EPS</h1>
-  <p>Version 1.3</p>
+  <p>Version 1.4</p>
 </div>
 
 <div class="conteneur" id="vue"></div>
@@ -335,25 +335,27 @@ function decoupeCsv(ln,sep){ var out=[],cur='',q=false; for(var i=0;i<ln.length;
 /* Import tolérant : séparateur ; , ou tabulation (détecté ligne par ligne), colonnes dans n'importe quel ordre.
    - Avec en-tête (Nom, Prénom, Élève, Sexe, Genre…) : seules les colonnes nom/prénom/élève/sexe sont lues (les autres sont ignorées).
    - Sans en-tête : la colonne qui vaut F/G/M/Fille/Garçon/Féminin/Masculin est le sexe, le reste forme le nom. */
-var RE_SEXE=/^(f|g|m|h|fille|garcon|garçon|feminin|féminin|masculin|homme|femme)$/i;
-function sexeDe(v){ v=(v||'').trim().toUpperCase().replace(/[ÉÈ]/g,'E'); var c=v.charAt(0); return (c==='F')?'F':(c==='G'||c==='M'||c==='H')?'G':'?'; }
+function normTxt(v){ v=String(v==null?'':v); try{ v=v.normalize('NFD'); }catch(e){} return v.replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z]/g,'').toLowerCase(); }
+function sexeCode(v){ var n=normTxt(v); if(/^(f|fille|feminin|feminine|femme|filles)$/.test(n)) return 'F'; if(/^(g|m|h|garcon|masculin|homme|garcons)$/.test(n)) return 'G'; return ''; }
+function sexeDe(v){ return sexeCode(v)||'?'; }
 function importerEleves(r,texte){
   texte=texte.replace(/^﻿/,''); var lignes=texte.split(/\r?\n/).filter(function(x){return x.trim();});
-  var ajoutes=0,doublons=0, colsNom=null, colSexe=-1;
+  var ajoutes=0,doublons=0,majs=0, colsNom=null, colSexe=-1;
   lignes.forEach(function(ln,i){
     var sep=['\t',';',','].filter(function(x){return ln.indexOf(x)>=0;})[0]||';'; var p=decoupeCsv(ln,sep);
     if(i===0){
-      var ent=p.map(function(x){return x.toLowerCase();}), estEnt=ent.some(function(x){return /^(sexe|genre|pr[ée]nom|nom|[ée]l[èe]ve)/.test(x);}) && !p.some(function(x){return RE_SEXE.test(x);});
+      var ent=p.map(function(x){return x.toLowerCase();}), estEnt=ent.some(function(x){return /^(sexe|genre|pr[ée]nom|nom|[ée]l[èe]ve)/.test(x);}) && !p.some(function(x){return sexeCode(x)!=='';});
       if(estEnt){ colsNom=[]; ent.forEach(function(x,k){ if(/^(sexe|genre)/.test(x)) colSexe=k; else if(/^(nom|pr[ée]nom|[ée]l[èe]ve)/.test(x)) colsNom.push(k); }); if(!colsNom.length) colsNom=null; return; }
     }
     var nomParts=[], sx='?';
     if(colSexe>=0||colsNom){ if(colSexe>=0) sx=sexeDe(p[colSexe]); (colsNom||p.map(function(x,k){return k;})).forEach(function(k){ if(k!==colSexe&&p[k]) nomParts.push(p[k]); }); }
-    else { var done=false; p.forEach(function(x){ if(!done&&RE_SEXE.test(x)&&p.length>1){ sx=sexeDe(x); done=true; } else if(x) nomParts.push(x); }); }
+    else { var done=false; p.forEach(function(x){ if(!done&&sexeCode(x)&&p.length>1){ sx=sexeDe(x); done=true; } else if(x) nomParts.push(x); }); }
     var nom=nomParts.join(' ').replace(/\s+/g,' ').trim(); if(!nom) return;
-    if(r.eleves.some(function(e){return e.nom.toLowerCase()===nom.toLowerCase();})){ doublons++; return; }
+    var ex=null; r.eleves.forEach(function(e){ if(e.nom.toLowerCase()===nom.toLowerCase()) ex=e; });
+    if(ex){ if(ex.sexe==='?'&&sx!=='?'){ ex.sexe=sx; majs++; } else doublons++; return; }
     ajouterEleve(r,nom,sx); ajoutes++;
   });
-  return {ajoutes:ajoutes,doublons:doublons};
+  return {ajoutes:ajoutes,doublons:doublons,majs:majs};
 }
 function ajouterEleve(r,nom,sexe){ nom=(nom||'').trim(); if(!nom) return; r.eleves.push({id:'e'+Date.now()+Math.floor(Math.random()*1000)+r.eleves.length,nom:nom,sexe:sexe||'?'}); }
 
@@ -621,7 +623,7 @@ document.addEventListener('click',function(e){
   var a=el.getAttribute('data-act'), g=el.getAttribute('data-g'), b=el.getAttribute('data-b'), c=classe();
   switch(a){
     case 'addeleve': if(c){ var inp=$('inEleve'); ajouterEleve(roster(c),inp.value,el.getAttribute('data-s')); sauver(); dessiner(); var i2=$('inEleve'); if(i2) i2.focus(); } break;
-    case 'importeleves': if(c){ var res=importerEleves(roster(c),$('inListe').value); sauver(); dessiner(); toast(res.ajoutes+' élève(s) ajouté(s)'+(res.doublons?' · '+res.doublons+' doublon(s) ignoré(s)':'')); } break;
+    case 'importeleves': if(c){ var res=importerEleves(roster(c),$('inListe').value); sauver(); dessiner(); toast(res.ajoutes+' ajouté(s)'+(res.majs?' · '+res.majs+' genre(s) corrigé(s)':'')+(res.doublons?' · '+res.doublons+' doublon(s)':'')); } break;
     case 'renom': if(c){ var rn=roster(c), eo=eleveDe(rn,el.getAttribute('data-id')); var nn2=eo&&prompt('Nom de l\'élève :',eo.nom); if(nn2&&nn2.trim()){ eo.nom=nn2.trim(); sauver(); dessiner(); } } break;
     case 'sexe': if(c){ var rs=roster(c), es=eleveDe(rs,el.getAttribute('data-id')); if(es){ es.sexe=es.sexe==='F'?'G':es.sexe==='G'?'?':'F'; sauver(); dessiner(); } } break;
     case 'deleve': if(c){ var rd2=roster(c), ed=eleveDe(rd2,el.getAttribute('data-id')); if(ed&&confirm('Supprimer '+ed.nom+' ?')){ var idd2=ed.id; rd2.eleves=rd2.eleves.filter(function(x){return x.id!==idd2;}); for(var gk in rd2.compo) rd2.compo[gk]=rd2.compo[gk].filter(function(x){return x!==idd2;}); sauver(); dessiner(); } } break;
@@ -674,7 +676,7 @@ document.addEventListener('change',function(e){
   switch(k){
     case 'setid': S.seance.setIds[parseInt(t.getAttribute('data-i'),10)]=t.value; sauver(); dessiner(); break;
     case 'assign': var g=t.getAttribute('data-g'); if(t.value){ for(var x in S.seance.assign) if(S.seance.assign[x]===t.value) delete S.seance.assign[x]; S.seance.assign[g]=t.value; } else delete S.seance.assign[g]; sauver(); dessiner(); break;
-    case 'fichiereleves': if(c&&t.files&&t.files[0]){ var fr=new FileReader(); fr.onload=function(){ var rs2=importerEleves(roster(c),decoderTexte(fr.result)); sauver(); dessiner(); toast(rs2.ajoutes+' élève(s) ajouté(s)'+(rs2.doublons?' · '+rs2.doublons+' doublon(s) ignoré(s)':'')); }; fr.readAsArrayBuffer(t.files[0]); } break;
+    case 'fichiereleves': if(c&&t.files&&t.files[0]){ var fr=new FileReader(); fr.onload=function(){ var rs2=importerEleves(roster(c),decoderTexte(fr.result)); sauver(); dessiner(); toast(rs2.ajoutes+' ajouté(s)'+(rs2.majs?' · '+rs2.majs+' genre(s) corrigé(s)':'')+(rs2.doublons?' · '+rs2.doublons+' doublon(s)':'')); }; fr.readAsArrayBuffer(t.files[0]); } break;
     case 'eleveprs': if(c){ var rp=roster(c); if(t.checked) delete rp.absent[t.getAttribute('data-id')]; else rp.absent[t.getAttribute('data-id')]=1; sauver(); dessiner(); } break;
     case 'moveel': if(c){ var rm=roster(c), idm=t.getAttribute('data-id'); for(var gm in rm.compo) rm.compo[gm]=rm.compo[gm].filter(function(x){return x!==idm;}); if(t.value){ if(!rm.compo[t.value]) rm.compo[t.value]=[]; rm.compo[t.value].push(idm); } sauver(); var yy=window.pageYOffset; dessiner(); window.scrollTo(0,yy); } break;
     case 'poste': if(uiSel){ if(!S.seance.poste) S.seance.poste={}; var spp=S.seance.parcours; if(!S.seance.poste[spp]) S.seance.poste[spp]={}; if(t.value) S.seance.poste[spp][uiSel]=t.value; else delete S.seance.poste[spp][uiSel]; sauver(); dessiner(); } break;
