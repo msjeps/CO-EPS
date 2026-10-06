@@ -293,7 +293,8 @@ function vueGroupes(){
   var r=roster(c), nF=0,nG=0,nP=0; r.eleves.forEach(function(e){ if(e.sexe==='F') nF++; else if(e.sexe==='G') nG++; if(!r.absent[e.id]) nP++; });
   h+='<p class="petit">'+r.eleves.length+' élèves ('+nF+' F, '+nG+' G) · '+nP+' présents à cette séance</p>';
   h+='<div class="ligne" style="align-items:flex-end"><div style="flex:1;min-width:170px"><label>Ajouter un élève</label><input type="text" id="inEleve" placeholder="NOM Prénom"></div><button class="bouton bouton-secondaire bouton-petit" data-act="addeleve" data-s="F">+ Fille</button><button class="bouton bouton-secondaire bouton-petit" data-act="addeleve" data-s="G">+ Garçon</button></div>';
-  h+='<label>Ou coller la liste (une ligne par élève, ex. « DUPONT Léa;F »)</label><textarea id="inListe" placeholder="DUPONT Léa;F&#10;MARTIN Tom;G"></textarea><button class="bouton bouton-clair" data-act="importeleves">Importer la liste</button>';
+  h+='<label>Ou coller la liste (une ligne par élève, ex. « DUPONT Léa;F »)</label><textarea id="inListe" placeholder="DUPONT Léa;F&#10;MARTIN Tom;G"></textarea><button class="bouton bouton-clair" data-act="importeleves">Importer la liste collée</button>';
+  h+='<label>Ou importer un fichier CSV (Nom ; Prénom ; Sexe F/G)</label><input type="file" accept=".csv,.txt,text/csv,text/plain" data-chg="fichiereleves" style="padding:8px">';
   r.eleves.forEach(function(e){
     h+='<div class="rangee"><div class="corps" data-act="renom" data-id="'+e.id+'"><b>'+esc(e.nom)+'</b>'+(groupeDe(r,e.id)?' <span class="tag">'+esc(groupeDe(r,e.id))+'</span>':'')+'</div>'+
        '<button class="chip" data-act="sexe" data-id="'+e.id+'" style="margin:0 8px 0 0;min-width:48px'+(e.sexe==='?'?';border-color:#f57c00':'')+'" aria-label="Changer le genre">'+esc(e.sexe)+'</button>'+
@@ -326,6 +327,26 @@ function vueGroupes(){
   return h;
 }
 function selectGroupes(cur){ var h='<option value="">— aucun —</option>'; S.groupes.forEach(function(g){ h+='<option value="'+esc(g)+'"'+(cur===g?' selected':'')+'>'+esc(g)+'</option>'; }); return h; }
+
+function decoderTexte(buf){ try{ return new TextDecoder('utf-8',{fatal:true}).decode(buf); }catch(e){ try{ return new TextDecoder('windows-1252').decode(buf); }catch(e2){ return ''; } } }
+function decoupeCsv(ln,sep){ var out=[],cur='',q=false; for(var i=0;i<ln.length;i++){ var ch=ln.charAt(i); if(ch==='"'){ if(q&&ln.charAt(i+1)==='"'){cur+='"';i++;} else q=!q; } else if(ch===sep&&!q){ out.push(cur); cur=''; } else cur+=ch; } out.push(cur); return out.map(function(x){return x.trim();}); }
+function sexeDe(v){ v=(v||'').trim().toUpperCase().replace(/[ÉÈ]/g,'E'); var c=v.charAt(0); return c==='F'?'F':(c==='G'||c==='M')?'G':'?'; }
+/* Formats acceptés : "Nom;Prénom;Sexe" | "Nom Prénom;Sexe" | "Nom Prénom" ; séparateur ; , ou tabulation ; ligne d'en-tête ignorée */
+function importerEleves(r,texte){
+  texte=texte.replace(/^﻿/,''); var lignes=texte.split(/\r?\n/).filter(function(x){return x.trim();}); if(!lignes.length) return {ajoutes:0,doublons:0};
+  var ajoutes=0,doublons=0;
+  lignes.forEach(function(ln,i){
+    var sep=['\t',';',','].filter(function(x){return ln.indexOf(x)>=0;})[0]||';'; var p=decoupeCsv(ln,sep); if(i===0&&/^(nom|name|élève|eleve)/i.test(p[0])&&/(sexe|genre|pr[ée]nom|f\/g)/i.test(p.join(' '))) return;
+    var nom,sx;
+    if(p.length>=3){ nom=(p[0]+' '+p[1]).trim(); sx=sexeDe(p[2]); }
+    else if(p.length===2){ nom=p[0]; sx=sexeDe(p[1]); }
+    else { nom=p[0]; sx='?'; }
+    if(!nom) return;
+    if(r.eleves.some(function(e){return e.nom.toLowerCase()===nom.toLowerCase();})){ doublons++; return; }
+    ajouterEleve(r,nom,sx); ajoutes++;
+  });
+  return {ajoutes:ajoutes,doublons:doublons};
+}
 function ajouterEleve(r,nom,sexe){ nom=(nom||'').trim(); if(!nom) return; r.eleves.push({id:'e'+Date.now()+Math.floor(Math.random()*1000)+r.eleves.length,nom:nom,sexe:sexe||'?'}); }
 
 /* ============ NAVIGATION ============ */
@@ -592,7 +613,7 @@ document.addEventListener('click',function(e){
   var a=el.getAttribute('data-act'), g=el.getAttribute('data-g'), b=el.getAttribute('data-b'), c=classe();
   switch(a){
     case 'addeleve': if(c){ var inp=$('inEleve'); ajouterEleve(roster(c),inp.value,el.getAttribute('data-s')); sauver(); dessiner(); var i2=$('inEleve'); if(i2) i2.focus(); } break;
-    case 'importeleves': if(c){ var rr=roster(c); $('inListe').value.split(/\r?\n/).forEach(function(ln){ if(!ln.trim()) return; var p=ln.split(/[;\t]/); var sx=(p[1]||'').trim().toUpperCase().charAt(0); ajouterEleve(rr,p[0],sx==='F'?'F':(sx==='G'||sx==='M')?'G':'?'); }); sauver(); dessiner(); } break;
+    case 'importeleves': if(c){ var res=importerEleves(roster(c),$('inListe').value); sauver(); dessiner(); toast(res.ajoutes+' élève(s) ajouté(s)'+(res.doublons?' · '+res.doublons+' doublon(s) ignoré(s)':'')); } break;
     case 'renom': if(c){ var rn=roster(c), eo=eleveDe(rn,el.getAttribute('data-id')); var nn2=eo&&prompt('Nom de l\'élève :',eo.nom); if(nn2&&nn2.trim()){ eo.nom=nn2.trim(); sauver(); dessiner(); } } break;
     case 'sexe': if(c){ var rs=roster(c), es=eleveDe(rs,el.getAttribute('data-id')); if(es){ es.sexe=es.sexe==='F'?'G':es.sexe==='G'?'?':'F'; sauver(); dessiner(); } } break;
     case 'deleve': if(c){ var rd2=roster(c), ed=eleveDe(rd2,el.getAttribute('data-id')); if(ed&&confirm('Supprimer '+ed.nom+' ?')){ var idd2=ed.id; rd2.eleves=rd2.eleves.filter(function(x){return x.id!==idd2;}); for(var gk in rd2.compo) rd2.compo[gk]=rd2.compo[gk].filter(function(x){return x!==idd2;}); sauver(); dessiner(); } } break;
@@ -645,6 +666,7 @@ document.addEventListener('change',function(e){
   switch(k){
     case 'setid': S.seance.setIds[parseInt(t.getAttribute('data-i'),10)]=t.value; sauver(); dessiner(); break;
     case 'assign': var g=t.getAttribute('data-g'); if(t.value){ for(var x in S.seance.assign) if(S.seance.assign[x]===t.value) delete S.seance.assign[x]; S.seance.assign[g]=t.value; } else delete S.seance.assign[g]; sauver(); dessiner(); break;
+    case 'fichiereleves': if(c&&t.files&&t.files[0]){ var fr=new FileReader(); fr.onload=function(){ var rs2=importerEleves(roster(c),decoderTexte(fr.result)); sauver(); dessiner(); toast(rs2.ajoutes+' élève(s) ajouté(s)'+(rs2.doublons?' · '+rs2.doublons+' doublon(s) ignoré(s)':'')); }; fr.readAsArrayBuffer(t.files[0]); } break;
     case 'eleveprs': if(c){ var rp=roster(c); if(t.checked) delete rp.absent[t.getAttribute('data-id')]; else rp.absent[t.getAttribute('data-id')]=1; sauver(); dessiner(); } break;
     case 'moveel': if(c){ var rm=roster(c), idm=t.getAttribute('data-id'); for(var gm in rm.compo) rm.compo[gm]=rm.compo[gm].filter(function(x){return x!==idm;}); if(t.value){ if(!rm.compo[t.value]) rm.compo[t.value]=[]; rm.compo[t.value].push(idm); } sauver(); var yy=window.pageYOffset; dessiner(); window.scrollTo(0,yy); } break;
     case 'poste': if(uiSel){ if(!S.seance.poste) S.seance.poste={}; var spp=S.seance.parcours; if(!S.seance.poste[spp]) S.seance.poste[spp]={}; if(t.value) S.seance.poste[spp][uiSel]=t.value; else delete S.seance.poste[spp][uiSel]; sauver(); dessiner(); } break;
