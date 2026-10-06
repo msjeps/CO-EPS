@@ -147,15 +147,16 @@ var CLE = 'co_eps_v1';
 
 /* ============ ÉTAT ============ */
 var S;
+var GROUPES_DEFAUT=['A1','A2','A3','A4','B1','B2','B3','B4','C1','C2','C3','C4','D1','D2','D3','D4'];
 function etatInitial(){
   return {
-    v:1, groupes:['A1','A2','A3','A4','B1','B2','B3','B4','C1','C2','C3'],
+    v:1, groupes:GROUPES_DEFAUT.slice(),
     sets:[], penSec:60, mdp:null, sombre:false, afficherAttendu:true,
     seance:{setIds:['Orange','Bleu'], assign:{}, parcours:1, pos:{}, etat:{}, poste:{}},
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='1.6';
+var APP_VER='1.7';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -176,6 +177,7 @@ function charger(){
   var d=etatInitial();
   if(!o) return d;
   for(var k in d){ if(!(k in o)) o[k]=d[k]; }
+  if(Array.isArray(o.groupes)&&o.groupes.join(',')===GROUPES_DEFAUT.slice(0,11).join(',')) o.groupes=GROUPES_DEFAUT.slice();
   return o;
 }
 var timerSave=null;
