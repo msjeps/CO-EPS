@@ -155,16 +155,34 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='1.5';
+var APP_VER='1.6';
+/* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
+   (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
+   restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
+function lireJSON(cle){ try{ var t=localStorage.getItem(cle); return t?JSON.parse(t):null; }catch(e){ return null; } }
+function nbCl(o){ return (o&&o.classes&&o.classes.length)||0; }
+var MSG_RESTAURE=null;
 function charger(){
-  try{var t=localStorage.getItem(CLE); if(t){var o=JSON.parse(t);
-    if(o.appVer!==APP_VER){ try{ localStorage.setItem(CLE+'_avant_maj',t); }catch(e2){} } var d=etatInitial(); for(var k in d){ if(!(k in o)) o[k]=d[k]; } return o;}}catch(e){}
-  return etatInitial();
+  var brut=null, o=null;
+  try{ brut=localStorage.getItem(CLE); }catch(e){}
+  if(brut){ try{ o=JSON.parse(brut); }catch(e){ o=null; try{ localStorage.setItem(CLE+'_corrompu',brut); }catch(e2){} } }
+  if(!o || typeof o!=='object'){ o=null; }
+  if(o && o.appVer!==APP_VER && nbCl(o)){ try{ localStorage.setItem(CLE+'_avant_maj',brut); }catch(e2){} }
+  if(!o || !nbCl(o)){
+    var s=lireJSON(CLE+'_auto'), p=lireJSON(CLE+'_avant_maj');
+    var best=(nbCl(s)>=nbCl(p))?s:p;
+    if(nbCl(best)){ o=best; MSG_RESTAURE=nbCl(best)+' classe(s) restaurée(s) automatiquement'; }
+  }
+  var d=etatInitial();
+  if(!o) return d;
+  for(var k in d){ if(!(k in o)) o[k]=d[k]; }
+  return o;
 }
 var timerSave=null;
-function sauver(){ try{localStorage.setItem(CLE,JSON.stringify(S));}catch(e){} }
+function sauver(){ try{ var t=JSON.stringify(S); localStorage.setItem(CLE,t); if(nbCl(S)) localStorage.setItem(CLE+'_auto',t); }catch(e){} }
 function sauverVite(){ clearTimeout(timerSave); timerSave=setTimeout(sauver,150); }
-S = charger(); S.appVer=APP_VER; sauver();
+S = charger(); S.appVer=APP_VER;
+sauver(); if(MSG_RESTAURE) setTimeout(function(){ toast(MSG_RESTAURE); },600);
 try{ var evEl=document.querySelector('.en-tete p'); if(evEl) evEl.textContent='Version '+APP_VER; }catch(e){}
 try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){}
 (function migrerRosters(){ var pris={}; S.classes.forEach(function(c){ if(!S.rosters[c.id] && S.rosters[c.nom] && !pris[c.nom]){ S.rosters[c.id]=S.rosters[c.nom]; pris[c.nom]=1; } });
@@ -648,7 +666,7 @@ document.addEventListener('click',function(e){
     case 'generer': if(c){ var rgn=roster(c); if(Object.keys(rgn.compo).length&&!confirm('Remplacer la composition actuelle ?')) break; if(genererGroupes(rgn)){ sauver(); dessiner(); } else alert('Aucun élève présent.'); } break;
     case 'videcompo': if(c&&confirm('Effacer la composition des groupes ?')){ roster(c).compo={}; sauver(); dessiner(); } break;
     case 'videhisto': if(c&&confirm('Oublier les séances passées ? Les groupes pourront de nouveau se retrouver.')){ roster(c).histo=[]; sauver(); dessiner(); } break;
-    case 'delclasse': if(c&&confirm('Supprimer la classe '+c.nom+' (chronos, codes et liste d\'élèves) ?')){ delete S.rosters[c.id]; S.classes=S.classes.filter(function(x){return x.id!==c.id;}); S.cur=S.classes.length?S.classes[0].id:null; sauver(); dessiner(); } break;
+    case 'delclasse': if(c&&confirm('Supprimer la classe '+c.nom+' (chronos, codes et liste d\'élèves) ?')){ delete S.rosters[c.id]; S.classes=S.classes.filter(function(x){return x.id!==c.id;}); S.cur=S.classes.length?S.classes[0].id:null; if(!S.classes.length){ try{ localStorage.removeItem(CLE+'_auto'); localStorage.removeItem(CLE+'_avant_maj'); }catch(e){} } sauver(); dessiner(); } break;
     case 'exportsauv': exporterSauvegarde(); break;
     case 'restaureravant': try{ var ob=JSON.parse(localStorage.getItem(CLE+'_avant_maj')); if(confirm('Restaurer l\'état d\'avant la dernière mise à jour ('+(ob.classes||[]).length+' classe(s), '+nbElevesTotal(ob)+' élève(s)) ? Les données actuelles seront remplacées.')){ appliquerEtat(ob); toast('Données restaurées'); } }catch(er){ alert('Restauration impossible.'); } break;
     case 'nav': allerA(el.getAttribute('data-o')); break;
