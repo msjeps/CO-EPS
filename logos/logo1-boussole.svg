@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#185a3c"/>
+<circle cx="256" cy="256" r="178" fill="#fff"/><circle cx="256" cy="256" r="178" fill="none" stroke="#f08a1c" stroke-width="16"/>
+<circle cx="256" cy="256" r="140" fill="none" stroke="#185a3c" stroke-width="4"/>
+<g stroke="#185a3c" stroke-width="8" stroke-linecap="round"><path d="M256 100v26M256 386v26M100 256h26M386 256h26"/></g>
+<path d="M256 132L292 256 256 256Z" fill="#f08a1c"/><path d="M256 132L220 256 256 256Z" fill="#d46f08"/>
+<path d="M256 380L220 256 256 256Z" fill="#185a3c"/><path d="M256 380L292 256 256 256Z" fill="#0f3d28"/>
+<circle cx="256" cy="256" r="14" fill="#fff" stroke="#185a3c" stroke-width="6"/>
+<text x="256" y="92" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="44" fill="#fff">N</text></svg>

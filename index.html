@@ -118,7 +118,7 @@ table.tab tr.podium-3 td{background:rgba(176,110,60,.18)}
 
 <div class="en-tete">
   <h1>🧭 Course d'orientation EPS</h1>
-  <p>Version 1.4</p>
+  <p>Version 1.5</p>
 </div>
 
 <div class="conteneur" id="vue"></div>
@@ -154,14 +154,18 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
+var APP_VER='1.5';
 function charger(){
-  try{var t=localStorage.getItem(CLE); if(t){var o=JSON.parse(t); var d=etatInitial(); for(var k in d){ if(!(k in o)) o[k]=d[k]; } return o;}}catch(e){}
+  try{var t=localStorage.getItem(CLE); if(t){var o=JSON.parse(t);
+    if(o.appVer!==APP_VER){ try{ localStorage.setItem(CLE+'_avant_maj',t); }catch(e2){} } var d=etatInitial(); for(var k in d){ if(!(k in o)) o[k]=d[k]; } return o;}}catch(e){}
   return etatInitial();
 }
 var timerSave=null;
 function sauver(){ try{localStorage.setItem(CLE,JSON.stringify(S));}catch(e){} }
 function sauverVite(){ clearTimeout(timerSave); timerSave=setTimeout(sauver,150); }
-S = charger();
+S = charger(); S.appVer=APP_VER; sauver();
+try{ var evEl=document.querySelector('.en-tete p'); if(evEl) evEl.textContent='Version '+APP_VER; }catch(e){}
+try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){}
 (function migrerRosters(){ var pris={}; S.classes.forEach(function(c){ if(!S.rosters[c.id] && S.rosters[c.nom] && !pris[c.nom]){ S.rosters[c.id]=S.rosters[c.nom]; pris[c.nom]=1; } });
   Object.keys(S.rosters).forEach(function(k){ if(!S.classes.some(function(c){return c.id===k;})) delete S.rosters[k]; }); })();
 
@@ -578,6 +582,7 @@ function vueReglages(){
   h+='<button class="bouton bouton-secondaire" data-act="newset">+ Nouveau jeu de balises</button></div>';
   h+='<div class="section"><h2>Affichage</h2><div class="rangee"><div class="corps">Mode sombre</div><label class="switch"><input type="checkbox" data-chg="sombre"'+(S.sombre?' checked':'')+'><span class="slider"></span></label></div>'+
      '<div class="rangee"><div class="corps">Afficher le code attendu quand une saisie est fausse</div><label class="switch"><input type="checkbox" data-chg="attendu"'+(S.afficherAttendu?' checked':'')+'><span class="slider"></span></label></div></div>';
+  h+='<div class="section"><h2>Sauvegarde</h2><p class="petit">Sauvegarde toutes les données (classes, élèves, groupes, résultats, balises) dans un fichier. Il contient les noms des élèves : garde-le sur ta tablette ou ton ordinateur, ne le partage pas.</p><button class="bouton bouton-secondaire" data-act="exportsauv">⬇️ Exporter une sauvegarde</button><label>Restaurer depuis un fichier de sauvegarde</label><input type="file" accept=".json,application/json" data-chg="fichiersauv" style="padding:8px">'+(localStorage.getItem(CLE+'_avant_maj')?'<button class="bouton bouton-clair" data-act="restaureravant">Restaurer l\'état d\'avant la dernière mise à jour</button>':'')+'</div>';
   h+='<div class="section"><h2>Sécurité</h2><button class="bouton bouton-secondaire" data-act="chgmdp">Changer le mot de passe prof</button><button class="bouton bouton-clair" data-act="aide">Aide</button></div>';
   h+='<div class="section" style="border-left-color:#FC466B"><h2>Nouvelle séance</h2><p class="petit">Efface les balises attribuées, les positions et tous les résultats (chronos, codes, pénalités). La composition actuelle des groupes est archivée dans l\'historique pour que les mêmes élèves ne soient plus regroupés. Les classes, listes d\'élèves, jeux de balises et réglages sont conservés.</p><button class="bouton bouton-danger" data-act="nouvelle">Nouvelle séance</button></div>';
   return h;
@@ -602,6 +607,17 @@ function lireGrille(){
   for(var i=0;i<ins.length;i++){ var b=ins[i].getAttribute('data-cb'),g=ins[i].getAttribute('data-cg'); if(!codes[b]) codes[b]={}; codes[b][g]=ins[i].value.toUpperCase().slice(0,1); }
   return codes;
 }
+
+
+function appliquerEtat(o){ var d=etatInitial(); for(var k in d){ if(!(k in o)) o[k]=d[k]; } S=o; S.appVer=APP_VER;
+  var pris={}; S.classes.forEach(function(c){ if(!S.rosters[c.id] && S.rosters[c.nom] && !pris[c.nom]){ S.rosters[c.id]=S.rosters[c.nom]; pris[c.nom]=1; } });
+  Object.keys(S.rosters).forEach(function(k){ if(!S.classes.some(function(c){return c.id===k;})) delete S.rosters[k]; });
+  if(S.classes.length&&!classe()) S.cur=S.classes[0].id; sauver(); dessiner(); }
+function exporterSauvegarde(){
+  var blob=new Blob([JSON.stringify(S)],{type:'application/json'}); var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='CO_EPS_sauvegarde_'+aujourdhui()+'.json'; document.body.appendChild(a); a.click(); setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},500);
+}
+function nbElevesTotal(o){ var n=0; for(var k in (o.rosters||{})) n+=(o.rosters[k].eleves||[]).length; return n; }
 
 /* ============ MODALES / MOT DE PASSE ============ */
 function ouvrirModale(h){ var m=$('modale'); m.className='modale-fond'; m.innerHTML='<div class="modale">'+h+'</div>'; }
@@ -632,6 +648,8 @@ document.addEventListener('click',function(e){
     case 'videcompo': if(c&&confirm('Effacer la composition des groupes ?')){ roster(c).compo={}; sauver(); dessiner(); } break;
     case 'videhisto': if(c&&confirm('Oublier les séances passées ? Les groupes pourront de nouveau se retrouver.')){ roster(c).histo=[]; sauver(); dessiner(); } break;
     case 'delclasse': if(c&&confirm('Supprimer la classe '+c.nom+' (chronos, codes et liste d\'élèves) ?')){ delete S.rosters[c.id]; S.classes=S.classes.filter(function(x){return x.id!==c.id;}); S.cur=S.classes.length?S.classes[0].id:null; sauver(); dessiner(); } break;
+    case 'exportsauv': exporterSauvegarde(); break;
+    case 'restaureravant': try{ var ob=JSON.parse(localStorage.getItem(CLE+'_avant_maj')); if(confirm('Restaurer l\'état d\'avant la dernière mise à jour ('+(ob.classes||[]).length+' classe(s), '+nbElevesTotal(ob)+' élève(s)) ? Les données actuelles seront remplacées.')){ appliquerEtat(ob); toast('Données restaurées'); } }catch(er){ alert('Restauration impossible.'); } break;
     case 'nav': allerA(el.getAttribute('data-o')); break;
     case 'fermer': fermerModale(); break;
     case 'auto': attribuerAuto(); sauver(); dessiner(); break;
@@ -677,6 +695,7 @@ document.addEventListener('change',function(e){
     case 'setid': S.seance.setIds[parseInt(t.getAttribute('data-i'),10)]=t.value; sauver(); dessiner(); break;
     case 'assign': var g=t.getAttribute('data-g'); if(t.value){ for(var x in S.seance.assign) if(S.seance.assign[x]===t.value) delete S.seance.assign[x]; S.seance.assign[g]=t.value; } else delete S.seance.assign[g]; sauver(); dessiner(); break;
     case 'fichiereleves': if(c&&t.files&&t.files[0]){ var fr=new FileReader(); fr.onload=function(){ var rs2=importerEleves(roster(c),decoderTexte(fr.result)); sauver(); dessiner(); toast(rs2.ajoutes+' ajouté(s)'+(rs2.majs?' · '+rs2.majs+' genre(s) corrigé(s)':'')+(rs2.doublons?' · '+rs2.doublons+' doublon(s)':'')); }; fr.readAsArrayBuffer(t.files[0]); } break;
+    case 'fichiersauv': if(t.files&&t.files[0]){ var fs=new FileReader(); fs.onload=function(){ try{ var ob=JSON.parse(fs.result); if(!ob||!ob.classes||!ob.rosters) throw 1; if(confirm('Restaurer cette sauvegarde ('+ob.classes.length+' classe(s), '+nbElevesTotal(ob)+' élève(s)) ? Les données actuelles seront remplacées.')){ appliquerEtat(ob); toast('Sauvegarde restaurée'); } }catch(er){ alert('Fichier de sauvegarde invalide.'); } }; fs.readAsText(t.files[0]); } break;
     case 'eleveprs': if(c){ var rp=roster(c); if(t.checked) delete rp.absent[t.getAttribute('data-id')]; else rp.absent[t.getAttribute('data-id')]=1; sauver(); dessiner(); } break;
     case 'moveel': if(c){ var rm=roster(c), idm=t.getAttribute('data-id'); for(var gm in rm.compo) rm.compo[gm]=rm.compo[gm].filter(function(x){return x!==idm;}); if(t.value){ if(!rm.compo[t.value]) rm.compo[t.value]=[]; rm.compo[t.value].push(idm); } sauver(); var yy=window.pageYOffset; dessiner(); window.scrollTo(0,yy); } break;
     case 'poste': if(uiSel){ if(!S.seance.poste) S.seance.poste={}; var spp=S.seance.parcours; if(!S.seance.poste[spp]) S.seance.poste[spp]={}; if(t.value) S.seance.poste[spp][uiSel]=t.value; else delete S.seance.poste[spp][uiSel]; sauver(); dessiner(); } break;
