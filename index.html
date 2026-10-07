@@ -74,8 +74,9 @@ body.mode-sombre .tag-att{background:#5a4318;color:#ffe2a8}
 .carte-wrap{position:relative;overflow:auto;border:2px solid var(--couleur-bord);border-radius:12px;max-height:68vh;background:#fff;-webkit-overflow-scrolling:touch}
 .carte-inner{position:relative;line-height:0}
 .carte-inner img{width:100%;display:block;user-select:none;-webkit-user-drag:none}
-.marqueur{position:absolute;cursor:pointer;width:36px;height:36px;margin:-18px 0 0 -18px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px #000;color:#fff;font-weight:800;font-size:11px;line-height:30px;text-align:center}
-.marqueur.sel{box-shadow:0 0 0 4px #000,0 0 0 7px #fff}
+.marqueur{position:absolute;cursor:pointer;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #000;color:#fff;font-weight:800;font-size:10px;line-height:18px;text-align:center;touch-action:none}
+.marqueur::after{content:'';position:absolute;left:-13px;top:-13px;width:44px;height:44px;border-radius:50%}
+.marqueur.sel{box-shadow:0 0 0 2px #000,0 0 0 4px #fff;z-index:2}
 .chips{display:flex;flex-wrap:wrap}
 .chip{border:2px solid var(--couleur-bord);border-radius:22px;padding:7px 12px;margin:0 6px 6px 0;background:var(--couleur-doux);font-weight:600;font-size:.88em;min-height:44px;cursor:pointer;color:var(--couleur-texte);font-family:inherit}
 .chip.actif{border-color:var(--couleur-primaire);background:var(--couleur-primaire);color:#fff}
@@ -83,6 +84,7 @@ body.mode-sombre .tag-att{background:#5a4318;color:#ffe2a8}
 .saisie{width:64px!important;text-align:center;font-size:1.5em!important;font-weight:800;text-transform:uppercase;padding:4px!important;margin:0}
 .res{width:34px;text-align:center;font-size:1.5em;font-weight:800;flex-shrink:0}
 .res.ok{color:var(--ok)}.res.ko{color:var(--ko)}
+div.defil{overflow-x:auto;-webkit-overflow-scrolling:touch}
 table.tab{width:100%;border-collapse:collapse;font-size:.92em}
 table.tab th,table.tab td{padding:8px 5px;border-bottom:1px solid var(--couleur-bord);text-align:center}
 table.tab th{font-size:.8em;opacity:.8}
@@ -106,16 +108,16 @@ body.mode-sombre .bandeau{background:#5a4318;color:#ffe2a8;border-color:#7a5b22}
 .pied-page{display:flex;align-items:center;justify-content:center;margin-top:30px;padding-top:20px;border-top:1px solid rgba(128,128,128,.3)}
 .pied-page-logo{width:36px;height:36px;border-radius:8px;flex-shrink:0;margin-right:10px}
 .pied-page p{font-size:.85em;opacity:.7;margin:0}
-.switch{position:relative;width:60px;height:34px;flex-shrink:0;display:inline-block;margin:0}
+.switch{position:relative;width:64px;height:44px;flex-shrink:0;display:inline-block;margin:0}
 .switch input{opacity:0;width:0;height:0}
-.slider{position:absolute;top:0;left:0;right:0;bottom:0;background:#ccc;border-radius:34px;cursor:pointer;transition:background .2s}
-.slider::before{content:'';position:absolute;height:26px;width:26px;left:4px;top:4px;background:#fff;border-radius:50%;transition:transform .2s}
+.slider{position:absolute;top:0;left:0;right:0;bottom:0;background:#ccc;border-radius:44px;cursor:pointer;transition:background .2s}
+.slider::before{content:'';position:absolute;height:36px;width:36px;left:4px;top:4px;background:#fff;border-radius:50%;transition:transform .2s}
 .switch input:checked+.slider{background:var(--couleur-primaire)}
-.switch input:checked+.slider::before{transform:translateX(26px)}
+.switch input:checked+.slider::before{transform:translateX(20px)}
 .codes-grid{overflow-x:auto}
 .codes-grid table{border-collapse:collapse}
 .codes-grid td,.codes-grid th{padding:2px;font-size:.8em}
-.codes-grid input{width:34px!important;min-height:34px!important;padding:2px!important;text-align:center;text-transform:uppercase;font-weight:700}
+.codes-grid input{width:44px!important;min-height:44px!important;padding:2px!important;text-align:center;text-transform:uppercase;font-weight:700}
 @media (min-width:600px){.barre button{font-size:.9em}}
 @media (max-width:480px){.g4{grid-template-columns:repeat(2,1fr)}.bouton{font-size:.92em}}
 </style>
@@ -163,7 +165,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.3';
+var APP_VER='2.4';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -529,7 +531,7 @@ function vueCarte(){
   h+='</div>';
   var ids=balisesAssignees();
   if(!uiSel||ids.indexOf(uiSel)<0) uiSel=ids[0]||null;
-  h+='<p class="petit">1) Touche une balise ci-dessous (ou son marqueur sur la carte) · 2) touche son emplacement sur la carte. Pour déplacer une balise déjà placée : touche son marqueur, puis le nouvel emplacement.</p><div class="chips">';
+  h+='<p class="petit">1) Touche une balise ci-dessous (ou son marqueur sur la carte) · 2) touche son emplacement sur la carte. Pour déplacer une balise déjà placée : fais glisser sa pastille, ou touche-la puis touche le nouvel emplacement.</p><div class="chips">';
   ids.forEach(function(b){ var p=posB(b); h+='<button class="chip'+(uiSel===b?' actif':'')+(p?' fait':'')+'" data-act="selb" data-b="'+esc(b)+'">'+pastilleB(b,poseur(b)).replace('min-width:34px','min-width:30px')+' '+esc(baliseLabel(b))+(posteB(b)?' · poste '+esc(posteB(b)):'')+(p?' ✓':'')+'</button>'; });
   if(!ids.length) h+='<span class="petit">Attribue d\'abord les balises (onglet Pose).</span>';
   h+='</div>'+(uiSel?'<div class="ligne" style="align-items:flex-end"><div style="min-width:200px"><label>N° du poste sur la carte pour '+esc(baliseLabel(uiSel))+'</label><select data-chg="poste"><option value="">— non précisé —</option>'+postesOptions(uiSel)+'</select></div></div>':'')+'<div class="ligne"><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="-1">− Zoom</button><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="1">+ Zoom</button>'+
@@ -541,6 +543,32 @@ function vueCarte(){
 }
 function postesOptions(bid){ var h='',cur=posteB(bid),pris={},pp=(S.seance.poste&&S.seance.poste[S.seance.parcours])||{}; for(var k in pp) if(k!==bid) pris[pp[k]]=k;
   for(var i=1;i<=20;i++){ h+='<option value="'+i+'"'+(String(cur)===String(i)?' selected':'')+'>'+i+(pris[i]?' (déjà '+esc(baliseLabel(pris[i]))+')':'')+'</option>'; } return h; }
+/* Glisser un marqueur pour corriger sa position (un simple toucher le sélectionne) */
+(function(){
+  var drag=null;
+  document.addEventListener('pointerdown',function(e){
+    var m=e.target&&e.target.closest?e.target.closest('.marqueur'):null; if(!m) return;
+    drag={m:m,b:m.getAttribute('data-b'),x0:e.clientX,y0:e.clientY,bouge:false};
+  });
+  document.addEventListener('pointermove',function(e){
+    if(!drag) return;
+    if(!drag.bouge && Math.abs(e.clientX-drag.x0)+Math.abs(e.clientY-drag.y0)<8) return;
+    var img=$('carteImg'); if(!img){ drag=null; return; }
+    drag.bouge=true; e.preventDefault();
+    var r=img.getBoundingClientRect();
+    drag.px=Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100)); drag.py=Math.max(0,Math.min(100,(e.clientY-r.top)/r.height*100));
+    drag.m.style.left=drag.px+'%'; drag.m.style.top=drag.py+'%';
+  },{passive:false});
+  function fin(){
+    var d=drag; drag=null; if(!d||!d.bouge) return;
+    var sp=S.seance.parcours; if(!S.seance.pos[sp]) S.seance.pos[sp]={};
+    S.seance.pos[sp][d.b]={x:Math.round(d.px*10)/10,y:Math.round(d.py*10)/10};
+    uiSel=d.b; sauver();
+    var cw=$('carteWrap'), sx=cw?cw.scrollLeft:0, sy=cw?cw.scrollTop:0; dessiner();
+    cw=$('carteWrap'); if(cw){ cw.scrollLeft=sx; cw.scrollTop=sy; }
+  }
+  document.addEventListener('pointerup',fin); document.addEventListener('pointercancel',fin);
+})();
 function clicCarte(ev){
   var img=$('carteImg'); if(!img||!uiSel) return;
   var r=img.getBoundingClientRect(); if(!(r.width>0&&r.height>0)) return;
@@ -669,11 +697,11 @@ function vueClassement(){
   if(!c) return h+'<p>Aucune classe.</p></div>';
   var rows=classement(c);
   h+='<p class="petit">Tri : nombre de balises validées, puis temps (course + pénalités de '+(S.penSec/60)+' min). Seuls les groupes arrivés sont classés.</p>';
-  h+='<table class="tab"><thead><tr><th>#</th><th style="text-align:left">Groupe</th><th>Balises</th><th>Course</th><th>Pén.</th><th>Temps final</th></tr></thead><tbody>';
+  h+='<div class="defil"><table class="tab"><thead><tr><th>#</th><th style="text-align:left">Groupe</th><th>Balises</th><th>Course</th><th>Pén.</th><th>Temps final</th></tr></thead><tbody>';
   rows.forEach(function(r){
     h+='<tr class="'+(r.rang&&r.rang<=3?'podium-'+r.rang:'')+'"><td><b>'+(r.rang||'–')+'</b></td><td class="g">'+esc(r.g)+(nomsGroupe(c,r.g)?'<div class="petit" style="font-weight:400">'+esc(nomsGroupe(c,r.g))+'</div>':'')+'</td><td>'+r.n+'/'+r.tot+'</td><td class="temps">'+(r.tc!=null?fmt(r.tc):'–')+'</td><td>'+(r.pen?'+'+r.pen:'')+'</td><td class="temps">'+(r.tf!=null?fmt(r.tf):'<span class="petit">en course</span>')+'</td></tr>';
   });
-  h+='</tbody></table></div>';
+  h+='</tbody></table></div></div>';
   h+='<div class="section section-classement"><h2>Export</h2><div class="rangee"><div class="corps">Inclure le détail balise par balise</div><label class="switch"><input type="checkbox" data-chg="csvdetail"'+(uiCsvDetail?' checked':'')+'><span class="slider"></span></label></div>'+
      '<button class="bouton bouton-primaire" data-act="csv">⬇️ Télécharger le CSV</button><button class="bouton bouton-secondaire" data-act="copier">📋 Copier (coller dans Excel)</button></div>';
   return h;
