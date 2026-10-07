@@ -120,7 +120,7 @@ table.tab tr.podium-3 td{background:rgba(176,110,60,.18)}
 
 <div class="en-tete">
   <h1>🧭 Course d'orientation EPS</h1>
-  <p>Version 1.8</p>
+  <p>Version 1.9</p>
 </div>
 
 <div class="conteneur" id="vue"></div>
@@ -157,7 +157,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='1.8';
+var APP_VER='1.9';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -241,7 +241,7 @@ function charger(){
 var timerSave=null;
 function sauver(){ try{ var t=JSON.stringify(S); localStorage.setItem(CLE,t); if(nbCl(S)) localStorage.setItem(CLE+'_auto',t); }catch(e){} }
 function sauverVite(){ clearTimeout(timerSave); timerSave=setTimeout(sauver,150); }
-S = charger(); S.appVer=APP_VER;
+S = charger(); S.appVer=APP_VER; if(S.onglet==='reglages') S.onglet='pose';
 sauver(); if(MSG_RESTAURE) setTimeout(function(){ toast(MSG_RESTAURE); },600);
 try{ var evEl=document.querySelector('.en-tete p'); if(evEl) evEl.textContent='Version '+APP_VER; }catch(e){}
 try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){}
@@ -459,6 +459,7 @@ var ONGLETS=[['groupes','👥','Groupes'],['pose','📍','Pose'],['carte','🗺�
 var deverrouille=false, uiVerifG=null, uiSel=null, uiZoom=1, uiCsvDetail=true;
 function allerA(o){
   if(o==='reglages' && !deverrouille){ demanderMdp(function(){ deverrouille=true; allerA('reglages'); }); return; }
+  if(o!=='reglages') deverrouille=false;
   S.onglet=o; sauverVite(); dessiner(); window.scrollTo({top:0,behavior:'smooth'});
 }
 function dessinerBarre(){
@@ -672,7 +673,8 @@ function copierCsv(){
 
 /* ============ VUE : RÉGLAGES ============ */
 function vueReglages(){
-  var h='<div class="section"><h2>Groupes</h2><label>Noms des groupes (séparés par des virgules)</label><input type="text" id="inGroupes" value="'+esc(S.groupes.join(', '))+'"><button class="bouton bouton-secondaire" data-act="majgroupes">Enregistrer les groupes</button><p class="petit">Les jeux de balises d\'origine (PDF) couvrent les groupes A1 à D4.</p></div>';
+  var h='<button class="bouton bouton-clair" data-act="fermerreglages" style="margin:0 0 14px">🔒 Fermer les réglages</button>';
+  h+='<div class="section"><h2>Groupes</h2><label>Noms des groupes (séparés par des virgules)</label><input type="text" id="inGroupes" value="'+esc(S.groupes.join(', '))+'"><button class="bouton bouton-secondaire" data-act="majgroupes">Enregistrer les groupes</button><p class="petit">Les jeux de balises d\'origine (PDF) couvrent les groupes A1 à D4.</p></div>';
   h+='<div class="section"><h2>Pénalité</h2><label>Durée d\'une pénalité (secondes)</label><div class="stepper-nombre"><button class="stepper-btn" data-act="pensec" data-d="-10" aria-label="Diminuer la pénalité">−</button><input type="number" readonly value="'+S.penSec+'"><button class="stepper-btn" data-act="pensec" data-d="10" aria-label="Augmenter la pénalité">+</button></div></div>';
   h+='<div class="section"><h2>Jeux de balises</h2><p class="petit">Les 10 couleurs × 8 balises du PDF sont intégrées et ne sont pas modifiables (balises plastifiées). Ajoute ici un jeu personnalisé (ex. 12 balises imprimées en 3D avec d\'autres codes).</p>';
   tousLesSets().forEach(function(s){ h+='<div class="rangee"><span class="puce" style="background:'+s.couleur+'"></span><div class="corps"><b>'+esc(s.nom)+'</b> <span class="petit">'+s.n+' balises'+(s.builtin?' · PDF':' · personnalisé')+'</span></div>'+(s.builtin?'':'<button class="chip" data-act="editset" data-id="'+esc(s.id)+'" style="margin:0 6px 0 0">Modifier</button><button class="chip" data-act="delset" data-id="'+esc(s.id)+'" style="margin:0">🗑️</button>')+'</div>'; });
@@ -729,12 +731,25 @@ function nbElevesTotal(o){ var n=0; for(var k in (o.rosters||{})) n+=(o.rosters[
 /* ============ MODALES / MOT DE PASSE ============ */
 function ouvrirModale(h){ var m=$('modale'); m.className='modale-fond'; m.innerHTML='<div class="modale">'+h+'</div>'; }
 function fermerModale(){ var m=$('modale'); m.className='cache'; m.innerHTML=''; }
-var echecs=0, cbMdp=null;
+var echecs=0, cbMdp=null, finReset=0, timerReset=null, ATTENTE_RESET=60;
 function demanderMdp(cb){
-  cbMdp=cb; echecs=0; afficherMdp('');
+  cbMdp=cb; echecs=0; finReset=0; clearInterval(timerReset); afficherMdp('');
+}
+/* Mot de passe oublié : après 3 échecs, réinitialisation possible seulement après une attente de 60 s + confirmation */
+function majCompteReset(){
+  var b=$('btnReset'); if(!b){ clearInterval(timerReset); return; }
+  var r=Math.ceil((finReset-Date.now())/1000);
+  if(r<=0){ clearInterval(timerReset); afficherMdp(''); return; }
+  b.textContent='Patienter '+r+' s…';
+}
+function boutonReset(){
+  if(echecs<3) return '';
+  if(!finReset) return '<button class="bouton bouton-clair" data-act="resetmdp">Mot de passe oublié ?</button>';
+  if(Date.now()<finReset) return '<button class="bouton bouton-clair" id="btnReset" disabled>Patienter '+Math.ceil((finReset-Date.now())/1000)+' s…</button>';
+  return '<button class="bouton bouton-danger" data-act="resetmdp">Réinitialiser au mot de passe par défaut</button>';
 }
 function afficherMdp(msg){
-  ouvrirModale('<div class="modale-header"><h3>🔒 Accès professeur</h3><button class="btn-fermer" data-act="fermer">&times;</button></div><label>Mot de passe</label><input type="text" id="inMdp" autocomplete="off" autocapitalize="characters" style="-webkit-text-security:disc">'+(msg?'<p style="color:#d32f2f">'+msg+'</p>':'')+'<button class="bouton bouton-primaire" data-act="okmdp">Valider</button>'+(echecs>=3?'<button class="bouton bouton-clair" data-act="resetmdp">Réinitialiser au mot de passe par défaut</button>':'')+'<p class="petit">Mot de passe : voir le guide professeur sur la page de l\'application du site outils-eps.fr.</p>');
+  ouvrirModale('<div class="modale-header"><h3>🔒 Accès professeur</h3><button class="btn-fermer" data-act="fermer">&times;</button></div><label>Mot de passe</label><input type="text" id="inMdp" autocomplete="off" autocapitalize="characters" style="-webkit-text-security:disc">'+(msg?'<p style="color:#d32f2f">'+msg+'</p>':'')+'<button class="bouton bouton-primaire" data-act="okmdp">Valider</button>'+boutonReset()+'<p class="petit">Mot de passe : voir le guide professeur sur la page de l\'application du site outils-eps.fr.</p>');
 }
 function mdpOk(v){ return S.mdp ? v===S.mdp : v===MDP_DEFAUT; }
 
@@ -757,6 +772,7 @@ document.addEventListener('click',function(e){
     case 'delclasse': if(c&&confirm('Supprimer la classe '+c.nom+' (chronos, codes et liste d\'élèves) ?')){ delete S.rosters[c.id]; S.classes=S.classes.filter(function(x){return x.id!==c.id;}); S.cur=S.classes.length?S.classes[0].id:null; if(!S.classes.length){ try{ localStorage.removeItem(CLE+'_auto'); localStorage.removeItem(CLE+'_avant_maj'); }catch(e){} } sauver(); dessiner(); } break;
     case 'exportsauv': exporterSauvegarde(); break;
     case 'restaureravant': try{ var ob=JSON.parse(localStorage.getItem(CLE+'_avant_maj')); if(!etatValide(ob)) throw 1; if(confirm('Restaurer l\'état d\'avant la dernière mise à jour ('+(ob.classes||[]).length+' classe(s), '+nbElevesTotal(ob)+' élève(s)) ? Les données actuelles seront remplacées.')){ appliquerEtat(ob); toast('Données restaurées'); } }catch(er){ alert('Restauration impossible.'); } break;
+    case 'fermerreglages': allerA('pose'); break;
     case 'nav': allerA(el.getAttribute('data-o')); break;
     case 'fermer': fermerModale(); break;
     case 'auto': attribuerAuto(); sauver(); dessiner(); break;
@@ -799,7 +815,10 @@ document.addEventListener('click',function(e){
     case 'aide': ouvrirModale('<div class="modale-header"><h3>Aide</h3><button class="btn-fermer" data-act="fermer">&times;</button></div><p><b>1. Pose</b> : choisis 2 couleurs, attribue les balises aux groupes, place chaque balise sur la carte, contrôle-les.</p><p><b>2. Course</b> : crée la classe, donne le départ (tous ou groupe par groupe), touche « Arrivée » à chaque retour, ajoute les pénalités.</p><p><b>3. Vérif.</b> : saisis les lettres relevées sur la feuille de chaque groupe.</p><p><b>4. Classement</b> : balises validées, puis temps. Export CSV.</p><p>Tout est enregistré automatiquement sur la tablette.</p>'); break;
     case 'nouvelle': demanderMdp(function(){ if(confirm('Terminer la séance ? Balises, positions et résultats seront effacés ; les groupes actuels sont archivés.')){ for(var rn in S.rosters){ var ro=S.rosters[rn]; if(Object.keys(ro.compo).some(function(k){return ro.compo[k].length;})){ ro.histo.push(JSON.parse(JSON.stringify(ro.compo))); } ro.compo={}; ro.absent={}; } var d=etatInitial(); d.rosters=S.rosters; d.classes=S.classes.map(function(k){ k.depart={all:null,g:{}}; k.arrivee={}; k.pen={}; k.codes={}; k.absents={}; return k; }); d.cur=S.cur; d.sets=S.sets; d.groupes=S.groupes; d.penSec=S.penSec; d.mdp=S.mdp; d.sombre=S.sombre; d.afficherAttendu=S.afficherAttendu; d.onglet='pose'; S=d; uiVerifG=null; uiSel=null; sauver(); dessiner(); toast('Nouvelle séance prête'); } }); break;
     case 'okmdp': var v=$('inMdp').value.trim(); if(mdpOk(v)){ fermerModale(); var f=cbMdp; cbMdp=null; if(f) f(); } else { echecs++; afficherMdp('Mot de passe incorrect.'); } break;
-    case 'resetmdp': S.mdp=null; echecs=0; sauver(); afficherMdp('Mot de passe réinitialisé : utilise celui par défaut.'); break;
+    case 'resetmdp':
+      if(!finReset){ finReset=Date.now()+ATTENTE_RESET*1000; afficherMdp(''); clearInterval(timerReset); timerReset=setInterval(majCompteReset,1000); }
+      else if(Date.now()>=finReset && confirm('Remettre le mot de passe prof par défaut ? Le mot de passe actuel sera perdu.')){ S.mdp=null; echecs=0; finReset=0; sauver(); afficherMdp('Mot de passe réinitialisé : utilise celui par défaut.'); }
+      break;
   }
 });
 document.addEventListener('change',function(e){
