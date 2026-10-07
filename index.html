@@ -76,6 +76,8 @@ body.mode-sombre .tag-att{background:#5a4318;color:#ffe2a8}
 .carte-inner img{width:100%;display:block;user-select:none;-webkit-user-drag:none}
 .marqueur{position:absolute;cursor:pointer;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #000;color:#fff;font-weight:800;font-size:10px;line-height:18px;text-align:center;touch-action:none}
 .marqueur::after{content:'';position:absolute;left:-13px;top:-13px;width:44px;height:44px;border-radius:50%}
+.bulle-poste{position:absolute;z-index:5;transform:translate(-50%,-190%);background:#000;color:#fff;font-size:13px;font-weight:700;line-height:1.2;padding:6px 10px;border-radius:8px;white-space:nowrap;pointer-events:none}
+.marqueur{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .marqueur.sel{box-shadow:0 0 0 2px #000,0 0 0 4px #fff;z-index:2}
 .chips{display:flex;flex-wrap:wrap}
 .chip{border:2px solid var(--couleur-bord);border-radius:22px;padding:7px 12px;margin:0 6px 6px 0;background:var(--couleur-doux);font-weight:600;font-size:.88em;min-height:44px;cursor:pointer;color:var(--couleur-texte);font-family:inherit}
@@ -165,7 +167,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.4';
+var APP_VER='2.5';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -531,7 +533,7 @@ function vueCarte(){
   h+='</div>';
   var ids=balisesAssignees();
   if(!uiSel||ids.indexOf(uiSel)<0) uiSel=ids[0]||null;
-  h+='<p class="petit">1) Touche une balise ci-dessous (ou son marqueur sur la carte) · 2) touche son emplacement sur la carte. Pour déplacer une balise déjà placée : fais glisser sa pastille, ou touche-la puis touche le nouvel emplacement.</p><div class="chips">';
+  h+='<p class="petit">1) Touche une balise ci-dessous (ou son marqueur sur la carte) · 2) touche son emplacement sur la carte. Laisse le doigt appuyé sur une pastille pour voir son n° de poste. Pour déplacer une balise déjà placée : fais glisser sa pastille, ou touche-la puis touche le nouvel emplacement.</p><div class="chips">';
   ids.forEach(function(b){ var p=posB(b); h+='<button class="chip'+(uiSel===b?' actif':'')+(p?' fait':'')+'" data-act="selb" data-b="'+esc(b)+'">'+pastilleB(b,poseur(b)).replace('min-width:34px','min-width:30px')+' '+esc(baliseLabel(b))+(posteB(b)?' · poste '+esc(posteB(b)):'')+(p?' ✓':'')+'</button>'; });
   if(!ids.length) h+='<span class="petit">Attribue d\'abord les balises (onglet Pose).</span>';
   h+='</div>'+(uiSel?'<div class="ligne" style="align-items:flex-end"><div style="min-width:200px"><label>N° du poste sur la carte pour '+esc(baliseLabel(uiSel))+'</label><select data-chg="poste"><option value="">— non précisé —</option>'+postesOptions(uiSel)+'</select></div></div>':'')+'<div class="ligne"><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="-1">− Zoom</button><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="1">+ Zoom</button>'+
@@ -549,18 +551,26 @@ function postesOptions(bid){ var h='',cur=posteB(bid),pris={},pp=(S.seance.poste
   document.addEventListener('pointerdown',function(e){
     var m=e.target&&e.target.closest?e.target.closest('.marqueur'):null; if(!m) return;
     drag={m:m,b:m.getAttribute('data-b'),x0:e.clientX,y0:e.clientY,bouge:false};
+    var d0=drag; d0.t=setTimeout(function(){ if(drag!==d0||d0.bouge) return; montrerPoste(d0); },450);
   });
+  document.addEventListener('contextmenu',function(e){ if(e.target&&e.target.closest&&e.target.closest('.marqueur')) e.preventDefault(); });
+  function montrerPoste(d){
+    cacherPoste(); var n=posteB(d.b), bu=document.createElement('div'); bu.className='bulle-poste'; bu.id='bullePoste';
+    bu.textContent=baliseLabel(d.b)+' · '+(n?'poste '+n:'poste non précisé');
+    bu.style.left=d.m.style.left; bu.style.top=d.m.style.top; d.m.parentNode.appendChild(bu);
+  }
+  function cacherPoste(){ var o=$('bullePoste'); if(o&&o.parentNode) o.parentNode.removeChild(o); }
   document.addEventListener('pointermove',function(e){
     if(!drag) return;
     if(!drag.bouge && Math.abs(e.clientX-drag.x0)+Math.abs(e.clientY-drag.y0)<8) return;
     var img=$('carteImg'); if(!img){ drag=null; return; }
-    drag.bouge=true; e.preventDefault();
+    drag.bouge=true; clearTimeout(drag.t); cacherPoste(); e.preventDefault();
     var r=img.getBoundingClientRect();
     drag.px=Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100)); drag.py=Math.max(0,Math.min(100,(e.clientY-r.top)/r.height*100));
     drag.m.style.left=drag.px+'%'; drag.m.style.top=drag.py+'%';
   },{passive:false});
   function fin(){
-    var d=drag; drag=null; if(!d||!d.bouge) return;
+    var d=drag; drag=null; if(d) clearTimeout(d.t); cacherPoste(); if(!d||!d.bouge) return;
     var sp=S.seance.parcours; if(!S.seance.pos[sp]) S.seance.pos[sp]={};
     S.seance.pos[sp][d.b]={x:Math.round(d.px*10)/10,y:Math.round(d.py*10)/10};
     uiSel=d.b; sauver();
