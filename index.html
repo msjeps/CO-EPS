@@ -124,7 +124,7 @@ body.mode-sombre .bandeau{background:#5a4318;color:#ffe2a8;border-color:#7a5b22}
 
 <div class="en-tete">
   <h1>🧭 Course d'orientation EPS</h1>
-  <p>Version 2.1</p>
+  <p>Version 2.2</p>
 </div>
 
 <div id="bandeaux"></div>
@@ -163,7 +163,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.1';
+var APP_VER='2.2';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -747,7 +747,8 @@ function vueReglages(){
   h+='<div class="section"><h2>Affichage</h2><div class="rangee"><div class="corps">Mode sombre</div><label class="switch"><input type="checkbox" data-chg="sombre"'+(S.sombre?' checked':'')+'><span class="slider"></span></label></div>'+
      '<div class="rangee"><div class="corps">Afficher le code attendu quand une saisie est fausse</div><label class="switch"><input type="checkbox" data-chg="attendu"'+(S.afficherAttendu?' checked':'')+'><span class="slider"></span></label></div>'+
      '<div class="rangee"><div class="corps">Élèves affichés par initiales (écran partagé ou projeté)<div class="petit">Ex. « DUPONT Léa » devient « D.L. ». L\'export CSV garde les noms complets ; modifier un nom demande le mot de passe.</div></div><label class="switch"><input type="checkbox" data-chg="initiales"'+(S.initiales?' checked':'')+'><span class="slider"></span></label></div></div>';
-  h+='<div class="section"><h2>Sauvegarde</h2><p class="petit">Dernière sauvegarde : <b>'+texteAge()+'</b>.</p><p class="petit">Sauvegarde toutes les données (classes, élèves, groupes, résultats, balises) dans un fichier (sans le mot de passe prof). Il contient les noms des élèves : garde-le sur ta tablette ou ton ordinateur, ne le partage pas.</p><button class="bouton bouton-secondaire" data-act="exportsauv">⬇️ Exporter une sauvegarde</button><label>Restaurer depuis un fichier de sauvegarde</label><input type="file" accept=".json,application/json" data-chg="fichiersauv" style="padding:8px">'+(localStorage.getItem(CLE+'_avant_maj')?'<button class="bouton bouton-clair" data-act="restaureravant">Restaurer l\'état d\'avant la dernière mise à jour</button>':'')+'</div>';
+  h+='<div class="section"><h2>Sauvegarde</h2><p class="petit">Dernière sauvegarde : <b>'+texteAge()+'</b>.</p><p class="petit">Sauvegarde toutes les données (classes, élèves, groupes, résultats, balises) dans un fichier (sans le mot de passe prof). Il contient les noms des élèves : garde-le sur ta tablette ou ton ordinateur, ne le partage pas.</p><button class="bouton bouton-secondaire" data-act="exportsauv">⬇️ Exporter une sauvegarde</button></div>';
+  h+='<div class="section" style="border-left-color:#1f6ea5"><h2>Restauration</h2><p>Recharge tes classes, élèves, groupes et jeux de balises depuis un fichier de sauvegarde (<b>CO_EPS_sauvegarde_….json</b>) : après un effacement des données, une réinstallation, ou pour copier la configuration d\'un appareil à un autre.</p><p class="petit">'+(EST_IOS?'Sur iPhone / iPad, choisis le fichier dans l\'app <b>Fichiers</b>. ':'')+'Tu verras le nombre de classes et d\'élèves avant de confirmer. <b>Les données actuelles de cet appareil seront remplacées</b> : exporte d\'abord une sauvegarde si elles sont récentes. Le mot de passe prof de cet appareil est conservé.</p><button class="bouton bouton-primaire" data-act="choisirsauv">⬆️ Restaurer depuis un fichier</button><input type="file" id="fichierSauv" class="cache" accept=".json,application/json" data-chg="fichiersauv">'+(localStorage.getItem(CLE+'_avant_maj')?'<button class="bouton bouton-clair" data-act="restaureravant">Restaurer l\'état d\'avant la dernière mise à jour</button>':'')+'</div>';
   h+='<div class="section"><h2>Sécurité</h2><button class="bouton bouton-secondaire" data-act="chgmdp">Changer le mot de passe prof</button><button class="bouton bouton-clair" data-act="aide">Aide</button></div>';
   h+='<div class="section" style="border-left-color:#FC466B"><h2>Nouvelle séance</h2><p class="petit">Efface les balises attribuées, les positions et tous les résultats (chronos, codes, pénalités). La composition actuelle des groupes est archivée dans l\'historique pour que les mêmes élèves ne soient plus regroupés. Les classes, listes d\'élèves, jeux de balises et réglages sont conservés.</p><button class="bouton bouton-danger" data-act="nouvelle">Nouvelle séance</button></div>';
   return h;
@@ -867,6 +868,7 @@ document.addEventListener('click',function(e){
     case 'nav': allerA(el.getAttribute('data-o')); break;
     case 'fermer': fermerModale(); break;
     case 'recharger': location.reload(); break;
+    case 'choisirsauv': var fsel=$('fichierSauv'); if(fsel) fsel.click(); break;
     case 'plustard': S.rappelJusqua=Date.now()+7*86400000; sauver(); retirerBandeau('sauv'); break;
     case 'dlgoui': var fd=cbDialogue, vd=$('inDialogue')?$('inDialogue').value:null; fermerDialogue(); if(fd) fd(vd); break;
     case 'dlgnon': fermerDialogue(); break;
@@ -922,7 +924,7 @@ document.addEventListener('change',function(e){
     case 'setid': S.seance.setIds[parseInt(t.getAttribute('data-i'),10)]=t.value; sauver(); dessiner(); break;
     case 'assign': var g=t.getAttribute('data-g'); if(t.value){ for(var x in S.seance.assign) if(S.seance.assign[x]===t.value) delete S.seance.assign[x]; S.seance.assign[g]=t.value; } else delete S.seance.assign[g]; sauver(); dessiner(); break;
     case 'fichiereleves': if(c&&t.files&&t.files[0]){ var fr=new FileReader(); fr.onload=function(){ var rs2=importerEleves(roster(c),decoderTexte(fr.result)); sauver(); dessiner(); toast(rs2.ajoutes+' ajouté(s)'+(rs2.majs?' · '+rs2.majs+' genre(s) corrigé(s)':'')+(rs2.doublons?' · '+rs2.doublons+' doublon(s)':'')); }; fr.readAsArrayBuffer(t.files[0]); } break;
-    case 'fichiersauv': if(t.files&&t.files[0]){ var fs=new FileReader(); fs.onload=function(){ try{ var ob=JSON.parse(fs.result); if(!ob||!ob.classes||!ob.rosters||!etatValide(ob)) throw 1; confirmer('Restaurer cette sauvegarde ('+ob.classes.length+' classe(s), '+nbElevesTotal(ob)+' élève(s)) ? Les données actuelles seront remplacées.',function(){ try{ appliquerEtat(ob); toast('Sauvegarde restaurée'); }catch(er2){ avertir('Restauration impossible : rien n\'a été modifié.'); } },'Restaurer'); }catch(er){ avertir('Fichier de sauvegarde invalide ou endommagé : rien n\'a été modifié.'); } }; fs.readAsText(t.files[0]); } break;
+    case 'fichiersauv': if(t.files&&t.files[0]){ var fs=new FileReader(); fs.onload=function(){ try{ var ob=JSON.parse(fs.result); if(!ob||!ob.classes||!ob.rosters||!etatValide(ob)) throw 1; confirmer('Restaurer cette sauvegarde ('+ob.classes.length+' classe(s), '+nbElevesTotal(ob)+' élève(s)) ? Les données actuelles seront remplacées.',function(){ try{ appliquerEtat(ob); toast('Sauvegarde restaurée'); }catch(er2){ avertir('Restauration impossible : rien n\'a été modifié.'); } },'Restaurer'); }catch(er){ avertir('Fichier de sauvegarde invalide ou endommagé : rien n\'a été modifié.'); } }; fs.readAsText(t.files[0]); try{ t.value=''; }catch(e){} } break;
     case 'eleveprs': if(c){ var rp=roster(c); if(t.checked) delete rp.absent[t.getAttribute('data-id')]; else rp.absent[t.getAttribute('data-id')]=1; sauver(); dessiner(); } break;
     case 'moveel': if(c){ var rm=roster(c), idm=t.getAttribute('data-id'); for(var gm in rm.compo) rm.compo[gm]=rm.compo[gm].filter(function(x){return x!==idm;}); if(t.value){ if(!rm.compo[t.value]) rm.compo[t.value]=[]; rm.compo[t.value].push(idm); } sauver(); var yy=window.pageYOffset; dessiner(); window.scrollTo(0,yy); } break;
     case 'poste': if(uiSel){ if(!S.seance.poste) S.seance.poste={}; var spp=S.seance.parcours; if(!S.seance.poste[spp]) S.seance.poste[spp]={}; if(t.value) S.seance.poste[spp][uiSel]=t.value; else delete S.seance.poste[spp][uiSel]; sauver(); dessiner(); } break;
