@@ -167,7 +167,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.10';
+var APP_VER='2.11';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -490,6 +490,14 @@ function allerA(o){
 }
 function dessinerBarre(){
   $('barre').innerHTML=ONGLETS.map(function(o){ return '<button data-act="nav" data-o="'+o[0]+'" class="'+(S.onglet===o[0]?'actif':'')+'"><span>'+o[1]+'</span>'+o[2]+'</button>'; }).join('');
+}
+/* Redessine sans perdre le texte en cours de frappe (champs « Ajouter un élève » et « Coller la liste ») ni la position de défilement */
+function dessinerGarde(){
+  var sv={}, y=window.pageYOffset;
+  ['inEleve','inListe'].forEach(function(id){ var e=$(id); if(e&&e.value) sv[id]=e.value; });
+  dessiner();
+  for(var id in sv){ var e=$(id); if(e) e.value=sv[id]; }
+  window.scrollTo(0,y);
 }
 function dessiner(){
   document.body.className=S.sombre?'mode-sombre':'';
@@ -910,11 +918,11 @@ document.addEventListener('click',function(e){
     case 'addeleve': if(c){ var inp=$('inEleve'); ajouterEleve(roster(c),inp.value,el.getAttribute('data-s')); sauver(); dessiner(); var i2=$('inEleve'); if(i2) i2.focus(); } break;
     case 'importeleves': if(c){ var res=importerEleves(roster(c),$('inListe').value); sauver(); dessiner(); toast(res.ajoutes+' ajouté(s)'+(res.majs?' · '+res.majs+' genre(s) corrigé(s)':'')+(res.doublons?' · '+res.doublons+' doublon(s)':'')); } break;
     case 'renom': if(c){ var rn=roster(c), eo=eleveDe(rn,el.getAttribute('data-id')); if(eo){ var ouvrir=function(){ saisir('Nom de l\'élève :',eo.nom,function(v){ if(v&&v.trim()){ eo.nom=v.trim(); sauver(); dessiner(); } }); }; if(S.initiales) demanderMdp(ouvrir); else ouvrir(); } } break;
-    case 'sexe': if(c){ var rs=roster(c), es=eleveDe(rs,el.getAttribute('data-id')); if(es){ es.sexe=es.sexe==='F'?'G':es.sexe==='G'?'?':'F'; sauver(); dessiner(); } } break;
-    case 'deleve': if(c){ var rd2=roster(c), ed=eleveDe(rd2,el.getAttribute('data-id')); if(ed) confirmer('Supprimer '+affNom(ed.nom)+' ?',function(){ var idd2=ed.id; rd2.eleves=rd2.eleves.filter(function(x){return x.id!==idd2;}); for(var gk in rd2.compo) rd2.compo[gk]=rd2.compo[gk].filter(function(x){return x!==idd2;}); sauver(); dessiner(); },'Supprimer',true); } break;
-    case 'nbg': if(c){ var rg=roster(c), cu=Math.min(S.groupes.length,rg.nbG||nbGroupesAuto(rg)); rg.nbG=Math.max(1,Math.min(S.groupes.length,cu+parseInt(el.getAttribute('data-d'),10))); sauver(); dessiner(); } break;
-    case 'generer': if(c){ var rgn=roster(c); var lancer=function(){ attente('Génération des groupes…'); setTimeout(function(){ var ok=false; try{ ok=genererGroupes(rgn); }finally{ fermerDialogue(); } if(ok){ sauver(); dessiner(); } else avertir('Aucun élève présent.'); },80); }; if(Object.keys(rgn.compo).length) confirmer('Remplacer la composition actuelle ?',lancer,'Remplacer'); else lancer(); } break;
-    case 'videcompo': if(c) confirmer('Effacer la composition des groupes ?',function(){ roster(c).compo={}; sauver(); dessiner(); },'Effacer',true); break;
+    case 'sexe': if(c){ var rs=roster(c), es=eleveDe(rs,el.getAttribute('data-id')); if(es){ es.sexe=es.sexe==='F'?'G':es.sexe==='G'?'?':'F'; sauver(); dessinerGarde(); } } break;
+    case 'deleve': if(c){ var rd2=roster(c), ed=eleveDe(rd2,el.getAttribute('data-id')); if(ed) confirmer('Supprimer '+affNom(ed.nom)+' ?',function(){ var idd2=ed.id; rd2.eleves=rd2.eleves.filter(function(x){return x.id!==idd2;}); for(var gk in rd2.compo) rd2.compo[gk]=rd2.compo[gk].filter(function(x){return x!==idd2;}); sauver(); dessinerGarde(); },'Supprimer',true); } break;
+    case 'nbg': if(c){ var rg=roster(c), cu=Math.min(S.groupes.length,rg.nbG||nbGroupesAuto(rg)); rg.nbG=Math.max(1,Math.min(S.groupes.length,cu+parseInt(el.getAttribute('data-d'),10))); sauver(); dessinerGarde(); } break;
+    case 'generer': if(c){ var rgn=roster(c); var lancer=function(){ attente('Génération des groupes…'); setTimeout(function(){ var ok=false; try{ ok=genererGroupes(rgn); }finally{ fermerDialogue(); } if(ok){ sauver(); dessinerGarde(); } else avertir('Aucun élève présent.'); },80); }; if(Object.keys(rgn.compo).length) confirmer('Remplacer la composition actuelle ?',lancer,'Remplacer'); else lancer(); } break;
+    case 'videcompo': if(c) confirmer('Effacer la composition des groupes ?',function(){ roster(c).compo={}; sauver(); dessinerGarde(); },'Effacer',true); break;
     case 'videhisto': if(c) demanderMdp(function(){ confirmer('Oublier les séances passées ? Les groupes pourront de nouveau se retrouver.',function(){ roster(c).histo=[]; sauver(); dessiner(); },'Oublier',true); }); break;
     case 'delclasse': if(c) demanderMdp(function(){ confirmer('Supprimer la classe '+c.nom+' (chronos, codes et liste d\'élèves) ?',function(){ delete S.rosters[c.id]; S.classes=S.classes.filter(function(x){return x.id!==c.id;}); S.cur=S.classes.length?S.classes[0].id:null; if(!S.classes.length){ try{ localStorage.removeItem(CLE+'_auto'); localStorage.removeItem(CLE+'_avant_maj'); }catch(e){} } sauver(); dessiner(); },'Supprimer la classe',true); }); break;
     case 'exportsauv': exporterSauvegarde(); break;
@@ -983,8 +991,8 @@ document.addEventListener('change',function(e){
     case 'assign': var g=t.getAttribute('data-g'); if(t.value){ for(var x in S.seance.assign) if(S.seance.assign[x]===t.value) delete S.seance.assign[x]; S.seance.assign[g]=t.value; } else delete S.seance.assign[g]; sauver(); dessiner(); break;
     case 'fichiereleves': if(c&&t.files&&t.files[0]){ var fr=new FileReader(); fr.onload=function(){ var rs2=importerEleves(roster(c),decoderTexte(fr.result)); sauver(); dessiner(); toast(rs2.ajoutes+' ajouté(s)'+(rs2.majs?' · '+rs2.majs+' genre(s) corrigé(s)':'')+(rs2.doublons?' · '+rs2.doublons+' doublon(s)':'')); }; fr.readAsArrayBuffer(t.files[0]); } break;
     case 'fichiersauv': if(t.files&&t.files[0]){ var fs=new FileReader(); fs.onload=function(){ try{ var ob=JSON.parse(fs.result); if(!ob||!ob.classes||!ob.rosters||!etatValide(ob)) throw 1; confirmer('Restaurer cette sauvegarde ('+ob.classes.length+' classe(s), '+nbElevesTotal(ob)+' élève(s)) ? Les données actuelles seront remplacées.',function(){ try{ appliquerEtat(ob); toast('Sauvegarde restaurée'); }catch(er2){ avertir('Restauration impossible : rien n\'a été modifié.'); } },'Restaurer'); }catch(er){ avertir('Fichier de sauvegarde invalide ou endommagé : rien n\'a été modifié.'); } }; fs.readAsText(t.files[0]); try{ t.value=''; }catch(e){} } break;
-    case 'eleveprs': if(c){ var rp=roster(c); if(t.checked) delete rp.absent[t.getAttribute('data-id')]; else rp.absent[t.getAttribute('data-id')]=1; sauver(); dessiner(); } break;
-    case 'moveel': if(c){ var rm=roster(c), idm=t.getAttribute('data-id'); for(var gm in rm.compo) rm.compo[gm]=rm.compo[gm].filter(function(x){return x!==idm;}); if(t.value){ if(!rm.compo[t.value]) rm.compo[t.value]=[]; rm.compo[t.value].push(idm); } sauver(); var yy=window.pageYOffset; dessiner(); window.scrollTo(0,yy); } break;
+    case 'eleveprs': if(c){ var rp=roster(c); if(t.checked) delete rp.absent[t.getAttribute('data-id')]; else rp.absent[t.getAttribute('data-id')]=1; sauver(); dessinerGarde(); } break;
+    case 'moveel': if(c){ var rm=roster(c), idm=t.getAttribute('data-id'); for(var gm in rm.compo) rm.compo[gm]=rm.compo[gm].filter(function(x){return x!==idm;}); if(t.value){ if(!rm.compo[t.value]) rm.compo[t.value]=[]; rm.compo[t.value].push(idm); } sauver(); dessinerGarde(); } break;
     case 'poste': if(uiSel){ if(!S.seance.poste) S.seance.poste={}; var spp=S.seance.parcours; if(!S.seance.poste[spp]) S.seance.poste[spp]={}; if(t.value) S.seance.poste[spp][uiSel]=t.value; else delete S.seance.poste[spp][uiSel]; sauver(); dessiner(); } break;
     case 'classe': S.cur=t.value; sauver(); dessiner(); break;
     case 'mode': if(c){ c.mode=t.value; sauver(); dessiner(); } break;
