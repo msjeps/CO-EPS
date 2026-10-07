@@ -76,8 +76,10 @@ body.mode-sombre .tag-att{background:#5a4318;color:#ffe2a8}
 .carte-inner img{width:100%;display:block;user-select:none;-webkit-user-drag:none}
 .marqueur{position:absolute;cursor:pointer;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;border:1px solid #fff;box-shadow:0 0 0 1px #000;color:#fff;font-weight:800;font-size:8px;line-height:16px;text-align:center;touch-action:none}
 .marqueur::after{content:'';position:absolute;left:-14px;top:-14px;width:44px;height:44px;border-radius:50%}
-.bulle-poste{position:absolute;z-index:5;transform:translate(-50%,-100%);margin-top:-16px;background:#000;color:#fff;font-size:11px;font-weight:700;line-height:1.2;padding:4px 7px;border-radius:6px;width:max-content;max-width:190px;white-space:normal;text-align:center;pointer-events:none}
+.info-pastille{background:#222;color:#fff;border-radius:10px;padding:8px 12px;margin:8px 0;font-size:14px;line-height:1.35;min-height:44px;overflow:hidden}
+.info-pastille .petit{color:#ddd}
 .marqueur{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.marqueur.sel{box-shadow:0 0 0 2px #000,0 0 0 4px #fff;z-index:2}
 .marqueur.deplace{box-shadow:0 0 0 2px #000,0 0 0 5px #fff;z-index:3}
 .chips{display:flex;flex-wrap:wrap}
 .chip{border:2px solid var(--couleur-bord);border-radius:22px;padding:7px 12px;margin:0 6px 6px 0;background:var(--couleur-doux);font-weight:600;font-size:.88em;min-height:44px;cursor:pointer;color:var(--couleur-texte);font-family:inherit}
@@ -167,7 +169,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.15';
+var APP_VER='2.16';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -485,7 +487,7 @@ function ajouterEleve(r,nom,sexe){ nom=(nom||'').trim(); if(!nom) return; r.elev
 
 /* ============ NAVIGATION ============ */
 var ONGLETS=[['groupes','👥','Groupes'],['pose','📍','Pose'],['carte','🗺️','Carte'],['course','⏱️','Course'],['verif','✅','Vérif.'],['classement','🏆','Podium'],['reglages','⚙️','Réglages']];
-var deverrouille=false, uiVerifG=null, uiSel=null, uiZoom=1, uiCsvDetail=true;
+var deverrouille=false, uiVerifG=null, uiSel=null, uiInfo=null, uiZoom=1, uiCsvDetail=true;
 var ONGLETS_ELEVE=['course','verif'];
 var ACTES_ELEVE=['nav','vg','indice','depart','departall','arrivee','annulerarr','dlgoui','dlgnon','fermer','okmdp','resetmdp','recharger','sortireleve','aide'];
 function allerA(o){
@@ -559,32 +561,34 @@ function vueCarte(){
   h+='</div>';
   var ids=balisesAssignees();
   if(uiSel&&ids.indexOf(uiSel)<0) uiSel=null;
-  h+='<p class="petit">1) Touche une balise ci-dessous · 2) touche son emplacement sur la carte (la sélection s\'efface une fois posée ; retouche la balise pour l\'annuler). Pour écrire ou modifier l\'indice d\'une balise, touche-la dans la liste. Pour déplacer une balise déjà posée : appui prolongé sur sa pastille (le n° de poste s\'affiche), puis glisse-la.</p><div class="chips">';
+  h+='<p class="petit">1) Touche une balise ci-dessous · 2) touche son emplacement sur la carte (la sélection s\'efface une fois posée ; retouche la balise pour l\'annuler). Touche une pastille pour voir son poste et son indice (bandeau au-dessus de la carte). Pour écrire l\'indice d\'une balise, touche-la dans la liste (ou onglet Pose). Pour déplacer une balise déjà posée : appui prolongé sur sa pastille, puis glisse-la.</p><div class="chips">';
   ids.forEach(function(b){ var p=posB(b); h+='<button class="chip'+(uiSel===b?' actif':'')+(p?' fait':'')+'" data-act="selb" data-b="'+esc(b)+'">'+pastilleB(b,poseur(b)).replace('min-width:34px','min-width:30px')+' '+esc(baliseLabel(b))+(posteB(b)?' · poste '+esc(posteB(b)):'')+(p?' ✓':'')+'</button>'; });
   if(!ids.length) h+='<span class="petit">Attribue d\'abord les balises (onglet Pose).</span>';
   h+='</div>'+(uiSel?'<div class="ligne" style="align-items:flex-end"><div style="min-width:200px"><label>N° du poste sur la carte pour '+esc(baliseLabel(uiSel))+'</label><select data-chg="poste"><option value="">— non précisé —</option>'+postesOptions(uiSel)+'</select></div></div>'+(S.indices?'<label>Indice / description de la balise (140 caractères max.)</label><input type="text" maxlength="140" data-chg="desc" value="'+esc(descB(uiSel))+'" placeholder="Ex. : derrière le banc, sous le 3e platane">':''):'')+'<div class="ligne"><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="-1">− Zoom</button><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="1">+ Zoom</button>'+
      '<button class="bouton bouton-clair bouton-petit" data-act="retirerpos">Retirer la position de la balise choisie</button></div>';
+  h+='<div class="info-pastille" id="infoPastille">'+contenuInfo()+'</div>';
   h+='<div class="carte-wrap" id="carteWrap"><div class="carte-inner" id="carteInner" style="width:'+(uiZoom*100)+'%"><img id="carteImg" src="cartes/parcours'+sp+'.jpg" alt="Carte du parcours '+sp+'" onerror="this.parentNode.innerHTML=\'<p style=&quot;padding:20px;line-height:1.4&quot;>Carte du parcours '+sp+' introuvable.<br>Ajoute le fichier <b>cartes/parcours'+sp+'.jpg</b> dans le dossier de l\\\'appli.</p>\'">';
-  ids.forEach(function(b){ var p=posB(b); if(!p) return; var s=getSet(parseB(b).setId); h+='<div class="marqueur" data-b="'+esc(b)+'" style="left:'+p.x+'%;top:'+p.y+'%;background:'+baliseCouleur(b)+';color:'+(s&&s.builtin&&TEXTE_SOMBRE[s.id]?'#222':'#fff')+'">'+esc(poseur(b))+'</div>'; });
+  ids.forEach(function(b){ var p=posB(b); if(!p) return; var s=getSet(parseB(b).setId); h+='<div class="marqueur'+(uiInfo===b?' sel':'')+'" data-b="'+esc(b)+'" style="left:'+p.x+'%;top:'+p.y+'%;background:'+baliseCouleur(b)+';color:'+(s&&s.builtin&&TEXTE_SOMBRE[s.id]?'#222':'#fff')+'">'+esc(poseur(b))+'</div>'; });
   h+='</div></div></div>';
   return h;
 }
 function postesOptions(bid){ var h='',cur=posteB(bid),pris={},pp=(S.seance.poste&&S.seance.poste[S.seance.parcours])||{}; for(var k in pp) if(k!==bid) pris[pp[k]]=k;
   for(var i=1;i<=20;i++){ h+='<option value="'+i+'"'+(String(cur)===String(i)?' selected':'')+'>'+i+(pris[i]?' (déjà '+esc(baliseLabel(pris[i]))+')':'')+'</option>'; } return h; }
-/* Déplacer une pastille : appui prolongé dessus, puis glisser ; un simple toucher ne fait rien */
+/* Pastilles de la carte : un toucher affiche leurs infos (poste, indice) dans le bandeau au-dessus de la carte ;
+   un appui prolongé puis un glissement déplace la pastille. */
+function contenuInfo(){
+  if(!uiInfo||!posB(uiInfo)) return '<span class="petit">Touche une pastille pour voir son poste et son indice. Appui prolongé puis glisser pour la déplacer.</span>';
+  var n=posteB(uiInfo), h='<button class="chip" data-act="fermerinfo" style="float:right;margin:0 0 0 8px" aria-label="Fermer">✕</button><b>'+esc(baliseLabel(uiInfo))+' · '+(n?'poste '+esc(n):'poste non précisé')+'</b>';
+  if(S.indices&&descB(uiInfo)) h+='<div>💡 '+esc(descB(uiInfo))+'</div>';
+  return h;
+}
+function majInfo(){ var e=$('infoPastille'); if(e) e.innerHTML=contenuInfo(); var o=document.querySelectorAll('.marqueur.sel'); for(var i=0;i<o.length;i++) o[i].className=o[i].className.replace(' sel',''); var m=uiInfo?document.querySelector('.marqueur[data-b="'+uiInfo+'"]'):null; if(m) m.className+=' sel'; }
 (function(){
   var drag=null;
-  function cacherPoste(){ var o=$('bullePoste'); if(o&&o.parentNode) o.parentNode.removeChild(o); }
-  function majBulle(d){
-    var bu=$('bullePoste'); if(!bu){ bu=document.createElement('div'); bu.className='bulle-poste'; bu.id='bullePoste'; d.m.parentNode.appendChild(bu); }
-    var n=posteB(d.b); bu.textContent=baliseLabel(d.b)+' · '+(n?'poste '+n:'poste non précisé');
-    if(S.indices&&descB(d.b)){ var di=document.createElement('div'); di.style.cssText='font-size:10px;font-weight:400;margin-top:2px'; di.textContent='💡 '+descB(d.b); bu.appendChild(di); }
-    bu.style.left=d.m.style.left; bu.style.top=d.m.style.top;
-  }
   document.addEventListener('pointerdown',function(e){
     var m=e.target&&e.target.closest?e.target.closest('.marqueur'):null; if(!m) return;
     var d=drag={m:m,b:m.getAttribute('data-b'),x0:e.clientX,y0:e.clientY,arme:false};
-    d.t=setTimeout(function(){ if(drag!==d) return; d.arme=true; m.className+=' deplace'; majBulle(d); try{ if(navigator.vibrate) navigator.vibrate(30); }catch(x){} },450);
+    d.t=setTimeout(function(){ if(drag!==d) return; d.arme=true; uiInfo=d.b; m.className+=' deplace'; majInfo(); try{ if(navigator.vibrate) navigator.vibrate(30); }catch(x){} },450);
   });
   document.addEventListener('contextmenu',function(e){ if(e.target&&e.target.closest&&e.target.closest('.marqueur')) e.preventDefault(); });
   document.addEventListener('pointermove',function(e){
@@ -592,13 +596,14 @@ function postesOptions(bid){ var h='',cur=posteB(bid),pris={},pp=(S.seance.poste
     if(!drag.arme){ if(Math.abs(e.clientX-drag.x0)+Math.abs(e.clientY-drag.y0)>10){ clearTimeout(drag.t); drag=null; } return; }
     var img=$('carteImg'); if(!img){ drag=null; return; }
     e.preventDefault();
-    var r=img.getBoundingClientRect();
+    var r=img.getBoundingClientRect(); if(!(r.width>0&&r.height>0)) return;
     drag.px=Math.max(0,Math.min(100,(e.clientX-r.left)/r.width*100)); drag.py=Math.max(0,Math.min(100,(e.clientY-r.top)/r.height*100));
-    drag.m.style.left=drag.px+'%'; drag.m.style.top=drag.py+'%'; majBulle(drag);
+    drag.m.style.left=drag.px+'%'; drag.m.style.top=drag.py+'%';
   },{passive:false});
-  function fin(){
-    var d=drag; drag=null; if(!d) return; clearTimeout(d.t); cacherPoste();
-    if(!d.arme||d.px==null) { if(d.arme) d.m.className=d.m.className.replace(' deplace',''); return; }
+  function fin(e){
+    var d=drag; drag=null; if(!d) return; clearTimeout(d.t);
+    if(!d.arme){ if(e&&e.type==='pointerup'){ uiInfo=d.b; majInfo(); } return; }
+    if(d.px==null){ d.m.className=d.m.className.replace(' deplace',''); return; }
     var sp=S.seance.parcours; if(!S.seance.pos[sp]) S.seance.pos[sp]={};
     S.seance.pos[sp][d.b]={x:Math.round(d.px*10)/10,y:Math.round(d.py*10)/10};
     sauver();
@@ -939,6 +944,7 @@ document.addEventListener('click',function(e){
     case 'exportsauv': exporterSauvegarde(); break;
     case 'restaureravant': try{ var ob=JSON.parse(localStorage.getItem(CLE+'_avant_maj')); if(!etatValide(ob)) throw 1; confirmer('Restaurer l\'état d\'avant la dernière mise à jour ('+(ob.classes||[]).length+' classe(s), '+nbElevesTotal(ob)+' élève(s)) ? Les données actuelles seront remplacées.',function(){ try{ appliquerEtat(ob); toast('Données restaurées'); }catch(er2){ avertir('Restauration impossible : rien n\'a été modifié.'); } },'Restaurer'); }catch(er){ avertir('Restauration impossible.'); } break;
     case 'editindice': if(b){ saisir('Indice de '+baliseLabel(b)+' (140 caractères max. ; laisse vide pour le supprimer) :',descB(b),function(v){ var sp=S.seance.parcours; if(!S.seance.desc) S.seance.desc={}; if(!S.seance.desc[sp]) S.seance.desc[sp]={}; v=String(v==null?'':v).replace(/\s+/g,' ').trim().slice(0,140); if(v) S.seance.desc[sp][b]=v; else delete S.seance.desc[sp][b]; sauver(); var y=window.pageYOffset; dessiner(); window.scrollTo(0,y); },'Enregistrer'); } break;
+    case 'fermerinfo': uiInfo=null; majInfo(); break;
     case 'entreleve': if(c) confirmer('Passer en mode élève pour la classe '+c.nom+' ? La tablette ne montrera plus que Course et Vérif. de cette classe (chrono et saisie des codes). Pour en sortir : bouton « Quitter » et mot de passe prof.',function(){ S.modeEleve=c.id; S.cur=c.id; S.onglet='course'; deverrouille=false; sauver(); dessiner(); window.scrollTo(0,0); },'Passer en mode élève'); break;
     case 'sortireleve': demanderMdp(function(){ S.modeEleve=null; S.onglet='course'; sauver(); dessiner(); toast('Mode professeur'); }); break;
     case 'fermerreglages': allerA('pose'); break;
@@ -951,7 +957,7 @@ document.addEventListener('click',function(e){
     case 'dlgnon': fermerDialogue(); break;
     case 'auto': attribuerAuto(); sauver(); dessiner(); break;
     case 'etat': var e2=el.getAttribute('data-e'); S.seance.etat[b]=(S.seance.etat[b]===e2)?'':e2; sauver(); dessiner(); break;
-    case 'parcours': S.seance.parcours=parseInt(el.getAttribute('data-p'),10); uiSel=null; sauver(); dessiner(); break;
+    case 'parcours': S.seance.parcours=parseInt(el.getAttribute('data-p'),10); uiSel=null; uiInfo=null; sauver(); dessiner(); break;
     case 'selb': var cw0=$('carteWrap'), sx0=cw0?cw0.scrollLeft:0, sy0=cw0?cw0.scrollTop:0; uiSel=(uiSel===b?null:b); dessiner(); var cw1=$('carteWrap'); if(cw1){ cw1.scrollLeft=sx0; cw1.scrollTop=sy0; } break;
     case 'zoom': uiZoom=Math.max(1,Math.min(4,uiZoom+parseInt(el.getAttribute('data-d'),10))); dessiner(); break;
     case 'retirerpos': if(uiSel&&S.seance.pos[S.seance.parcours]){ delete S.seance.pos[S.seance.parcours][uiSel]; sauver(); dessiner(); } break;
