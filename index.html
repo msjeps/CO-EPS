@@ -124,7 +124,7 @@ body.mode-sombre .bandeau{background:#5a4318;color:#ffe2a8;border-color:#7a5b22}
 
 <div class="en-tete">
   <h1>🧭 Course d'orientation EPS</h1>
-  <p>Version 2.0</p>
+  <p>Version 2.1</p>
 </div>
 
 <div id="bandeaux"></div>
@@ -163,7 +163,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.0';
+var APP_VER='2.1';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -702,12 +702,33 @@ function construireCsv(c,sep){
   });
   return lignes.map(function(l){ return l.map(function(x){ return celCsv(x,sep); }).join(sep); }).join('\r\n');
 }
+/* Remise d'un fichier à l'utilisateur. iPhone/iPad : un lien « download » sur un blob est ignoré ou ouvert en aperçu dans une
+   appli installée ; on passe par la feuille de partage (« Enregistrer dans Fichiers »). Ailleurs : téléchargement classique. */
+var EST_IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+function telechargerBlob(nom,blob){
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=nom;
+  document.body.appendChild(a); a.click(); setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},500);
+}
+function livrerFichier(nom,contenu,type,onOk){
+  var blob=new Blob([contenu],{type:type});
+  if(EST_IOS&&navigator.share&&navigator.canShare&&window.File){
+    try{
+      var f=new File([blob],nom,{type:type});
+      if(navigator.canShare({files:[f]})){
+        navigator.share({files:[f],title:nom}).then(function(){ if(onOk) onOk(); },function(err){
+          if(err&&err.name==='AbortError') return;
+          telechargerBlob(nom,blob); if(onOk) onOk();
+        });
+        return;
+      }
+    }catch(e){}
+  }
+  telechargerBlob(nom,blob); if(onOk) onOk();
+  toast(EST_IOS?'Fichier ouvert : touche Partager puis « Enregistrer dans Fichiers »':'Fichier enregistré dans Téléchargements',3500);
+}
 function telechargerCsv(){
   var c=classe(); if(!c) return;
-  var blob=new Blob(['﻿'+construireCsv(c,';')],{type:'text/csv;charset=utf-8'});
-  var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download='CO_EPS_'+c.nom.replace(/[^A-Za-z0-9À-ÿ_-]/g,'')+'_'+aujourdhui()+'.csv';
-  document.body.appendChild(a); a.click(); setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},500);
+  livrerFichier('CO_EPS_'+c.nom.replace(/[^A-Za-z0-9À-ÿ_-]/g,'')+'_'+aujourdhui()+'.csv','\ufeff'+construireCsv(c,';'),'text/csv;charset=utf-8');
 }
 function copierCsv(){
   var c=classe(); if(!c) return; var t=$('presse'); t.value=construireCsv(c,'\t'); t.select();
@@ -768,11 +789,10 @@ function appliquerEtat(o){
   }catch(err){ S=ancien; dessiner(); throw err; }
   sauver(); }
 function exporterSauvegarde(){
-  S.derniereSauv=Date.now(); sauver();
-  var copie=JSON.parse(JSON.stringify(S)); copie.mdp=null;
-  var blob=new Blob([JSON.stringify(copie)],{type:'application/json'}); var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download='CO_EPS_sauvegarde_'+aujourdhui()+'.json'; document.body.appendChild(a); a.click(); setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},500);
-  retirerBandeau('sauv'); if(S.onglet==='reglages') dessiner();
+  var copie=JSON.parse(JSON.stringify(S)); copie.mdp=null; copie.derniereSauv=Date.now();
+  livrerFichier('CO_EPS_sauvegarde_'+aujourdhui()+'.json',JSON.stringify(copie),'application/json',function(){
+    S.derniereSauv=copie.derniereSauv; sauver(); retirerBandeau('sauv'); if(S.onglet==='reglages') dessiner();
+  });
 }
 function nbElevesTotal(o){ var n=0; for(var k in (o.rosters||{})) n+=(o.rosters[k].eleves||[]).length; return n; }
 

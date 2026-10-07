@@ -1,4 +1,4 @@
-var CACHE='co-eps-v1-15';
+var CACHE='co-eps-v1-16';
 /* Fichiers indispensables : si l'un d'eux ne se télécharge pas, l'installation échoue (l'ancienne version reste en place
    et le navigateur réessaiera) plutôt que d'installer une appli incomplète. Les cartes sont tolérées : la page vérifie et
    re-télécharge toute carte manquante, sinon elle affiche un bandeau. */
