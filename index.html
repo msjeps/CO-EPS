@@ -171,7 +171,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.17';
+var APP_VER='2.18';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -262,7 +262,15 @@ function charger(){
   return o;
 }
 var timerSave=null;
-function sauver(){ try{ var t=JSON.stringify(S); localStorage.setItem(CLE,t); if(nbCl(S)) localStorage.setItem(CLE+'_auto',t); }catch(e){} }
+/* Deux onglets / fenêtres sur la même appli : le premier qui écrit gagne ; l'autre, devenu périmé, cesse d'écrire
+   (sinon il écraserait les données récentes) et propose de se recharger. */
+var perime=false, derniereEcriture=null;
+window.addEventListener('storage',function(e){
+  if(e.key!==CLE||!e.newValue||e.newValue===derniereEcriture||perime) return;
+  perime=true;
+  bandeau('perime','<p>⚠️ <b>L\'appli a été modifiée dans un autre onglet ou une autre fenêtre.</b> Cette page n\'est plus à jour et n\'enregistre plus.</p><button class="bouton bouton-primaire bouton-petit" data-act="recharger">Recharger cette page</button>');
+});
+function sauver(){ if(perime) return; try{ var t=JSON.stringify(S); derniereEcriture=t; localStorage.setItem(CLE,t); if(nbCl(S)) localStorage.setItem(CLE+'_auto',t); }catch(e){} }
 function sauverVite(){ clearTimeout(timerSave); timerSave=setTimeout(sauver,150); }
 S = charger(); S.appVer=APP_VER; if(S.onglet==='reglages') S.onglet='pose';
 if(S.modeEleve && !S.classes.some(function(k){ return k.id===S.modeEleve; })) S.modeEleve=null;
@@ -950,9 +958,15 @@ function boutonReset(){
   return '<button class="bouton bouton-danger" data-act="resetmdp">Réinitialiser au mot de passe par défaut</button>';
 }
 function afficherMdp(msg){
-  ouvrirModale('<div class="modale-header"><h3>🔒 Accès professeur</h3><button class="btn-fermer" data-act="fermer">&times;</button></div><label>Mot de passe</label><input type="text" id="inMdp" autocomplete="off" autocapitalize="characters" style="-webkit-text-security:disc">'+(msg?'<p style="color:#d32f2f">'+msg+'</p>':'')+'<button class="bouton bouton-primaire" data-act="okmdp">Valider</button>'+boutonReset()+'<p class="petit">Mot de passe : voir le guide professeur sur la page de l\'application du site outils-eps.fr.</p>');
+  ouvrirModale('<div class="modale-header"><h3>🔒 Accès professeur</h3><button class="btn-fermer" data-act="fermer">&times;</button></div><label>Mot de passe</label><input type="text" id="inMdp" autocomplete="off" autocapitalize="characters" style="-webkit-text-security:disc">'+(msg?'<p style="color:#d32f2f">'+msg+'</p>':'')+'<button class="bouton bouton-primaire" data-act="okmdp">Valider</button>'+boutonReset()+'<p class="petit">Mot de passe : voir le guide professeur sur la page de l\'application du site outils-eps.fr.</p>'); masquerMdp();
 }
-function mdpOk(v){ return S.mdp ? v===S.mdp : v===MDP_DEFAUT; }
+/* Le champ est en type=text (clavier en majuscules) masqué par -webkit-text-security ; si ce navigateur ignore cette propriété,
+   le mot de passe s'afficherait en clair : on bascule alors en type=password. */
+function masquerMdp(){
+  var i=$('inMdp'); if(!i) return;
+  try{ var cs=window.getComputedStyle(i), v=cs.webkitTextSecurity||cs.getPropertyValue('-webkit-text-security'); if(v!=='disc') i.type='password'; }catch(e){ i.type='password'; }
+}
+function mdpOk(v){ return S.mdp ? v===S.mdp : String(v).toUpperCase()===MDP_DEFAUT; }
 
 /* ============ ACTIONS (clics) ============ */
 document.addEventListener('click',function(e){
