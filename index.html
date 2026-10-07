@@ -167,7 +167,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.9';
+var APP_VER='2.10';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -334,7 +334,9 @@ function nouvelleClasse(nom){
 }
 function debut(c,g){ return c.depart.g[g]||c.depart.all||null; }
 function penG(c,g){ return c.pen[g]||(c.pen[g]={sep:0,ind:0,dep:0,rdv:0}); }
-function nbPen(c,g){ var p=c.pen[g]; return p?(p.sep+p.ind+p.dep+p.rdv):0; }
+/* Pénalité de RDV : calculée (1 par minute de retard à l'arrivée), jamais stockée : effacer ou corriger l'arrivée la recalcule */
+function retardRdv(c,g){ var a=c.arrivee[g]; if(!a||!c.rdv) return 0; var lim=limiteRdv(c,a); if(lim==null||a<=lim) return 0; return Math.ceil((a-lim)/60000); }
+function nbPen(c,g){ var p=c.pen[g]; return (p?(p.sep+p.ind+p.dep):0)+retardRdv(c,g); }
 function tempsCourse(c,g){ var d=debut(c,g),a=c.arrivee[g]; return (d&&a)?(a-d)/1000:null; }
 function tempsFinal(c,g){ var t=tempsCourse(c,g); return t==null?null:t+nbPen(c,g)*S.penSec; }
 function fmtPts(x){ return String(Math.round(x*100)/100).replace('.',','); }
@@ -665,6 +667,7 @@ function modaleGroupe(g){
   var h='<div class="modale-header"><h3>Groupe '+esc(g)+' — '+esc(c.nom)+'</h3><button class="btn-fermer" data-act="fermer">&times;</button></div>';
   h+='<label>Pénalités (+'+(S.penSec/60)+' min chacune)</label>';
   PENALITES.forEach(function(x){
+    if(x[0]==='rdv'){ var ret=retardRdv(c,g); h+='<div class="rangee"><div class="corps">'+x[1]+'<div class="petit">Automatique : 1 pénalité par minute de retard à l\'arrivée'+(c.rdv?' (RDV '+esc(c.rdv)+')':' (aucun RDV défini)')+'. Corrige l\'heure d\'arrivée pour la modifier.</div></div><div style="width:60px;text-align:center;font-weight:700">'+ret+'</div></div>'; return; }
     h+='<div class="rangee"><div class="corps">'+x[1]+'</div><div class="stepper-nombre" style="width:160px"><button class="stepper-btn" data-act="pen" data-g="'+esc(g)+'" data-k="'+x[0]+'" data-d="-1" aria-label="Retirer pénalité">−</button><input type="text" readonly value="'+p[x[0]]+'" style="margin:0 6px"><button class="stepper-btn" data-act="pen" data-g="'+esc(g)+'" data-k="'+x[0]+'" data-d="1" aria-label="Ajouter pénalité">+</button></div></div>';
   });
   h+='<div class="grille g2"><div><label>Heure de départ</label><input type="time" step="1" id="hDep" value="'+(debut(c,g)?heure(debut(c,g)):'')+'"></div><div><label>Heure d\'arrivée</label><input type="time" step="1" id="hArr" value="'+(c.arrivee[g]?heure(c.arrivee[g]):'')+'"></div></div>';
@@ -934,10 +937,10 @@ document.addEventListener('click',function(e){
     case 'departall': if(c){ c.depart.all=Date.now(); S.groupes.forEach(function(x){ if(!c.absents[x]) {} }); sauver(); dessiner(); } break;
     case 'annulerdepartall': if(c) confirmer('Annuler le départ de tous ?',function(){ c.depart.all=null; sauver(); dessiner(); },'Annuler le départ',true); break;
     case 'depart': if(c){ c.depart.g[g]=Date.now(); sauver(); dessiner(); } break;
-    case 'arrivee': if(c){ var now=Date.now(); var p=penG(c,g); dernierArr={cid:c.id,g:g,rdv:p.rdv}; c.arrivee[g]=now; if(c.rdv){ var m=/^(\d+):(\d+)$/.exec(c.rdv); if(m){ var d=new Date(now); var lim=new Date(now); lim.setHours(+m[1],+m[2],59,999); if(now>lim.getTime()&&!p.rdv) p.rdv=1; } } sauver(); dessiner(); try{ if(navigator.vibrate) navigator.vibrate(60); }catch(ve){} toastAnnuler('Arrivée '+g+' enregistrée à '+heure(now)); } break;
-    case 'annulerarr': if(dernierArr){ var ca=null; S.classes.forEach(function(x){ if(x.id===dernierArr.cid) ca=x; }); if(ca){ delete ca.arrivee[dernierArr.g]; penG(ca,dernierArr.g).rdv=dernierArr.rdv; sauver(); dessiner(); } fermerToastAnn(); } break;
+    case 'arrivee': if(c){ var now=Date.now(); dernierArr={cid:c.id,g:g}; c.arrivee[g]=now; sauver(); dessiner(); try{ if(navigator.vibrate) navigator.vibrate(60); }catch(ve){} toastAnnuler('Arrivée '+g+' enregistrée à '+heure(now)); } break;
+    case 'annulerarr': if(dernierArr){ var ca=null; S.classes.forEach(function(x){ if(x.id===dernierArr.cid) ca=x; }); if(ca){ delete ca.arrivee[dernierArr.g]; sauver(); dessiner(); } fermerToastAnn(); } break;
     case 'grp': modaleGroupe(g); break;
-    case 'pen': if(c){ var pp=penG(c,g), k=el.getAttribute('data-k'); pp[k]=Math.max(0,pp[k]+parseInt(el.getAttribute('data-d'),10)); sauver(); modaleGroupe(g); dessiner(); } break;
+    case 'pen': if(c){ var pp=penG(c,g), k=el.getAttribute('data-k'); if(k==='rdv') break; pp[k]=Math.max(0,pp[k]+parseInt(el.getAttribute('data-d'),10)); sauver(); modaleGroupe(g); dessiner(); } break;
     case 'majheures': if(c){ var rd=debut(c,g)||c.arrivee[g]||Date.now(); var dd=secDepuisHeure($('hDep').value,rd), aa=secDepuisHeure($('hArr').value,rd); if(dd){ c.depart.g[g]=dd; } if(aa){ c.arrivee[g]=aa; } sauver(); fermerModale(); dessiner(); } break;
     case 'effdep': if(c){ delete c.depart.g[g]; if(c.mode==='groupe') {} sauver(); fermerModale(); dessiner(); } break;
     case 'effarr': if(c){ delete c.arrivee[g]; sauver(); fermerModale(); dessiner(); } break;
