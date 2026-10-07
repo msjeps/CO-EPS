@@ -162,12 +162,12 @@ var GROUPES_DEFAUT=['A1','A2','A3','A4','B1','B2','B3','B4','C1','C2','C3','C4',
 function etatInitial(){
   return {
     v:1, groupes:GROUPES_DEFAUT.slice(),
-    sets:[], penSec:60, indices:true, ptsBalise:1, ptsIndice:0.5, mdp:null, sombre:false, afficherAttendu:true, initiales:false, derniereSauv:0, rappelJusqua:0,
+    sets:[], penSec:60, modeEleve:null, indices:true, ptsBalise:1, ptsIndice:0.5, mdp:null, sombre:false, afficherAttendu:true, initiales:false, derniereSauv:0, rappelJusqua:0,
     seance:{setIds:['Orange','Bleu'], assign:{}, parcours:1, pos:{}, etat:{}, poste:{}, desc:{}},
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.11';
+var APP_VER='2.12';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -191,6 +191,7 @@ function etatValide(o){
     if(o.cur!==null && typeof o.cur!=='string') o.cur=null;
     if(typeof o.initiales!=='boolean') o.initiales=false;
     if(typeof o.indices!=='boolean') o.indices=true;
+    if(typeof o.modeEleve!=='string') o.modeEleve=null;
     if(!estNb(o.ptsBalise)||o.ptsBalise<0.5||o.ptsBalise>100) o.ptsBalise=1;
     if(!estNb(o.ptsIndice)||o.ptsIndice<0||o.ptsIndice>o.ptsBalise) o.ptsIndice=Math.min(0.5,o.ptsBalise);
     if(!estNb(o.derniereSauv)) o.derniereSauv=0;
@@ -260,6 +261,8 @@ var timerSave=null;
 function sauver(){ try{ var t=JSON.stringify(S); localStorage.setItem(CLE,t); if(nbCl(S)) localStorage.setItem(CLE+'_auto',t); }catch(e){} }
 function sauverVite(){ clearTimeout(timerSave); timerSave=setTimeout(sauver,150); }
 S = charger(); S.appVer=APP_VER; if(S.onglet==='reglages') S.onglet='pose';
+if(S.modeEleve && !S.classes.some(function(k){ return k.id===S.modeEleve; })) S.modeEleve=null;
+if(S.modeEleve){ S.cur=S.modeEleve; if(S.onglet!=='course'&&S.onglet!=='verif') S.onglet='course'; }
 sauver(); if(MSG_RESTAURE) setTimeout(function(){ toast(MSG_RESTAURE); },600);
 try{ var evEl=document.querySelector('.en-tete p'); if(evEl) evEl.textContent='Version '+APP_VER; }catch(e){}
 try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){}
@@ -483,13 +486,16 @@ function ajouterEleve(r,nom,sexe){ nom=(nom||'').trim(); if(!nom) return; r.elev
 /* ============ NAVIGATION ============ */
 var ONGLETS=[['groupes','👥','Groupes'],['pose','📍','Pose'],['carte','🗺️','Carte'],['course','⏱️','Course'],['verif','✅','Vérif.'],['classement','🏆','Podium'],['reglages','⚙️','Réglages']];
 var deverrouille=false, uiVerifG=null, uiSel=null, uiZoom=1, uiCsvDetail=true;
+var ONGLETS_ELEVE=['course','verif'];
+var ACTES_ELEVE=['nav','vg','indice','depart','departall','arrivee','annulerarr','dlgoui','dlgnon','fermer','okmdp','resetmdp','recharger','sortireleve','aide'];
 function allerA(o){
+  if(S.modeEleve && ONGLETS_ELEVE.indexOf(o)<0) o='course';
   if(o==='reglages' && !deverrouille){ demanderMdp(function(){ deverrouille=true; allerA('reglages'); }); return; }
   if(o!=='reglages') deverrouille=false;
   S.onglet=o; sauverVite(); dessiner(); window.scrollTo({top:0,behavior:'smooth'});
 }
 function dessinerBarre(){
-  $('barre').innerHTML=ONGLETS.map(function(o){ return '<button data-act="nav" data-o="'+o[0]+'" class="'+(S.onglet===o[0]?'actif':'')+'"><span>'+o[1]+'</span>'+o[2]+'</button>'; }).join('');
+  $('barre').innerHTML=ONGLETS.filter(function(o){ return !S.modeEleve||ONGLETS_ELEVE.indexOf(o[0])>=0; }).map(function(o){ return '<button data-act="nav" data-o="'+o[0]+'" class="'+(S.onglet===o[0]?'actif':'')+'"><span>'+o[1]+'</span>'+o[2]+'</button>'; }).join('');
 }
 /* Redessine sans perdre le texte en cours de frappe (champs « Ajouter un élève » et « Coller la liste ») ni la position de défilement */
 function dessinerGarde(){
@@ -501,6 +507,7 @@ function dessinerGarde(){
 }
 function dessiner(){
   document.body.className=S.sombre?'mode-sombre':'';
+  if(S.modeEleve){ S.cur=S.modeEleve; if(ONGLETS_ELEVE.indexOf(S.onglet)<0) S.onglet='course'; var ce=classe(); bandeau('eleve','<p>🔒 <b>Mode élève</b> — classe '+esc(ce?ce.nom:'')+' : chrono et vérifications seulement.</p><button class="bouton bouton-clair bouton-petit" data-act="sortireleve">Quitter (mot de passe prof)</button>'); } else retirerBandeau('eleve');
   dessinerBarre();
   var v=$('vue'), o=S.onglet;
   v.innerHTML = o==='groupes'?vueGroupes():o==='pose'?vuePose():o==='carte'?vueCarte():o==='course'?vueCourse():o==='verif'?vueVerif():o==='classement'?vueClassement():vueReglages();
@@ -617,6 +624,7 @@ function clicCarte(ev){
 
 /* ============ VUE : COURSE ============ */
 function selecteurClasse(){
+  if(S.modeEleve){ var ck=classe(); return '<p>Classe : <b>'+esc(ck?ck.nom:'')+'</b></p>'; }
   var h='<div class="ligne" style="align-items:flex-end"><div style="flex:1;min-width:150px"><label>Classe</label><select data-chg="classe">'+
     S.classes.map(function(c){return '<option value="'+c.id+'"'+(c.id===S.cur?' selected':'')+'>'+esc(c.nom)+'</option>';}).join('')+(S.classes.length?'':'<option>— aucune —</option>')+'</select></div>'+
     '<button class="bouton bouton-secondaire bouton-petit" data-act="newclasse">+ Classe</button></div>';
@@ -653,22 +661,22 @@ function alerteRdv(msg,vib){ toast(msg,6000); try{ if(navigator.vibrate) navigat
 function vueCourse(){
   var c=classe(), h='<div class="section section-course"><h2>Course</h2>'+selecteurClasse();
   if(!c) return h+'<p>Crée une classe (ex. 6eB) pour commencer.</p></div>';
-  h+='<div class="grille g2"><div><label>Mode de départ</label><select data-chg="mode"><option value="tous"'+(c.mode==='tous'?' selected':'')+'>Départ de tous ensemble</option><option value="groupe"'+(c.mode==='groupe'?' selected':'')+'>Départ groupe par groupe</option></select></div>'+
+  if(S.modeEleve) h+='<p class="petit">'+(c.mode==='tous'?'Départ de tous ensemble':'Départ groupe par groupe')+(c.rdv?' · RDV max '+esc(c.rdv):'')+'</p>'; else h+='<div class="grille g2"><div><label>Mode de départ</label><select data-chg="mode"><option value="tous"'+(c.mode==='tous'?' selected':'')+'>Départ de tous ensemble</option><option value="groupe"'+(c.mode==='groupe'?' selected':'')+'>Départ groupe par groupe</option></select></div>'+
      '<div><label>Heure RDV max</label><input type="time" data-chg="rdv" value="'+esc(c.rdv)+'"></div></div>';
   if(c.mode==='tous'){
-    h+= c.depart.all ? '<p>🚦 Départ donné à <b>'+heure(c.depart.all)+'</b> <button class="chip" data-act="annulerdepartall">Annuler</button></p>' : '<button class="bouton bouton-primaire" data-act="departall">🚦 Donner le départ à tous</button>';
+    h+= c.depart.all ? '<p>🚦 Départ donné à <b>'+heure(c.depart.all)+'</b>'+(S.modeEleve?'':' <button class="chip" data-act="annulerdepartall">Annuler</button>')+'</p>' : '<button class="bouton bouton-primaire" data-act="departall">🚦 Donner le départ à tous</button>';
   }
   h+=bilanCourse(c);
   h+='</div><div class="section section-course"><h2>Groupes — '+esc(c.nom)+'</h2>';
   S.groupes.forEach(function(g){
-    if(c.absents[g]) { h+='<div class="rangee" style="opacity:.5"><div class="nom">'+esc(g)+'</div><div class="corps petit">absent</div><button class="chip" data-act="grp" data-g="'+esc(g)+'" style="margin:0">⋯</button></div>'; return; }
+    if(c.absents[g]) { h+='<div class="rangee" style="opacity:.5"><div class="nom">'+esc(g)+'</div><div class="corps petit">absent</div>'+(S.modeEleve?'':'<button class="chip" data-act="grp" data-g="'+esc(g)+'" style="margin:0">⋯</button>')+'</div>'; return; }
     var d=debut(c,g), a=c.arrivee[g], np=nbPen(c,g), mid, btn;
     if(a&&d){ mid='<span class="temps">'+fmt(tempsFinal(c,g))+'</span> <span class="petit">('+fmt(tempsCourse(c,g))+(np?' + '+np+' pén.':'')+')</span>'; btn='<span class="tag tag-ok">arrivé '+heure(a)+'</span>'; }
     else if(d){ mid='<span class="temps" data-live="'+d+'">'+fmt((Date.now()-d)/1000)+'</span>'+(np?' <span class="petit">+'+np+' pén.</span>':''); btn='<button class="bouton bouton-danger bouton-petit" data-act="arrivee" data-g="'+esc(g)+'">Arrivée</button>'; }
     else { mid='<span class="petit">'+(c.mode==='tous'?'en attente du départ':'prêt')+'</span>'; btn= c.mode==='groupe'?'<button class="bouton bouton-primaire bouton-petit" data-act="depart" data-g="'+esc(g)+'">Départ</button>':''; }
-    var nm0=nomsGroupe(c,g); h+='<div class="rangee"><div class="nom">'+esc(g)+'</div><div class="corps">'+(nm0?'<div class="petit">'+esc(nm0)+'</div>':'')+mid+'</div><div>'+btn+'</div><button class="chip" data-act="grp" data-g="'+esc(g)+'" style="margin:0 0 0 8px" aria-label="Détails du groupe '+esc(g)+'">⋯</button></div>';
+    var nm0=nomsGroupe(c,g); h+='<div class="rangee"><div class="nom">'+esc(g)+'</div><div class="corps">'+(nm0?'<div class="petit">'+esc(nm0)+'</div>':'')+mid+'</div><div>'+btn+'</div>'+(S.modeEleve?'':'<button class="chip" data-act="grp" data-g="'+esc(g)+'" style="margin:0 0 0 8px" aria-label="Détails du groupe '+esc(g)+'">⋯</button>')+'</div>';
   });
-  return h+'<p class="petit">« ⋯ » : pénalités (+'+S.penSec/60+' min chacune), correction des heures, groupe absent.</p></div>';
+  return h+(S.modeEleve?'<p class="petit">Pénalités et corrections : demande au professeur.</p></div>':'<p class="petit">« ⋯ » : pénalités (+'+S.penSec/60+' min chacune), correction des heures, groupe absent.</p></div>');
 }
 function modaleGroupe(g){
   var c=classe(); if(!c) return; var p=penG(c,g);
@@ -806,6 +814,7 @@ function vueReglages(){
   h+='<div class="section"><h2>Affichage</h2><div class="rangee"><div class="corps">Mode sombre</div><label class="switch"><input type="checkbox" data-chg="sombre"'+(S.sombre?' checked':'')+'><span class="slider"></span></label></div>'+
      '<div class="rangee"><div class="corps">Afficher le code attendu quand une saisie est fausse</div><label class="switch"><input type="checkbox" data-chg="attendu"'+(S.afficherAttendu?' checked':'')+'><span class="slider"></span></label></div>'+
      '<div class="rangee"><div class="corps">Élèves affichés par initiales (écran partagé ou projeté)<div class="petit">Ex. « DUPONT Léa » devient « D.L. ». L\'export CSV garde les noms complets ; modifier un nom demande le mot de passe.</div></div><label class="switch"><input type="checkbox" data-chg="initiales"'+(S.initiales?' checked':'')+'><span class="slider"></span></label></div></div>';
+  var cm=classe(); h+='<div class="section"><h2>Mode élève</h2><p>Pour confier la tablette à un élève dispensé : il ne voit que <b>Course</b> (départ, arrivée) et <b>Vérif.</b> (saisie des codes, indices) de <b>une seule classe</b>. Pas de Pose, Carte, Groupes, Podium ni Réglages, pas de pénalités ni de corrections.</p>'+(cm?'<button class="bouton bouton-secondaire" data-act="entreleve">🔒 Passer en mode élève (classe '+esc(cm.nom)+')</button>':'<p class="petit">Crée une classe d\'abord.</p>')+'</div>';
   h+='<div class="section"><h2>Indices</h2><div class="rangee"><div class="corps">Indices sur les balises<div class="petit">Le groupe qui pose la balise peut écrire un indice (onglet Carte). Désactivé : les indices ne s\'affichent plus (ils restent enregistrés).</div></div><label class="switch"><input type="checkbox" data-chg="indices"'+(S.indices?' checked':'')+'><span class="slider"></span></label></div></div>';
   h+='<div class="section"><h2>Points</h2><label>Points par balise trouvée</label><div class="stepper-nombre"><button class="stepper-btn" data-act="ptsb" data-d="-0.5" aria-label="Moins de points">−</button><input type="text" readonly value="'+fmtPts(S.ptsBalise)+'"><button class="stepper-btn" data-act="ptsb" data-d="0.5" aria-label="Plus de points">+</button></div>'+(S.indices?'<label>Points par balise trouvée avec indice</label><div class="stepper-nombre"><button class="stepper-btn" data-act="ptsi" data-d="-0.5" aria-label="Moins de points avec indice">−</button><input type="text" readonly value="'+fmtPts(S.ptsIndice)+'"><button class="stepper-btn" data-act="ptsi" data-d="0.5" aria-label="Plus de points avec indice">+</button></div>':'')+'<p class="petit">Le classement se fait aux points, puis au temps. Une balise non trouvée vaut 0, même si son indice a été révélé.</p></div>';
   h+='<div class="section"><h2>Sauvegarde</h2><p class="petit">Dernière sauvegarde : <b>'+texteAge()+'</b>.</p><p class="petit">Sauvegarde toutes les données (classes, élèves, groupes, résultats, balises) dans un fichier (sans le mot de passe prof). Il contient les noms des élèves : garde-le sur ta tablette ou ton ordinateur, ne le partage pas.</p><button class="bouton bouton-secondaire" data-act="exportsauv">⬇️ Exporter une sauvegarde</button></div>';
@@ -842,7 +851,7 @@ function lireGrille(){
 
 function appliquerEtat(o){
   if(!etatValide(o)) throw new Error('etat invalide');
-  var ancien=S, d=etatInitial(); for(var k in d){ if(!(k in o)) o[k]=d[k]; } S=o; S.appVer=APP_VER; S.mdp=ancien.mdp;
+  var ancien=S, d=etatInitial(); for(var k in d){ if(!(k in o)) o[k]=d[k]; } S=o; S.appVer=APP_VER; S.mdp=ancien.mdp; S.modeEleve=null;
   try{
     var pris={}; S.classes.forEach(function(c){ if(!S.rosters[c.id] && S.rosters[c.nom] && !pris[c.nom]){ S.rosters[c.id]=S.rosters[c.nom]; pris[c.nom]=1; } });
     Object.keys(S.rosters).forEach(function(k){ if(!S.classes.some(function(c){return c.id===k;})) delete S.rosters[k]; });
@@ -914,6 +923,7 @@ document.addEventListener('click',function(e){
   if(cw && e.target.id==='carteImg'){ clicCarte(e); return; }
   var el=e.target.closest('[data-act]'); if(!el) return;
   var a=el.getAttribute('data-act'), g=el.getAttribute('data-g'), b=el.getAttribute('data-b'), c=classe();
+  if(S.modeEleve && ACTES_ELEVE.indexOf(a)<0) return;
   switch(a){
     case 'addeleve': if(c){ var inp=$('inEleve'); ajouterEleve(roster(c),inp.value,el.getAttribute('data-s')); sauver(); dessiner(); var i2=$('inEleve'); if(i2) i2.focus(); } break;
     case 'importeleves': if(c){ var res=importerEleves(roster(c),$('inListe').value); sauver(); dessiner(); toast(res.ajoutes+' ajouté(s)'+(res.majs?' · '+res.majs+' genre(s) corrigé(s)':'')+(res.doublons?' · '+res.doublons+' doublon(s)':'')); } break;
@@ -927,6 +937,8 @@ document.addEventListener('click',function(e){
     case 'delclasse': if(c) demanderMdp(function(){ confirmer('Supprimer la classe '+c.nom+' (chronos, codes et liste d\'élèves) ?',function(){ delete S.rosters[c.id]; S.classes=S.classes.filter(function(x){return x.id!==c.id;}); S.cur=S.classes.length?S.classes[0].id:null; if(!S.classes.length){ try{ localStorage.removeItem(CLE+'_auto'); localStorage.removeItem(CLE+'_avant_maj'); }catch(e){} } sauver(); dessiner(); },'Supprimer la classe',true); }); break;
     case 'exportsauv': exporterSauvegarde(); break;
     case 'restaureravant': try{ var ob=JSON.parse(localStorage.getItem(CLE+'_avant_maj')); if(!etatValide(ob)) throw 1; confirmer('Restaurer l\'état d\'avant la dernière mise à jour ('+(ob.classes||[]).length+' classe(s), '+nbElevesTotal(ob)+' élève(s)) ? Les données actuelles seront remplacées.',function(){ try{ appliquerEtat(ob); toast('Données restaurées'); }catch(er2){ avertir('Restauration impossible : rien n\'a été modifié.'); } },'Restaurer'); }catch(er){ avertir('Restauration impossible.'); } break;
+    case 'entreleve': if(c) confirmer('Passer en mode élève pour la classe '+c.nom+' ? La tablette ne montrera plus que Course et Vérif. de cette classe (chrono et saisie des codes). Pour en sortir : bouton « Quitter » et mot de passe prof.',function(){ S.modeEleve=c.id; S.cur=c.id; S.onglet='course'; deverrouille=false; sauver(); dessiner(); window.scrollTo(0,0); },'Passer en mode élève'); break;
+    case 'sortireleve': demanderMdp(function(){ S.modeEleve=null; S.onglet='course'; sauver(); dessiner(); toast('Mode professeur'); }); break;
     case 'fermerreglages': allerA('pose'); break;
     case 'nav': allerA(el.getAttribute('data-o')); break;
     case 'fermer': fermerModale(); break;
@@ -985,7 +997,7 @@ document.addEventListener('click',function(e){
   }
 });
 document.addEventListener('change',function(e){
-  var t=e.target, k=t.getAttribute&&t.getAttribute('data-chg'); if(!k) return; var c=classe();
+  var t=e.target, k=t.getAttribute&&t.getAttribute('data-chg'); if(!k) return; if(S.modeEleve) return; var c=classe();
   switch(k){
     case 'setid': S.seance.setIds[parseInt(t.getAttribute('data-i'),10)]=t.value; sauver(); dessiner(); break;
     case 'assign': var g=t.getAttribute('data-g'); if(t.value){ for(var x in S.seance.assign) if(S.seance.assign[x]===t.value) delete S.seance.assign[x]; S.seance.assign[g]=t.value; } else delete S.seance.assign[g]; sauver(); dessiner(); break;
@@ -1025,6 +1037,7 @@ function bandeau(id,html){ var b=$('b_'+id); if(!b){ b=document.createElement('d
 function texteAge(){ if(!S.derniereSauv) return 'jamais'; var j=Math.floor((Date.now()-S.derniereSauv)/86400000); return j<1?'aujourd\'hui':'il y a '+j+' jour(s)'; }
 /* Rappel de sauvegarde : élèves enregistrés et pas d'export depuis plus de 30 jours ; « Plus tard » repousse de 7 jours */
 function majRappelSauvegarde(){
+  if(S.modeEleve){ retirerBandeau('sauv'); return; }
   var age=S.derniereSauv?(Date.now()-S.derniereSauv)/86400000:Infinity;
   if(nbElevesTotal(S)>0 && age>30 && Date.now()>S.rappelJusqua && S.onglet!=='reglages')
     bandeau('sauv','<p>💾 <b>Pense à sauvegarder tes données</b> (dernière sauvegarde : '+texteAge()+').</p><div class="ligne"><button class="bouton bouton-primaire bouton-petit" data-act="exportsauv">Exporter maintenant</button><button class="bouton bouton-clair bouton-petit" data-act="plustard">Plus tard</button></div>');
