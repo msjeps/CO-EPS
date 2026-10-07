@@ -76,6 +76,8 @@ body.mode-sombre .tag-att{background:#5a4318;color:#ffe2a8}
 .carte-inner img{width:100%;display:block;user-select:none;-webkit-user-drag:none}
 .marqueur{position:absolute;cursor:pointer;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;border:1px solid #fff;box-shadow:0 0 0 1px #000;color:#fff;font-weight:800;font-size:8px;line-height:16px;text-align:center;touch-action:none}
 .marqueur::after{content:'';position:absolute;left:-14px;top:-14px;width:44px;height:44px;border-radius:50%}
+:focus-visible{outline:3px solid #ff9800;outline-offset:2px}
+body.mode-sombre :focus-visible{outline-color:#ffd54f}
 .info-pastille{background:#222;color:#fff;border-radius:10px;padding:8px 12px;margin:8px 0;font-size:14px;line-height:1.35;min-height:44px;overflow:hidden}
 .info-pastille .petit{color:#ddd}
 .marqueur{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
@@ -169,7 +171,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.16';
+var APP_VER='2.17';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -280,7 +282,7 @@ function pad(n){return (n<10?'0':'')+n;}
 function fmt(sec){ sec=Math.max(0,Math.round(sec)); var h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60; return (h?h+':'+pad(m):m)+':'+pad(s); }
 function heure(ts){ var d=new Date(ts); return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()); }
 function aujourdhui(){ var d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
-function toast(msg,ms){ var t=document.createElement('div'); t.className='message-succes'; t.style.cssText='position:fixed;left:14px;right:14px;bottom:76px;z-index:200;'; t.textContent=msg; document.body.appendChild(t); setTimeout(function(){t.parentNode&&t.parentNode.removeChild(t);},ms||2000); }
+function toast(msg,ms){ var t=document.createElement('div'); t.className='message-succes'; t.setAttribute('role','status'); t.style.cssText='position:fixed;left:14px;right:14px;bottom:76px;z-index:200;'; t.textContent=msg; document.body.appendChild(t); setTimeout(function(){t.parentNode&&t.parentNode.removeChild(t);},ms||2000); }
 
 /* Toast avec bouton « Annuler » (arrivée touchée par erreur) */
 var dernierArr=null, timerAnn=null;
@@ -496,8 +498,36 @@ function allerA(o){
   if(o!=='reglages') deverrouille=false;
   S.onglet=o; sauverVite(); dessiner(); window.scrollTo({top:0,behavior:'smooth'});
 }
+/* Accessibilité : associe chaque <label> à son champ (for/id) et donne un nom aux champs qui n'ont pas d'étiquette
+   (interrupteurs, codes, menus des groupes), pour les lecteurs d'écran. Appelée après chaque affichage. */
+var cptId=0;
+function nomCourt(el){ var t=el?(el.textContent||''):''; return t.replace(/\s+/g,' ').trim().slice(0,80); }
+function lierEtiquettes(){
+  try{
+    var i, ls=document.querySelectorAll('label:not(.switch)');
+    for(i=0;i<ls.length;i++){ var l=ls[i]; if(l.getAttribute('for')) continue; var n=l.nextElementSibling; if(!n) continue;
+      var ctl=/^(INPUT|SELECT|TEXTAREA)$/.test(n.tagName)?n:(n.className&&/stepper-nombre/.test(n.className)?n.querySelector('input'):null);
+      if(!ctl||ctl.type==='hidden') continue; if(!ctl.id) ctl.id='f'+(++cptId); l.setAttribute('for',ctl.id); }
+    var sw=document.querySelectorAll('label.switch input');
+    for(i=0;i<sw.length;i++){ var si=sw[i]; if(si.getAttribute('aria-label')) continue; var lab=si.parentNode, row=lab.closest?lab.closest('.rangee'):null, co=row?row.querySelector('.corps'):null;
+      si.setAttribute('aria-label',lab.getAttribute('title')||(co&&co.firstChild?nomCourt(co.firstChild):nomCourt(co))||'Option'); }
+    var cs=document.querySelectorAll('input[data-in]');
+    for(i=0;i<cs.length;i++){ var rw=cs[i].closest?cs[i].closest('.rangee'):null, bb=rw?rw.querySelector('b'):null; cs[i].setAttribute('aria-label','Code relevé pour '+(bb?nomCourt(bb):'la balise')); }
+    var gc=document.querySelectorAll('input[data-cb]');
+    for(i=0;i<gc.length;i++) gc[i].setAttribute('aria-label','Code de la balise '+gc[i].getAttribute('data-cb')+', groupe '+gc[i].getAttribute('data-cg'));
+    var as=document.querySelectorAll('select[data-chg="assign"]');
+    for(i=0;i<as.length;i++) as[i].setAttribute('aria-label','Balise posée par le groupe '+as[i].getAttribute('data-g'));
+    var fs=document.querySelectorAll('input[type="file"]');
+    for(i=0;i<fs.length;i++) if(!fs[i].getAttribute('aria-label')&&!(fs[i].labels&&fs[i].labels.length)) fs[i].setAttribute('aria-label',fs[i].getAttribute('data-chg')==='fichiersauv'?'Choisir un fichier de sauvegarde à restaurer':'Choisir un fichier');
+    var mv=document.querySelectorAll('select[data-chg="moveel"]');
+    for(i=0;i<mv.length;i++){ var sp=mv[i].parentNode&&mv[i].parentNode.firstElementChild; mv[i].setAttribute('aria-label','Groupe de '+(sp?nomCourt(sp):"l'élève")); }
+    var bt=document.querySelectorAll('[data-act="renom"],[data-act="sexe"]');
+    for(i=0;i<bt.length;i++){ if(bt[i].tagName!=='BUTTON'&&!bt[i].getAttribute('role')){ bt[i].setAttribute('role','button'); bt[i].setAttribute('tabindex','0'); } }
+  }catch(e){}
+}
+document.addEventListener('keydown',function(e){ var t=e.target, k=e.key; if((k==='Enter'||k===' ')&&t&&t.getAttribute&&t.getAttribute('role')==='button'&&t.tagName!=='BUTTON'&&t.getAttribute('data-act')){ e.preventDefault(); t.click(); } });
 function dessinerBarre(){
-  $('barre').innerHTML=ONGLETS.filter(function(o){ return !S.modeEleve||ONGLETS_ELEVE.indexOf(o[0])>=0; }).map(function(o){ return '<button data-act="nav" data-o="'+o[0]+'" class="'+(S.onglet===o[0]?'actif':'')+'"><span>'+o[1]+'</span>'+o[2]+'</button>'; }).join('');
+  $('barre').innerHTML=ONGLETS.filter(function(o){ return !S.modeEleve||ONGLETS_ELEVE.indexOf(o[0])>=0; }).map(function(o){ return '<button data-act="nav" data-o="'+o[0]+'" class="'+(S.onglet===o[0]?'actif':'')+'"'+(S.onglet===o[0]?' aria-current="page"':'')+'><span aria-hidden="true">'+o[1]+'</span>'+o[2]+'</button>'; }).join('');
 }
 /* Redessine sans perdre le texte en cours de frappe (champs « Ajouter un élève » et « Coller la liste ») ni la position de défilement */
 function dessinerGarde(){
@@ -515,6 +545,7 @@ function dessiner(){
   v.innerHTML = o==='groupes'?vueGroupes():o==='pose'?vuePose():o==='carte'?vueCarte():o==='course'?vueCourse():o==='verif'?vueVerif():o==='classement'?vueClassement():vueReglages();
   if(o==='course') majRdvLive(classe());
   majRappelSauvegarde();
+  lierEtiquettes();
 }
 
 /* ============ VUE : POSE ============ */
@@ -568,7 +599,7 @@ function vueCarte(){
      '<button class="bouton bouton-clair bouton-petit" data-act="retirerpos">Retirer la position de la balise choisie</button></div>';
   h+='<div class="info-pastille" id="infoPastille">'+contenuInfo()+'</div>';
   h+='<div class="carte-wrap" id="carteWrap"><div class="carte-inner" id="carteInner" style="width:'+(uiZoom*100)+'%"><img id="carteImg" src="cartes/parcours'+sp+'.jpg" alt="Carte du parcours '+sp+'" onerror="this.parentNode.innerHTML=\'<p style=&quot;padding:20px;line-height:1.4&quot;>Carte du parcours '+sp+' introuvable.<br>Ajoute le fichier <b>cartes/parcours'+sp+'.jpg</b> dans le dossier de l\\\'appli.</p>\'">';
-  ids.forEach(function(b){ var p=posB(b); if(!p) return; var s=getSet(parseB(b).setId); h+='<div class="marqueur'+(uiInfo===b?' sel':'')+'" data-b="'+esc(b)+'" style="left:'+p.x+'%;top:'+p.y+'%;background:'+baliseCouleur(b)+';color:'+(s&&s.builtin&&TEXTE_SOMBRE[s.id]?'#222':'#fff')+'">'+esc(poseur(b))+'</div>'; });
+  ids.forEach(function(b){ var p=posB(b); if(!p) return; var s=getSet(parseB(b).setId); h+='<div class="marqueur'+(uiInfo===b?' sel':'')+'" role="img" aria-label="'+esc(baliseLabel(b))+', posée par '+esc(poseur(b))+'" data-b="'+esc(b)+'" style="left:'+p.x+'%;top:'+p.y+'%;background:'+baliseCouleur(b)+';color:'+(s&&s.builtin&&TEXTE_SOMBRE[s.id]?'#222':'#fff')+'">'+esc(poseur(b))+'</div>'; });
   h+='</div></div></div>';
   return h;
 }
@@ -874,7 +905,7 @@ function exporterSauvegarde(){
 function nbElevesTotal(o){ var n=0; for(var k in (o.rosters||{})) n+=(o.rosters[k].eleves||[]).length; return n; }
 
 /* ============ MODALES / MOT DE PASSE ============ */
-function ouvrirModale(h){ var m=$('modale'); m.className='modale-fond'; m.innerHTML='<div class="modale">'+h+'</div>'; }
+function ouvrirModale(h){ var m=$('modale'); m.className='modale-fond'; m.innerHTML='<div class="modale" role="dialog" aria-modal="true">'+h+'</div>'; lierEtiquettes(); }
 function fermerModale(){ var m=$('modale'); m.className='cache'; m.innerHTML=''; }
 /* ============ DIALOGUES (remplacent prompt / confirm / alert, qui font sortir du plein écran sur tablette) ============ */
 var cbDialogue=null;
@@ -882,7 +913,7 @@ function fermerDialogue(){ var d=$('dialogue'); d.className='cache'; d.innerHTML
 function dialogue(o,cb){
   cbDialogue=cb||null; var d=$('dialogue'); d.className='modale-fond'; d.style.zIndex=150;
   d.innerHTML='<div class="modale" role="dialog" aria-modal="true">'+(o.titre?'<h3 style="margin:0 0 8px">'+esc(o.titre)+'</h3>':'')+'<p style="white-space:pre-line;margin:6px 0 10px">'+esc(o.message||'')+'</p>'+
-    (o.champ?'<input type="'+(o.secret?'password':'text')+'" id="inDialogue" value="'+esc(o.valeur||'')+'" autocomplete="off">':'')+
+    (o.champ?'<input type="'+(o.secret?'password':'text')+'" id="inDialogue" aria-label="'+esc(o.message||'Saisie')+'" value="'+esc(o.valeur||'')+'" autocomplete="off">':'')+
     '<div class="grille'+(o.annuler===false?'':' g2')+'">'+(o.annuler===false?'':'<button class="bouton bouton-clair" data-act="dlgnon">Annuler</button>')+
     '<button class="bouton '+(o.danger?'bouton-danger':'bouton-primaire')+'" data-act="dlgoui">'+esc(o.ok||'OK')+'</button></div></div>';
   var i=$('inDialogue'); if(i){ i.focus(); i.select(); }
