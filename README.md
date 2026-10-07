@@ -1,4 +1,4 @@
-# CO EPS — Course d'orientation
+# CO EPS - Course d'orientation
 
 PWA hors ligne pour gérer une course d'orientation en 6e : pose des balises par les groupes, carte, chrono, vérification des codes, classement et export CSV.
 
