@@ -76,7 +76,7 @@ body.mode-sombre .tag-att{background:#5a4318;color:#ffe2a8}
 .carte-inner img{width:100%;display:block;user-select:none;-webkit-user-drag:none}
 .marqueur{position:absolute;cursor:pointer;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;border:1px solid #fff;box-shadow:0 0 0 1px #000;color:#fff;font-weight:800;font-size:8px;line-height:16px;text-align:center;touch-action:none}
 .marqueur::after{content:'';position:absolute;left:-14px;top:-14px;width:44px;height:44px;border-radius:50%}
-.bulle-poste{position:absolute;z-index:5;transform:translate(-50%,-100%);margin-top:-18px;background:#000;color:#fff;font-size:13px;font-weight:700;line-height:1.25;padding:6px 10px;border-radius:8px;width:max-content;max-width:230px;white-space:normal;text-align:center;pointer-events:none}
+.bulle-poste{position:absolute;z-index:5;transform:translate(-50%,-100%);margin-top:-16px;background:#000;color:#fff;font-size:11px;font-weight:700;line-height:1.2;padding:4px 7px;border-radius:6px;width:max-content;max-width:190px;white-space:normal;text-align:center;pointer-events:none}
 .marqueur{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .marqueur.deplace{box-shadow:0 0 0 2px #000,0 0 0 5px #fff;z-index:3}
 .chips{display:flex;flex-wrap:wrap}
@@ -167,7 +167,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.14';
+var APP_VER='2.15';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -577,7 +577,8 @@ function postesOptions(bid){ var h='',cur=posteB(bid),pris={},pp=(S.seance.poste
   function cacherPoste(){ var o=$('bullePoste'); if(o&&o.parentNode) o.parentNode.removeChild(o); }
   function majBulle(d){
     var bu=$('bullePoste'); if(!bu){ bu=document.createElement('div'); bu.className='bulle-poste'; bu.id='bullePoste'; d.m.parentNode.appendChild(bu); }
-    var n=posteB(d.b); bu.textContent=baliseLabel(d.b)+' · '+(n?'poste '+n:'poste non précisé')+(S.indices&&descB(d.b)?' — 💡 '+descB(d.b):'');
+    var n=posteB(d.b); bu.textContent=baliseLabel(d.b)+' · '+(n?'poste '+n:'poste non précisé');
+    if(S.indices&&descB(d.b)){ var di=document.createElement('div'); di.style.cssText='font-size:10px;font-weight:400;margin-top:2px'; di.textContent='💡 '+descB(d.b); bu.appendChild(di); }
     bu.style.left=d.m.style.left; bu.style.top=d.m.style.top;
   }
   document.addEventListener('pointerdown',function(e){
