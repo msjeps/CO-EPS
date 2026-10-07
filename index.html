@@ -76,7 +76,7 @@ body.mode-sombre .tag-att{background:#5a4318;color:#ffe2a8}
 .carte-inner img{width:100%;display:block;user-select:none;-webkit-user-drag:none}
 .marqueur{position:absolute;cursor:pointer;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;border:1px solid #fff;box-shadow:0 0 0 1px #000;color:#fff;font-weight:800;font-size:8px;line-height:16px;text-align:center;touch-action:none}
 .marqueur::after{content:'';position:absolute;left:-14px;top:-14px;width:44px;height:44px;border-radius:50%}
-.bulle-poste{position:absolute;z-index:5;transform:translate(-50%,-190%);background:#000;color:#fff;font-size:13px;font-weight:700;line-height:1.2;padding:6px 10px;border-radius:8px;white-space:nowrap;pointer-events:none}
+.bulle-poste{position:absolute;z-index:5;transform:translate(-50%,-100%);margin-top:-18px;background:#000;color:#fff;font-size:13px;font-weight:700;line-height:1.25;padding:6px 10px;border-radius:8px;width:max-content;max-width:230px;white-space:normal;text-align:center;pointer-events:none}
 .marqueur{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .marqueur.deplace{box-shadow:0 0 0 2px #000,0 0 0 5px #fff;z-index:3}
 .chips{display:flex;flex-wrap:wrap}
@@ -162,12 +162,12 @@ var GROUPES_DEFAUT=['A1','A2','A3','A4','B1','B2','B3','B4','C1','C2','C3','C4',
 function etatInitial(){
   return {
     v:1, groupes:GROUPES_DEFAUT.slice(),
-    sets:[], penSec:60, mdp:null, sombre:false, afficherAttendu:true, initiales:false, derniereSauv:0, rappelJusqua:0,
-    seance:{setIds:['Orange','Bleu'], assign:{}, parcours:1, pos:{}, etat:{}, poste:{}},
+    sets:[], penSec:60, indices:true, mdp:null, sombre:false, afficherAttendu:true, initiales:false, derniereSauv:0, rappelJusqua:0,
+    seance:{setIds:['Orange','Bleu'], assign:{}, parcours:1, pos:{}, etat:{}, poste:{}, desc:{}},
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.6';
+var APP_VER='2.7';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -190,6 +190,7 @@ function etatValide(o){
     if(typeof o.onglet!=='string'||!RE_ONGLET.test(o.onglet)) o.onglet='pose';
     if(o.cur!==null && typeof o.cur!=='string') o.cur=null;
     if(typeof o.initiales!=='boolean') o.initiales=false;
+    if(typeof o.indices!=='boolean') o.indices=true;
     if(!estNb(o.derniereSauv)) o.derniereSauv=0;
     if(!estNb(o.rappelJusqua)) o.rappelJusqua=0;
     var i,j,k,g;
@@ -199,11 +200,12 @@ function etatValide(o){
         if(!estObj(st.codes)) st.codes={}; } }
     if('seance' in o){ var se=o.seance; if(!estObj(se)) return false;
       if('setIds' in se){ if(!Array.isArray(se.setIds)||!toutesChaines(se.setIds)) return false; } else se.setIds=['Orange','Bleu'];
-      ['assign','pos','etat','poste'].forEach(function(f){ if(!estObj(se[f])) se[f]={}; });
+      ['assign','pos','etat','poste','desc'].forEach(function(f){ if(!estObj(se[f])) se[f]={}; });
       if(!estNb(se.parcours)||se.parcours<1||se.parcours>5) se.parcours=1;
       for(k in se.assign) if(typeof se.assign[k]!=='string') return false;
       for(k in se.pos){ if(!estObj(se.pos[k])) return false; for(g in se.pos[k]){ var pp=se.pos[k][g]; if(!estObj(pp)||!estNb(pp.x)||!estNb(pp.y)) return false; } }
-      for(k in se.poste) if(!estObj(se.poste[k])) return false; }
+      for(k in se.poste) if(!estObj(se.poste[k])) return false;
+      for(k in se.desc){ if(!estObj(se.desc[k])){ delete se.desc[k]; continue; } for(g in se.desc[k]) if(typeof se.desc[k][g]!=='string') delete se.desc[k][g]; } }
     if('classes' in o){ if(!Array.isArray(o.classes)) return false;
       for(i=0;i<o.classes.length;i++){ var c=o.classes[i];
         if(!estObj(c)||!RE_ID.test(c.id)||typeof c.nom!=='string') return false;
@@ -317,6 +319,7 @@ function poseur(bid){ for(var g in S.seance.assign) if(S.seance.assign[g]===bid)
 function balisesAssignees(){ var l=[]; S.groupes.forEach(function(g){ var b=S.seance.assign[g]; if(b) l.push(b); }); return l; }
 function aChercher(g){ return balisesAssignees().filter(function(b){ return S.seance.assign[g]!==b; }); }
 function invalide(bid){ return S.seance.etat[bid]==='ko'; }
+function descB(bid){ var p=S.seance.desc&&S.seance.desc[S.seance.parcours]; return p&&typeof p[bid]==='string'?p[bid]:''; }
 function posteB(bid){ var p=S.seance.poste&&S.seance.poste[S.seance.parcours]; return p&&p[bid]?p[bid]:''; }
 function posB(bid){ var p=S.seance.pos[S.seance.parcours]; return p?p[bid]:null; }
 
@@ -516,7 +519,7 @@ function vuePose(){
   h+='<div class="section section-pose"><h2>Contrôle des balises</h2><p class="petit">Après la pose, fais le tour : « vérifiée » = en place et lisible. « Invalide » = manquante ou déplacée : elle est retirée du barème de tous les groupes.</p>';
   ids.forEach(function(b){
     var e=S.seance.etat[b]||'';
-    h+='<div class="rangee">'+pastilleB(b)+'<div class="corps"><b>'+esc(baliseLabel(b))+'</b> <span class="petit">posée par '+esc(poseur(b))+(posteB(b)?' · poste '+esc(posteB(b)):'')+'</span></div>'+
+    h+='<div class="rangee">'+pastilleB(b)+'<div class="corps"><b>'+esc(baliseLabel(b))+'</b> <span class="petit">posée par '+esc(poseur(b))+(posteB(b)?' · poste '+esc(posteB(b)):'')+'</span>'+(S.indices&&descB(b)?'<div class="petit">💡 '+esc(descB(b))+'</div>':'')+'</div>'+
       '<button class="chip'+(e==='ok'?' actif':'')+'" data-act="etat" data-b="'+esc(b)+'" data-e="ok" style="margin:0 6px 0 0">✔️</button>'+
       '<button class="chip'+(e==='ko'?' actif':'')+'" data-act="etat" data-b="'+esc(b)+'" data-e="ko" style="margin:0;'+(e==='ko'?'background:#d32f2f;border-color:#d32f2f':'')+'">⚠️</button></div>';
   });
@@ -533,10 +536,10 @@ function vueCarte(){
   h+='</div>';
   var ids=balisesAssignees();
   if(uiSel&&ids.indexOf(uiSel)<0) uiSel=null;
-  h+='<p class="petit">1) Touche une balise ci-dessous · 2) touche son emplacement sur la carte (la sélection s\'efface une fois posée ; retouche la balise pour l\'annuler). Pour déplacer une balise déjà posée : appui prolongé sur sa pastille (le n° de poste s\'affiche), puis glisse-la.</p><div class="chips">';
+  h+='<p class="petit">1) Touche une balise ci-dessous · 2) touche son emplacement sur la carte (la sélection s\'efface une fois posée ; retouche la balise pour l\'annuler). Pour écrire ou modifier l\'indice d\'une balise, touche-la dans la liste. Pour déplacer une balise déjà posée : appui prolongé sur sa pastille (le n° de poste s\'affiche), puis glisse-la.</p><div class="chips">';
   ids.forEach(function(b){ var p=posB(b); h+='<button class="chip'+(uiSel===b?' actif':'')+(p?' fait':'')+'" data-act="selb" data-b="'+esc(b)+'">'+pastilleB(b,poseur(b)).replace('min-width:34px','min-width:30px')+' '+esc(baliseLabel(b))+(posteB(b)?' · poste '+esc(posteB(b)):'')+(p?' ✓':'')+'</button>'; });
   if(!ids.length) h+='<span class="petit">Attribue d\'abord les balises (onglet Pose).</span>';
-  h+='</div>'+(uiSel?'<div class="ligne" style="align-items:flex-end"><div style="min-width:200px"><label>N° du poste sur la carte pour '+esc(baliseLabel(uiSel))+'</label><select data-chg="poste"><option value="">— non précisé —</option>'+postesOptions(uiSel)+'</select></div></div>':'')+'<div class="ligne"><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="-1">− Zoom</button><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="1">+ Zoom</button>'+
+  h+='</div>'+(uiSel?'<div class="ligne" style="align-items:flex-end"><div style="min-width:200px"><label>N° du poste sur la carte pour '+esc(baliseLabel(uiSel))+'</label><select data-chg="poste"><option value="">— non précisé —</option>'+postesOptions(uiSel)+'</select></div></div>'+(S.indices?'<label>Indice / description de la balise (140 caractères max.)</label><input type="text" maxlength="140" data-chg="desc" value="'+esc(descB(uiSel))+'" placeholder="Ex. : derrière le banc, sous le 3e platane">':''):'')+'<div class="ligne"><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="-1">− Zoom</button><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="1">+ Zoom</button>'+
      '<button class="bouton bouton-clair bouton-petit" data-act="retirerpos">Retirer la position de la balise choisie</button></div>';
   h+='<div class="carte-wrap" id="carteWrap"><div class="carte-inner" id="carteInner" style="width:'+(uiZoom*100)+'%"><img id="carteImg" src="cartes/parcours'+sp+'.jpg" alt="Carte du parcours '+sp+'" onerror="this.parentNode.innerHTML=\'<p style=&quot;padding:20px;line-height:1.4&quot;>Carte du parcours '+sp+' introuvable.<br>Ajoute le fichier <b>cartes/parcours'+sp+'.jpg</b> dans le dossier de l\\\'appli.</p>\'">';
   ids.forEach(function(b){ var p=posB(b); if(!p) return; var s=getSet(parseB(b).setId); h+='<div class="marqueur" data-b="'+esc(b)+'" style="left:'+p.x+'%;top:'+p.y+'%;background:'+baliseCouleur(b)+';color:'+(s&&s.builtin&&TEXTE_SOMBRE[s.id]?'#222':'#fff')+'">'+esc(poseur(b))+'</div>'; });
@@ -551,7 +554,7 @@ function postesOptions(bid){ var h='',cur=posteB(bid),pris={},pp=(S.seance.poste
   function cacherPoste(){ var o=$('bullePoste'); if(o&&o.parentNode) o.parentNode.removeChild(o); }
   function majBulle(d){
     var bu=$('bullePoste'); if(!bu){ bu=document.createElement('div'); bu.className='bulle-poste'; bu.id='bullePoste'; d.m.parentNode.appendChild(bu); }
-    var n=posteB(d.b); bu.textContent=baliseLabel(d.b)+' · '+(n?'poste '+n:'poste non précisé');
+    var n=posteB(d.b); bu.textContent=baliseLabel(d.b)+' · '+(n?'poste '+n:'poste non précisé')+(S.indices&&descB(d.b)?' — 💡 '+descB(d.b):'');
     bu.style.left=d.m.style.left; bu.style.top=d.m.style.top;
   }
   document.addEventListener('pointerdown',function(e){
@@ -786,6 +789,7 @@ function vueReglages(){
   h+='<div class="section"><h2>Affichage</h2><div class="rangee"><div class="corps">Mode sombre</div><label class="switch"><input type="checkbox" data-chg="sombre"'+(S.sombre?' checked':'')+'><span class="slider"></span></label></div>'+
      '<div class="rangee"><div class="corps">Afficher le code attendu quand une saisie est fausse</div><label class="switch"><input type="checkbox" data-chg="attendu"'+(S.afficherAttendu?' checked':'')+'><span class="slider"></span></label></div>'+
      '<div class="rangee"><div class="corps">Élèves affichés par initiales (écran partagé ou projeté)<div class="petit">Ex. « DUPONT Léa » devient « D.L. ». L\'export CSV garde les noms complets ; modifier un nom demande le mot de passe.</div></div><label class="switch"><input type="checkbox" data-chg="initiales"'+(S.initiales?' checked':'')+'><span class="slider"></span></label></div></div>';
+  h+='<div class="section"><h2>Indices</h2><div class="rangee"><div class="corps">Indices sur les balises<div class="petit">Le groupe qui pose la balise peut écrire un indice (onglet Carte). Désactivé : les indices ne s\'affichent plus (ils restent enregistrés).</div></div><label class="switch"><input type="checkbox" data-chg="indices"'+(S.indices?' checked':'')+'><span class="slider"></span></label></div></div>';
   h+='<div class="section"><h2>Sauvegarde</h2><p class="petit">Dernière sauvegarde : <b>'+texteAge()+'</b>.</p><p class="petit">Sauvegarde toutes les données (classes, élèves, groupes, résultats, balises) dans un fichier (sans le mot de passe prof). Il contient les noms des élèves : garde-le sur ta tablette ou ton ordinateur, ne le partage pas.</p><button class="bouton bouton-secondaire" data-act="exportsauv">⬇️ Exporter une sauvegarde</button></div>';
   h+='<div class="section" style="border-left-color:#1f6ea5"><h2>Restauration</h2><p>Recharge tes classes, élèves, groupes et jeux de balises depuis un fichier de sauvegarde (<b>CO_EPS_sauvegarde_….json</b>) : après un effacement des données, une réinstallation, ou pour copier la configuration d\'un appareil à un autre.</p><p class="petit">'+(EST_IOS?'Sur iPhone / iPad, choisis le fichier dans l\'app <b>Fichiers</b>. ':'')+'Tu verras le nombre de classes et d\'élèves avant de confirmer. <b>Les données actuelles de cet appareil seront remplacées</b> : exporte d\'abord une sauvegarde si elles sont récentes. Le mot de passe prof de cet appareil est conservé.</p><button class="bouton bouton-primaire" data-act="choisirsauv">⬆️ Restaurer depuis un fichier</button><input type="file" id="fichierSauv" class="cache" accept=".json,application/json" data-chg="fichiersauv">'+(localStorage.getItem(CLE+'_avant_maj')?'<button class="bouton bouton-clair" data-act="restaureravant">Restaurer l\'état d\'avant la dernière mise à jour</button>':'')+'</div>';
   h+='<div class="section"><h2>Sécurité</h2><button class="bouton bouton-secondaire" data-act="chgmdp">Changer le mot de passe prof</button><button class="bouton bouton-clair" data-act="aide">Aide</button></div>';
@@ -951,7 +955,7 @@ document.addEventListener('click',function(e){
       sauver(); fermerModale(); dessiner(); break;
     case 'chgmdp': saisir('Nouveau mot de passe (vide = revenir au mot de passe par défaut) :','',function(nv){ if(nv!==null){ S.mdp=nv.trim()||null; sauver(); toast('Mot de passe mis à jour'); } },'Enregistrer',true); break;
     case 'aide': ouvrirModale('<div class="modale-header"><h3>Aide</h3><button class="btn-fermer" data-act="fermer">&times;</button></div><p><b>1. Pose</b> : choisis 2 couleurs, attribue les balises aux groupes, place chaque balise sur la carte, contrôle-les.</p><p><b>2. Course</b> : crée la classe, donne le départ (tous ou groupe par groupe), touche « Arrivée » à chaque retour, ajoute les pénalités.</p><p><b>3. Vérif.</b> : saisis les lettres relevées sur la feuille de chaque groupe.</p><p><b>4. Classement</b> : balises validées, puis temps. Export CSV.</p><p>Tout est enregistré automatiquement sur la tablette.</p>'); break;
-    case 'nouvelle': demanderMdp(function(){ confirmer('Terminer la séance ? Balises, positions et résultats seront effacés ; les groupes actuels sont archivés. Dernière sauvegarde : '+texteAge()+'.',function(){ for(var rn in S.rosters){ var ro=S.rosters[rn]; if(Object.keys(ro.compo).some(function(k){return ro.compo[k].length;})){ ro.histo.push(JSON.parse(JSON.stringify(ro.compo))); } ro.compo={}; ro.absent={}; } var d=etatInitial(); d.rosters=S.rosters; d.classes=S.classes.map(function(k){ k.depart={all:null,g:{}}; k.arrivee={}; k.pen={}; k.codes={}; k.absents={}; return k; }); d.cur=S.cur; d.sets=S.sets; d.groupes=S.groupes; d.penSec=S.penSec; d.mdp=S.mdp; d.sombre=S.sombre; d.afficherAttendu=S.afficherAttendu; d.initiales=S.initiales; d.derniereSauv=S.derniereSauv; d.rappelJusqua=S.rappelJusqua; d.onglet='pose'; S=d; uiVerifG=null; uiSel=null; sauver(); dessiner(); toast('Nouvelle séance prête'); },'Terminer la séance',true); }); break;
+    case 'nouvelle': demanderMdp(function(){ confirmer('Terminer la séance ? Balises, positions et résultats seront effacés ; les groupes actuels sont archivés. Dernière sauvegarde : '+texteAge()+'.',function(){ for(var rn in S.rosters){ var ro=S.rosters[rn]; if(Object.keys(ro.compo).some(function(k){return ro.compo[k].length;})){ ro.histo.push(JSON.parse(JSON.stringify(ro.compo))); } ro.compo={}; ro.absent={}; } var d=etatInitial(); d.rosters=S.rosters; d.classes=S.classes.map(function(k){ k.depart={all:null,g:{}}; k.arrivee={}; k.pen={}; k.codes={}; k.absents={}; return k; }); d.cur=S.cur; d.sets=S.sets; d.groupes=S.groupes; d.penSec=S.penSec; d.mdp=S.mdp; d.sombre=S.sombre; d.afficherAttendu=S.afficherAttendu; d.initiales=S.initiales; d.indices=S.indices; d.derniereSauv=S.derniereSauv; d.rappelJusqua=S.rappelJusqua; d.onglet='pose'; S=d; uiVerifG=null; uiSel=null; sauver(); dessiner(); toast('Nouvelle séance prête'); },'Terminer la séance',true); }); break;
     case 'okmdp': var v=$('inMdp').value.trim(); if(mdpOk(v)){ fermerModale(); var f=cbMdp; cbMdp=null; if(f) f(); } else { echecs++; afficherMdp('Mot de passe incorrect.'); } break;
     case 'resetmdp':
       if(!finReset){ finReset=Date.now()+ATTENTE_RESET*1000; afficherMdp(''); clearInterval(timerReset); timerReset=setInterval(majCompteReset,1000); }
@@ -976,6 +980,8 @@ document.addEventListener('change',function(e){
     case 'csvdetail': uiCsvDetail=t.checked; break;
     case 'sombre': S.sombre=t.checked; sauver(); dessiner(); break;
     case 'attendu': S.afficherAttendu=t.checked; sauver(); break;
+    case 'desc': if(uiSel){ if(!S.seance.desc) S.seance.desc={}; var spd=S.seance.parcours; if(!S.seance.desc[spd]) S.seance.desc[spd]={}; var vd=String(t.value).replace(/\s+/g,' ').trim().slice(0,140); if(vd) S.seance.desc[spd][uiSel]=vd; else delete S.seance.desc[spd][uiSel]; sauver(); var cwd=$('carteWrap'), sxd=cwd?cwd.scrollLeft:0, syd=cwd?cwd.scrollTop:0; dessiner(); cwd=$('carteWrap'); if(cwd){ cwd.scrollLeft=sxd; cwd.scrollTop=syd; } } break;
+    case 'indices': S.indices=t.checked; sauver(); dessiner(); break;
     case 'initiales': S.initiales=t.checked; sauver(); dessiner(); break;
   }
 });
