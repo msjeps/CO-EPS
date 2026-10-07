@@ -1,4 +1,4 @@
-var CACHE='co-eps-v1-12';
+var CACHE='co-eps-v1-13';
 var FILES=['./','./index.html','./manifest.json','./icon_192.png','./icon_512.png','./icon_maskable_512.png','./apple-touch-icon.png','./logo-outils-eps.png','./cartes/parcours1.jpg','./cartes/parcours2.jpg','./cartes/parcours3.jpg','./cartes/parcours4.jpg','./cartes/parcours5.jpg'];
 /* Installation : chaque fichier est re-téléchargé en ignorant le cache HTTP (sinon une ancienne copie peut être figée) */
 self.addEventListener('install',function(e){

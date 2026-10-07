@@ -10,7 +10,7 @@
 <title>Course d'orientation EPS</title>
 <style>
 :root{
-  --couleur-primaire:#185a3c; --couleur-secondaire:#2b7fb8; --couleur-accent:#f57c00;
+  --couleur-primaire:#185a3c; --couleur-secondaire:#1f6ea5; --couleur-accent:#f57c00;
   --couleur-pose:#2b7fb8; --couleur-course:#f57c00; --couleur-verif:#2e9e4f; --couleur-classement:#7b3fa0;
   --couleur-texte:#222; --couleur-fond:#eef3ef; --couleur-blanc:#fff; --couleur-bord:#d5ddd8; --couleur-doux:#f4f7f5;
   --ok:#2e9e4f; --ko:#d32f2f;
@@ -19,7 +19,7 @@
 body.mode-sombre{
   --couleur-texte:#e8ecea; --couleur-fond:#14201a; --couleur-blanc:#1f2d26; --couleur-bord:#3a4a42; --couleur-doux:#2a3a32;
 }
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 html,body{margin:0;padding:0}
 body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:var(--couleur-fond);color:var(--couleur-texte);padding-bottom:84px;font-size:16px}
 .cache{display:none!important}
@@ -39,7 +39,7 @@ body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:var(--co
 .bouton:active{transform:translateY(1px)}
 .bouton-primaire{background:var(--couleur-primaire);color:#fff}
 .bouton-secondaire{background:var(--couleur-secondaire);color:#fff}
-.bouton-danger{background:#FC466B;color:#fff}
+.bouton-danger{background:#d6204a;color:#fff}
 .bouton-clair{background:var(--couleur-doux);color:var(--couleur-texte);border:2px solid var(--couleur-bord)}
 .bouton-petit{width:auto;padding:8px 14px;font-size:.85em;min-height:44px;margin-top:0}
 .bouton[disabled]{opacity:.45}
@@ -90,7 +90,7 @@ table.tab tr.podium-1 td{background:rgba(245,196,0,.22)}
 table.tab tr.podium-2 td{background:rgba(160,160,160,.2)}
 table.tab tr.podium-3 td{background:rgba(176,110,60,.18)}
 .barre{position:fixed;left:0;right:0;bottom:0;background:var(--couleur-primaire);display:flex;z-index:50;padding-bottom:env(safe-area-inset-bottom)}
-.barre button{flex:1;min-width:0;background:none;border:none;color:#fff;opacity:.7;padding:8px 1px 6px;font-size:.64em;min-height:56px;cursor:pointer;font-family:inherit}
+.barre button{flex:1;min-width:0;background:none;border:none;color:#fff;opacity:.75;padding:8px 1px 6px;font-size:.72em;white-space:nowrap;min-height:56px;cursor:pointer;font-family:inherit}
 .barre button span{display:block;font-size:1.5em;line-height:1.2}
 .barre button.actif{opacity:1;background:rgba(0,0,0,.22);font-weight:700}
 .modale-fond{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.55);z-index:100;display:flex;align-items:center;justify-content:center;padding:14px}
@@ -112,6 +112,7 @@ table.tab tr.podium-3 td{background:rgba(176,110,60,.18)}
 .codes-grid table{border-collapse:collapse}
 .codes-grid td,.codes-grid th{padding:2px;font-size:.8em}
 .codes-grid input{width:34px!important;min-height:34px!important;padding:2px!important;text-align:center;text-transform:uppercase;font-weight:700}
+@media (min-width:600px){.barre button{font-size:.9em}}
 @media (max-width:480px){.g4{grid-template-columns:repeat(2,1fr)}.bouton{font-size:.92em}}
 </style>
 </head>
@@ -119,7 +120,7 @@ table.tab tr.podium-3 td{background:rgba(176,110,60,.18)}
 
 <div class="en-tete">
   <h1>🧭 Course d'orientation EPS</h1>
-  <p>Version 1.5</p>
+  <p>Version 1.8</p>
 </div>
 
 <div class="conteneur" id="vue"></div>
@@ -140,7 +141,7 @@ table.tab tr.podium-3 td{background:rgba(176,110,60,.18)}
    Chaîne de 16 lettres par balise, ordre : A1 B1 C1 D1 A2 B2 C2 D2 A3 ... D4  (groupe = colonne + ligne) */
 var BUILTIN = {"Rouge":{"1":"NUCSQTTRGVBGIGJU","2":"SQOCEESCVHHCUIJY","3":"KFJDIPCFCKOCYSZA","4":"RQOFDCJZTBUPASRU","5":"HCAPEBELPNWXSYWK","6":"IZYGYWYZNEOWNKKZ","7":"JYXUKZTSYQKYFPLA","8":"HOIVXWKUKXRNXBVE"},"Bleu":{"1":"BZWAGRDMMWCISKVZ","2":"FNRIIYTPDSJVTFOJ","3":"ZEBLVUXAVGIHFMEF","4":"MUVYKBTKSYPELXZC","5":"BHNPEZGBNMFOGVDD","6":"SSVRHOPACSMSUOGC","7":"RLXTXZXHORIMFMGD","8":"KWODWAEOQTYPBNLA"},"Vert":{"1":"VQJJGROLTLIWFAUT","2":"CZQFEPVOESGIOZYR","3":"JYVGVVWLDFKEJSHD","4":"VYYRKECBLSEAOVLA","5":"NTQYCMFKCNDERVDP","6":"TVHZOYKOVMDBIZVW","7":"YRGWGNSGGOSPLDRW","8":"DTAZTIXHPJPREHTS"},"Jaune":{"1":"ILZZULSIWSVOJMEZ","2":"KZVZBOBJQCXHYHMQ","3":"YFPVWCMQZAGYSQVK","4":"CMVOFJJUEMIUDLRV","5":"XPYEGGJUBQDIGJBP","6":"VNJBMGNKPNUKJFRB","7":"ZYVFIBZHYWJTHEAB","8":"XAJIPURQQASFLPHK"},"Orange":{"1":"QNHLEHCJWTLFDUWD","2":"NKTWJWDYQAAGJYUY","3":"NPSVZMBVVORVSMIX","4":"IESOKCLISSNUNNLI","5":"LHFRGLWZQIDOGEAD","6":"DNEPCKFVDGPSGSQE","7":"SBZXNPJXRQFAMGCU","8":"MGETTFHWBBTHRMWA"},"Violet":{"1":"NQTUKZACXZHKAALA","2":"DISIZWUHVCWEDMPT","3":"RDXGHZWYDRSPSRZF","4":"NSBBZODRXRYJPUOP","5":"REHJTMYLCGHYSBIE","6":"NWNVKDOVXEVOJYKQ","7":"FDGJMBLSFQSCIFTN","8":"YEMUXJIYJBIATFHH"},"Rose":{"1":"RFSXBIBUUKIQBHGN","2":"RYFDMUBSKQYBIVOG","3":"GUMUZEEFFMHSUPHN","4":"SZLRMKPLJWOOYJUM","5":"NYPFPEAADRVGSCIW","6":"EMBZUFJUBPDZHFUI","7":"ZMWRFQYGSIREKNAI","8":"BKRVXQTJGTIAZVKF"},"Marron":{"1":"SOIWHHSFPCIFGQFU","2":"NUIEOFNOGLKJQPGD","3":"PXWXITFHDMXCFMPG","4":"AWHMYVZMMVAXEAIH","5":"KSISOJGBCJBFLXWM","6":"DZHJMAUNWLXGNXJJ","7":"PKBGIHUPQXYYDIIH","8":"GIEIEYLTURJWMKUE"},"Cyan":{"1":"YDXCWCVYZODNVOKF","2":"MEHPHNIZPMHVDPYW","3":"NFVAZREFOBSNDZZW","4":"ROXHCJCUUAMTBEIW","5":"KINPDYWLFEQNSMXH","6":"BLQSJLVSKFGDDLWJ","7":"JRVZZIKUBVVNHEQH","8":"YNHEUIEYTTMPSYSN"},"Magenta":{"1":"FOGIERKNTLGRNJCA","2":"OTHQYDVZENDXDZDW","3":"AJQMLDVYVUJYJWPZ","4":"UDSALEHSFXNVXWGO","5":"WYBKLHPJAEAFJGPD","6":"TAPIEAAFLEIGJRYP","7":"UJVYBKQZHGTZKGZF","8":"HFQEPIXDOGLEFZKT"}};
 var COULEURS = {Rouge:'#e53935',Bleu:'#1e66d0',Vert:'#2e9e4f',Jaune:'#f2c200',Orange:'#f57c00',Violet:'#7b3fa0',Rose:'#f48fb1',Marron:'#8d5a3b',Cyan:'#00bcd4',Magenta:'#d81b9a'};
-var TEXTE_SOMBRE = {Jaune:1,Rose:1,Cyan:1};
+var TEXTE_SOMBRE = {Jaune:1,Rose:1,Cyan:1,Orange:1,Vert:1};
 var PENALITES = [['sep','Élève séparé de son groupe'],['ind','Indications données aux autres groupes'],['dep','Balise déplacée'],['rdv','Heure de RDV dépassée']];
 var MDP_DEFAUT = 'ADMINPROF';
 var CLE = 'co_eps_v1';
@@ -156,24 +157,81 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='1.7';
+var APP_VER='1.8';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
 function lireJSON(cle){ try{ var t=localStorage.getItem(cle); return t?JSON.parse(t):null; }catch(e){ return null; } }
 function nbCl(o){ return (o&&o.classes&&o.classes.length)||0; }
+/* Validation structurelle d'un état (démarrage, copies de secours, restauration d'une sauvegarde) :
+   un état mal formé n'est jamais appliqué (sinon l'appli ne redémarre plus). Complète aussi les champs manquants
+   des états d'anciennes versions. Les identifiants et couleurs sont restreints à des caractères sûrs (insérés dans le HTML). */
+var RE_ID=/^[A-Za-z0-9_|-]{1,40}$/, RE_COUL=/^#[0-9a-fA-F]{6}$/, RE_ONGLET=/^(groupes|pose|carte|course|verif|classement|reglages)$/;
+function estObj(x){ return x!==null && typeof x==='object' && !Array.isArray(x); }
+function estNb(x){ return typeof x==='number' && isFinite(x); }
+function toutesChaines(a){ for(var i=0;i<a.length;i++) if(typeof a[i]!=='string') return false; return true; }
+function valeursNb(o){ for(var k in o) if(!estNb(o[k])) return false; return true; }
+function etatValide(o){
+  try{
+    if(!estObj(o)) return false;
+    if('groupes' in o && (!Array.isArray(o.groupes)||!o.groupes.length||o.groupes.length>40||!toutesChaines(o.groupes))) return false;
+    if(!estNb(o.penSec)||o.penSec<0) o.penSec=60;
+    if(o.mdp!==null && typeof o.mdp!=='string') o.mdp=null;
+    if(typeof o.onglet!=='string'||!RE_ONGLET.test(o.onglet)) o.onglet='pose';
+    if(o.cur!==null && typeof o.cur!=='string') o.cur=null;
+    var i,j,k,g;
+    if('sets' in o){ if(!Array.isArray(o.sets)) return false;
+      for(i=0;i<o.sets.length;i++){ var st=o.sets[i];
+        if(!estObj(st)||!RE_ID.test(st.id)||typeof st.nom!=='string'||!RE_COUL.test(st.couleur)||!estNb(st.n)||st.n<1||st.n>30) return false;
+        if(!estObj(st.codes)) st.codes={}; } }
+    if('seance' in o){ var se=o.seance; if(!estObj(se)) return false;
+      if('setIds' in se){ if(!Array.isArray(se.setIds)||!toutesChaines(se.setIds)) return false; } else se.setIds=['Orange','Bleu'];
+      ['assign','pos','etat','poste'].forEach(function(f){ if(!estObj(se[f])) se[f]={}; });
+      if(!estNb(se.parcours)||se.parcours<1||se.parcours>5) se.parcours=1;
+      for(k in se.assign) if(typeof se.assign[k]!=='string') return false;
+      for(k in se.pos){ if(!estObj(se.pos[k])) return false; for(g in se.pos[k]){ var pp=se.pos[k][g]; if(!estObj(pp)||!estNb(pp.x)||!estNb(pp.y)) return false; } }
+      for(k in se.poste) if(!estObj(se.poste[k])) return false; }
+    if('classes' in o){ if(!Array.isArray(o.classes)) return false;
+      for(i=0;i<o.classes.length;i++){ var c=o.classes[i];
+        if(!estObj(c)||!RE_ID.test(c.id)||typeof c.nom!=='string') return false;
+        if(typeof c.rdv!=='string') c.rdv='';
+        if(c.mode!=='groupe') c.mode='tous';
+        if(!estObj(c.depart)) c.depart={all:null,g:{}};
+        if(!estObj(c.depart.g)) c.depart.g={};
+        if(c.depart.all===undefined) c.depart.all=null;
+        if(c.depart.all!==null&&!estNb(c.depart.all)) return false;
+        ['arrivee','pen','codes','absents'].forEach(function(f){ if(!estObj(c[f])) c[f]={}; });
+        if(!valeursNb(c.depart.g)||!valeursNb(c.arrivee)) return false;
+        for(g in c.pen){ var pn=c.pen[g]; if(!estObj(pn)) return false; ['sep','ind','dep','rdv'].forEach(function(f){ if(!estNb(pn[f])) pn[f]=0; }); }
+        for(g in c.codes) if(!estObj(c.codes[g])) return false; } }
+    if('rosters' in o){ if(!estObj(o.rosters)) return false;
+      for(k in o.rosters){ var r=o.rosters[k]; if(!estObj(r)||!Array.isArray(r.eleves)) return false;
+        for(j=0;j<r.eleves.length;j++){ var e=r.eleves[j]; if(!estObj(e)||!RE_ID.test(e.id)||typeof e.nom!=='string') return false; if(e.sexe!=='F'&&e.sexe!=='G') e.sexe='?'; }
+        if(!Array.isArray(r.histo)) r.histo=[];
+        if(!estObj(r.compo)) r.compo={};
+        if(!estObj(r.absent)) r.absent={};
+        if(!estNb(r.nbG)) r.nbG=0;
+        for(g in r.compo) if(!Array.isArray(r.compo[g])||!toutesChaines(r.compo[g])) return false;
+        for(j=0;j<r.histo.length;j++) if(!estObj(r.histo[j])) return false; } }
+    return true;
+  }catch(err){ return false; }
+}
+function lireEtat(cle){ var o=lireJSON(cle); return (o&&etatValide(o))?o:null; }
 var MSG_RESTAURE=null;
 function charger(){
   var brut=null, o=null;
   try{ brut=localStorage.getItem(CLE); }catch(e){}
   if(brut){ try{ o=JSON.parse(brut); }catch(e){ o=null; try{ localStorage.setItem(CLE+'_corrompu',brut); }catch(e2){} } }
   if(!o || typeof o!=='object'){ o=null; }
+  var rejete=false;
+  if(o && !etatValide(o)){ rejete=true; o=null; try{ localStorage.setItem(CLE+'_corrompu',brut); }catch(e2){} }
   if(o && o.appVer!==APP_VER && nbCl(o)){ try{ localStorage.setItem(CLE+'_avant_maj',brut); }catch(e2){} }
   if(!o || !nbCl(o)){
-    var s=lireJSON(CLE+'_auto'), p=lireJSON(CLE+'_avant_maj');
+    var s=lireEtat(CLE+'_auto'), p=lireEtat(CLE+'_avant_maj');
     var best=(nbCl(s)>=nbCl(p))?s:p;
     if(nbCl(best)){ o=best; MSG_RESTAURE=nbCl(best)+' classe(s) restaurée(s) automatiquement'; }
   }
+  if(rejete && !MSG_RESTAURE) MSG_RESTAURE='Données illisibles ignorées (copie conservée sur la tablette)';
   var d=etatInitial();
   if(!o) return d;
   for(var k in d){ if(!(k in o)) o[k]=d[k]; }
@@ -198,6 +256,18 @@ function fmt(sec){ sec=Math.max(0,Math.round(sec)); var h=Math.floor(sec/3600),m
 function heure(ts){ var d=new Date(ts); return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()); }
 function aujourdhui(){ var d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
 function toast(msg){ var t=document.createElement('div'); t.className='message-succes'; t.style.cssText='position:fixed;left:14px;right:14px;bottom:76px;z-index:200;'; t.textContent=msg; document.body.appendChild(t); setTimeout(function(){t.parentNode&&t.parentNode.removeChild(t);},2000); }
+
+/* Toast avec bouton « Annuler » (arrivée touchée par erreur) */
+var dernierArr=null, timerAnn=null;
+function fermerToastAnn(){ var t=$('toastAnn'); if(t&&t.parentNode) t.parentNode.removeChild(t); clearTimeout(timerAnn); dernierArr=null; }
+function toastAnnuler(msg){
+  var old=$('toastAnn'); if(old&&old.parentNode) old.parentNode.removeChild(old);
+  var t=document.createElement('div'); t.id='toastAnn'; t.className='message-succes';
+  t.style.cssText='position:fixed;left:14px;right:14px;bottom:76px;z-index:200;display:flex;align-items:center;justify-content:space-between;text-align:left';
+  t.innerHTML='<span></span><button class="chip" data-act="annulerarr" style="margin:0 0 0 10px;flex-shrink:0">Annuler</button>';
+  t.firstChild.textContent=msg; document.body.appendChild(t);
+  clearTimeout(timerAnn); timerAnn=setTimeout(fermerToastAnn,6000);
+}
 
 /* ============ JEUX DE BALISES ============ */
 function tousLesSets(){
@@ -385,7 +455,7 @@ function importerEleves(r,texte){
 function ajouterEleve(r,nom,sexe){ nom=(nom||'').trim(); if(!nom) return; r.eleves.push({id:'e'+Date.now()+Math.floor(Math.random()*1000)+r.eleves.length,nom:nom,sexe:sexe||'?'}); }
 
 /* ============ NAVIGATION ============ */
-var ONGLETS=[['groupes','👥','Groupes'],['pose','📍','Pose'],['carte','🗺️','Carte'],['course','⏱️','Course'],['verif','✅','Vérif.'],['classement','🏆','Classement'],['reglages','⚙️','Réglages']];
+var ONGLETS=[['groupes','👥','Groupes'],['pose','📍','Pose'],['carte','🗺️','Carte'],['course','⏱️','Course'],['verif','✅','Vérif.'],['classement','🏆','Podium'],['reglages','⚙️','Réglages']];
 var deverrouille=false, uiVerifG=null, uiSel=null, uiZoom=1, uiCsvDetail=true;
 function allerA(o){
   if(o==='reglages' && !deverrouille){ demanderMdp(function(){ deverrouille=true; allerA('reglages'); }); return; }
@@ -399,7 +469,6 @@ function dessiner(){
   dessinerBarre();
   var v=$('vue'), o=S.onglet;
   v.innerHTML = o==='groupes'?vueGroupes():o==='pose'?vuePose():o==='carte'?vueCarte():o==='course'?vueCourse():o==='verif'?vueVerif():o==='classement'?vueClassement():vueReglages();
-  if(o==='verif') focusVerif();
 }
 
 /* ============ VUE : POSE ============ */
@@ -534,10 +603,10 @@ function vueVerif(){
   }
   return h;
 }
-function focusVerif(){ }
+function focusVerif(){ var all=document.querySelectorAll('input[data-in]:not([disabled])'); for(var i=0;i<all.length;i++){ if(all[i].value===''){ all[i].focus(); return; } } }
 function saisieCode(inp){
   var c=classe(), g=uiVerifG; if(!c||!g) return;
-  var b=inp.getAttribute('data-in'), v=inp.value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,1); inp.value=v;
+  var b=inp.getAttribute('data-in'), v=inp.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,1); inp.value=v;
   if(!c.codes[g]) c.codes[g]={};
   if(v==='') delete c.codes[g][b]; else c.codes[g][b]=v;
   sauver();
@@ -564,14 +633,21 @@ function vueClassement(){
      '<button class="bouton bouton-primaire" data-act="csv">⬇️ Télécharger le CSV</button><button class="bouton bouton-secondaire" data-act="copier">📋 Copier (coller dans Excel)</button></div>';
   return h;
 }
+function fmtHms(sec){ sec=Math.max(0,Math.round(sec)); return Math.floor(sec/3600)+':'+pad(Math.floor(sec%3600/60))+':'+pad(sec%60); }
+/* Cellule CSV : préfixe ' si le texte commence par = + - @ (Excel l'exécuterait comme une formule) */
+function celCsv(x,sep){
+  x=String(x==null?'':x); if(/^[=+\-@]/.test(x)) x="'"+x;
+  if(sep===';') return /[;"\r\n]/.test(x)?'"'+x.replace(/"/g,'""')+'"':x;
+  return x.replace(/[\t\r\n]+/g,' ');
+}
 function construireCsv(c,sep){
   var rows=classement(c), bals=balisesAssignees();
-  var ent=['Rang','Groupe','Élèves','Balise posée','N° poste','Balises validées','Balises à chercher','Départ','Arrivée','Temps course','Pénalités (nb)','Pénalités (min)','Temps final'];
+  var ent=['Rang','Groupe','Élèves','Balise posée','N° poste','Balises validées','Balises à chercher','Départ','Arrivée','Temps course (h:mm:ss)','Pénalités (nb)','Pénalités (min)','Temps final (h:mm:ss)'];
   if(uiCsvDetail) bals.forEach(function(b){ ent.push(baliseLabel(b)); });
   var lignes=[ent];
   rows.forEach(function(r){
     var d=debut(c,r.g), a=c.arrivee[r.g];
-    var l=[r.rang,r.g,nomsGroupe(c,r.g).replace(/ · /g,' / '),S.seance.assign[r.g]?baliseLabel(S.seance.assign[r.g]):'',S.seance.assign[r.g]?posteB(S.seance.assign[r.g]):'',r.n,r.tot,d?heure(d):'',a?heure(a):'',r.tc!=null?fmt(r.tc):'',r.pen,r.pen*S.penSec/60,r.tf!=null?fmt(r.tf):''];
+    var l=[r.rang,r.g,nomsGroupe(c,r.g).replace(/ · /g,' / '),S.seance.assign[r.g]?baliseLabel(S.seance.assign[r.g]):'',S.seance.assign[r.g]?posteB(S.seance.assign[r.g]):'',r.n,r.tot,d?heure(d):'',a?heure(a):'',r.tc!=null?fmtHms(r.tc):'',r.pen,r.pen*S.penSec/60,r.tf!=null?fmtHms(r.tf):''];
     if(uiCsvDetail) bals.forEach(function(b){
       if(S.seance.assign[r.g]===b){ l.push('(posée)'); return; }
       if(invalide(b)){ l.push('invalide'); return; }
@@ -579,7 +655,7 @@ function construireCsv(c,sep){
     });
     lignes.push(l);
   });
-  return lignes.map(function(l){ return l.map(function(x){ x=String(x==null?'':x); return (sep===';'&&/[;"\n]/.test(x))?'"'+x.replace(/"/g,'""')+'"':x; }).join(sep); }).join('\r\n');
+  return lignes.map(function(l){ return l.map(function(x){ return celCsv(x,sep); }).join(sep); }).join('\r\n');
 }
 function telechargerCsv(){
   var c=classe(); if(!c) return;
@@ -608,6 +684,10 @@ function vueReglages(){
   h+='<div class="section" style="border-left-color:#FC466B"><h2>Nouvelle séance</h2><p class="petit">Efface les balises attribuées, les positions et tous les résultats (chronos, codes, pénalités). La composition actuelle des groupes est archivée dans l\'historique pour que les mêmes élèves ne soient plus regroupés. Les classes, listes d\'élèves, jeux de balises et réglages sont conservés.</p><button class="bouton bouton-danger" data-act="nouvelle">Nouvelle séance</button></div>';
   return h;
 }
+function groupesAvecDonnees(noms){ return noms.some(function(g){
+  for(var i=0;i<S.classes.length;i++){ var c=S.classes[i]; if(c.depart.g[g]||c.arrivee[g]||(c.codes[g]&&Object.keys(c.codes[g]).length)||nbPen(c,g)) return true; }
+  for(var k in S.rosters){ var r=S.rosters[k]; if(r.compo[g]&&r.compo[g].length) return true; }
+  return false; }); }
 function modaleSet(id){
   var s=id?getSet(id):{id:'',nom:'',couleur:'#3b7dd8',n:12,codes:{}};
   var h='<div class="modale-header"><h3>'+(id?'Modifier':'Nouveau')+' jeu de balises</h3><button class="btn-fermer" data-act="fermer">&times;</button></div>';
@@ -625,15 +705,21 @@ function grilleCodes(s,n){
 }
 function lireGrille(){
   var codes={}; var ins=document.querySelectorAll('#sGrille input[data-cb]');
-  for(var i=0;i<ins.length;i++){ var b=ins[i].getAttribute('data-cb'),g=ins[i].getAttribute('data-cg'); if(!codes[b]) codes[b]={}; codes[b][g]=ins[i].value.toUpperCase().slice(0,1); }
+  for(var i=0;i<ins.length;i++){ var b=ins[i].getAttribute('data-cb'),g=ins[i].getAttribute('data-cg'); if(!codes[b]) codes[b]={}; codes[b][g]=ins[i].value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,1); }
   return codes;
 }
 
 
-function appliquerEtat(o){ var d=etatInitial(); for(var k in d){ if(!(k in o)) o[k]=d[k]; } S=o; S.appVer=APP_VER;
-  var pris={}; S.classes.forEach(function(c){ if(!S.rosters[c.id] && S.rosters[c.nom] && !pris[c.nom]){ S.rosters[c.id]=S.rosters[c.nom]; pris[c.nom]=1; } });
-  Object.keys(S.rosters).forEach(function(k){ if(!S.classes.some(function(c){return c.id===k;})) delete S.rosters[k]; });
-  if(S.classes.length&&!classe()) S.cur=S.classes[0].id; sauver(); dessiner(); }
+function appliquerEtat(o){
+  if(!etatValide(o)) throw new Error('etat invalide');
+  var ancien=S, d=etatInitial(); for(var k in d){ if(!(k in o)) o[k]=d[k]; } S=o; S.appVer=APP_VER;
+  try{
+    var pris={}; S.classes.forEach(function(c){ if(!S.rosters[c.id] && S.rosters[c.nom] && !pris[c.nom]){ S.rosters[c.id]=S.rosters[c.nom]; pris[c.nom]=1; } });
+    Object.keys(S.rosters).forEach(function(k){ if(!S.classes.some(function(c){return c.id===k;})) delete S.rosters[k]; });
+    if(S.classes.length&&!classe()) S.cur=S.classes[0].id;
+    dessiner();
+  }catch(err){ S=ancien; dessiner(); throw err; }
+  sauver(); }
 function exporterSauvegarde(){
   var blob=new Blob([JSON.stringify(S)],{type:'application/json'}); var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='CO_EPS_sauvegarde_'+aujourdhui()+'.json'; document.body.appendChild(a); a.click(); setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},500);
@@ -670,7 +756,7 @@ document.addEventListener('click',function(e){
     case 'videhisto': if(c&&confirm('Oublier les séances passées ? Les groupes pourront de nouveau se retrouver.')){ roster(c).histo=[]; sauver(); dessiner(); } break;
     case 'delclasse': if(c&&confirm('Supprimer la classe '+c.nom+' (chronos, codes et liste d\'élèves) ?')){ delete S.rosters[c.id]; S.classes=S.classes.filter(function(x){return x.id!==c.id;}); S.cur=S.classes.length?S.classes[0].id:null; if(!S.classes.length){ try{ localStorage.removeItem(CLE+'_auto'); localStorage.removeItem(CLE+'_avant_maj'); }catch(e){} } sauver(); dessiner(); } break;
     case 'exportsauv': exporterSauvegarde(); break;
-    case 'restaureravant': try{ var ob=JSON.parse(localStorage.getItem(CLE+'_avant_maj')); if(confirm('Restaurer l\'état d\'avant la dernière mise à jour ('+(ob.classes||[]).length+' classe(s), '+nbElevesTotal(ob)+' élève(s)) ? Les données actuelles seront remplacées.')){ appliquerEtat(ob); toast('Données restaurées'); } }catch(er){ alert('Restauration impossible.'); } break;
+    case 'restaureravant': try{ var ob=JSON.parse(localStorage.getItem(CLE+'_avant_maj')); if(!etatValide(ob)) throw 1; if(confirm('Restaurer l\'état d\'avant la dernière mise à jour ('+(ob.classes||[]).length+' classe(s), '+nbElevesTotal(ob)+' élève(s)) ? Les données actuelles seront remplacées.')){ appliquerEtat(ob); toast('Données restaurées'); } }catch(er){ alert('Restauration impossible.'); } break;
     case 'nav': allerA(el.getAttribute('data-o')); break;
     case 'fermer': fermerModale(); break;
     case 'auto': attribuerAuto(); sauver(); dessiner(); break;
@@ -683,22 +769,28 @@ document.addEventListener('click',function(e){
     case 'departall': if(c){ c.depart.all=Date.now(); S.groupes.forEach(function(x){ if(!c.absents[x]) {} }); sauver(); dessiner(); } break;
     case 'annulerdepartall': if(c&&confirm('Annuler le départ de tous ?')){ c.depart.all=null; sauver(); dessiner(); } break;
     case 'depart': if(c){ c.depart.g[g]=Date.now(); sauver(); dessiner(); } break;
-    case 'arrivee': if(c){ var now=Date.now(); c.arrivee[g]=now; var p=penG(c,g); if(c.rdv){ var m=/^(\d+):(\d+)$/.exec(c.rdv); if(m){ var d=new Date(now); var lim=new Date(now); lim.setHours(+m[1],+m[2],59,999); if(now>lim.getTime()&&!p.rdv) p.rdv=1; } } sauver(); dessiner(); } break;
+    case 'arrivee': if(c){ var now=Date.now(); var p=penG(c,g); dernierArr={cid:c.id,g:g,rdv:p.rdv}; c.arrivee[g]=now; if(c.rdv){ var m=/^(\d+):(\d+)$/.exec(c.rdv); if(m){ var d=new Date(now); var lim=new Date(now); lim.setHours(+m[1],+m[2],59,999); if(now>lim.getTime()&&!p.rdv) p.rdv=1; } } sauver(); dessiner(); try{ if(navigator.vibrate) navigator.vibrate(60); }catch(ve){} toastAnnuler('Arrivée '+g+' enregistrée à '+heure(now)); } break;
+    case 'annulerarr': if(dernierArr){ var ca=null; S.classes.forEach(function(x){ if(x.id===dernierArr.cid) ca=x; }); if(ca){ delete ca.arrivee[dernierArr.g]; penG(ca,dernierArr.g).rdv=dernierArr.rdv; sauver(); dessiner(); } fermerToastAnn(); } break;
     case 'grp': modaleGroupe(g); break;
     case 'pen': if(c){ var pp=penG(c,g), k=el.getAttribute('data-k'); pp[k]=Math.max(0,pp[k]+parseInt(el.getAttribute('data-d'),10)); sauver(); modaleGroupe(g); dessiner(); } break;
     case 'majheures': if(c){ var rd=debut(c,g)||c.arrivee[g]||Date.now(); var dd=secDepuisHeure($('hDep').value,rd), aa=secDepuisHeure($('hArr').value,rd); if(dd){ c.depart.g[g]=dd; } if(aa){ c.arrivee[g]=aa; } sauver(); fermerModale(); dessiner(); } break;
     case 'effdep': if(c){ delete c.depart.g[g]; if(c.mode==='groupe') {} sauver(); fermerModale(); dessiner(); } break;
     case 'effarr': if(c){ delete c.arrivee[g]; sauver(); fermerModale(); dessiner(); } break;
-    case 'vg': uiVerifG=g; dessiner(); break;
+    case 'vg': uiVerifG=g; dessiner(); focusVerif(); break;
     case 'csv': telechargerCsv(); break;
     case 'copier': copierCsv(); break;
-    case 'majgroupes': var l=$('inGroupes').value.split(/[,;\s]+/).map(function(x){return x.trim().toUpperCase();}).filter(function(x,i,ar){return x&&ar.indexOf(x)===i;}); if(l.length){ S.groupes=l; for(var k in S.seance.assign) if(l.indexOf(k)<0) delete S.seance.assign[k]; sauver(); toast('Groupes enregistrés'); } break;
+    case 'majgroupes': var l=$('inGroupes').value.split(/[,;\s]+/).map(function(x){return x.trim().toUpperCase();}).filter(function(x,i,ar){return x&&ar.indexOf(x)===i;}); if(l.length){
+      var msgs=[], anciens=S.groupes.filter(function(x){return l.indexOf(x)<0;});
+      if(!l.every(function(x){return /^[A-D][1-4]$/.test(x);})) msgs.push('Les codes des balises d\'origine (PDF) n\'existent que pour les groupes A1 à D4 : avec les autres noms, aucune saisie ne sera validée sur ces balises (seuls les jeux personnalisés fonctionneront).');
+      if(anciens.length&&groupesAvecDonnees(anciens)) msgs.push('Des chronos, pénalités, codes ou compositions sont déjà enregistrés pour : '+anciens.join(', ')+'. Ils ne seront plus rattachés à aucun groupe.');
+      if(msgs.length&&!confirm(msgs.join('\n\n')+'\n\nEnregistrer quand même ?')) break;
+      S.groupes=l; for(var k in S.seance.assign) if(l.indexOf(k)<0) delete S.seance.assign[k]; sauver(); toast('Groupes enregistrés'); } break;
     case 'pensec': S.penSec=Math.max(0,S.penSec+parseInt(el.getAttribute('data-d'),10)); sauver(); dessiner(); break;
     case 'newset': modaleSet(''); break;
     case 'editset': modaleSet(el.getAttribute('data-id')); break;
     case 'delset': if(confirm('Supprimer ce jeu de balises ?')){ var sid=el.getAttribute('data-id'); S.sets=S.sets.filter(function(s){return s.id!==sid;}); S.seance.setIds=S.seance.setIds.map(function(x){return x===sid?'':x;}); sauver(); dessiner(); } break;
     case 'setn': var inN=$('sN'), cur=lireGrille(), nn=Math.max(1,Math.min(30,parseInt(inN.value,10)+parseInt(el.getAttribute('data-d'),10))); inN.value=nn; $('sGrille').innerHTML=grilleCodes({codes:cur},nn); break;
-    case 'importcodes': var lignes=$('sColler').value.split(/\r?\n/).filter(function(x){return x.trim();}); var cur2={}; lignes.forEach(function(ln,i){ var cs=ln.split(/\t|;|,/); cur2[i+1]={}; S.groupes.forEach(function(gg,j){ cur2[i+1][gg]=(cs[j]||'').trim().toUpperCase().slice(0,1); }); }); var n2=Math.max(1,Math.min(30,lignes.length)); $('sN').value=n2; $('sGrille').innerHTML=grilleCodes({codes:cur2},n2); break;
+    case 'importcodes': var lignes=$('sColler').value.split(/\r?\n/).filter(function(x){return x.trim();}); var cur2={}; lignes.forEach(function(ln,i){ var cs=ln.split(/\t|;|,/); cur2[i+1]={}; S.groupes.forEach(function(gg,j){ cur2[i+1][gg]=(cs[j]||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,1); }); }); var n2=Math.max(1,Math.min(30,lignes.length)); $('sN').value=n2; $('sGrille').innerHTML=grilleCodes({codes:cur2},n2); break;
     case 'saveset': var idd=el.getAttribute('data-id'), nm=$('sNom').value.trim(); if(!nm){ alert('Donne un nom au jeu.'); break; }
       var obj={id:idd||('s'+Date.now()),nom:nm,couleur:$('sCoul').value,n:parseInt($('sN').value,10),codes:lireGrille()};
       if(idd){ S.sets=S.sets.map(function(s){return s.id===idd?obj:s;}); } else S.sets.push(obj);
@@ -716,7 +808,7 @@ document.addEventListener('change',function(e){
     case 'setid': S.seance.setIds[parseInt(t.getAttribute('data-i'),10)]=t.value; sauver(); dessiner(); break;
     case 'assign': var g=t.getAttribute('data-g'); if(t.value){ for(var x in S.seance.assign) if(S.seance.assign[x]===t.value) delete S.seance.assign[x]; S.seance.assign[g]=t.value; } else delete S.seance.assign[g]; sauver(); dessiner(); break;
     case 'fichiereleves': if(c&&t.files&&t.files[0]){ var fr=new FileReader(); fr.onload=function(){ var rs2=importerEleves(roster(c),decoderTexte(fr.result)); sauver(); dessiner(); toast(rs2.ajoutes+' ajouté(s)'+(rs2.majs?' · '+rs2.majs+' genre(s) corrigé(s)':'')+(rs2.doublons?' · '+rs2.doublons+' doublon(s)':'')); }; fr.readAsArrayBuffer(t.files[0]); } break;
-    case 'fichiersauv': if(t.files&&t.files[0]){ var fs=new FileReader(); fs.onload=function(){ try{ var ob=JSON.parse(fs.result); if(!ob||!ob.classes||!ob.rosters) throw 1; if(confirm('Restaurer cette sauvegarde ('+ob.classes.length+' classe(s), '+nbElevesTotal(ob)+' élève(s)) ? Les données actuelles seront remplacées.')){ appliquerEtat(ob); toast('Sauvegarde restaurée'); } }catch(er){ alert('Fichier de sauvegarde invalide.'); } }; fs.readAsText(t.files[0]); } break;
+    case 'fichiersauv': if(t.files&&t.files[0]){ var fs=new FileReader(); fs.onload=function(){ try{ var ob=JSON.parse(fs.result); if(!ob||!ob.classes||!ob.rosters||!etatValide(ob)) throw 1; if(confirm('Restaurer cette sauvegarde ('+ob.classes.length+' classe(s), '+nbElevesTotal(ob)+' élève(s)) ? Les données actuelles seront remplacées.')){ appliquerEtat(ob); toast('Sauvegarde restaurée'); } }catch(er){ alert('Fichier de sauvegarde invalide ou endommagé : rien n\'a été modifié.'); } }; fs.readAsText(t.files[0]); } break;
     case 'eleveprs': if(c){ var rp=roster(c); if(t.checked) delete rp.absent[t.getAttribute('data-id')]; else rp.absent[t.getAttribute('data-id')]=1; sauver(); dessiner(); } break;
     case 'moveel': if(c){ var rm=roster(c), idm=t.getAttribute('data-id'); for(var gm in rm.compo) rm.compo[gm]=rm.compo[gm].filter(function(x){return x!==idm;}); if(t.value){ if(!rm.compo[t.value]) rm.compo[t.value]=[]; rm.compo[t.value].push(idm); } sauver(); var yy=window.pageYOffset; dessiner(); window.scrollTo(0,yy); } break;
     case 'poste': if(uiSel){ if(!S.seance.poste) S.seance.poste={}; var spp=S.seance.parcours; if(!S.seance.poste[spp]) S.seance.poste[spp]={}; if(t.value) S.seance.poste[spp][uiSel]=t.value; else delete S.seance.poste[spp][uiSel]; sauver(); dessiner(); } break;
