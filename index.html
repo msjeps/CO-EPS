@@ -167,7 +167,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.12';
+var APP_VER='2.14';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -542,7 +542,7 @@ function vuePose(){
   h+='<div class="section section-pose"><h2>Contrôle des balises</h2><p class="petit">Après la pose, fais le tour : « vérifiée » = en place et lisible. « Invalide » = manquante ou déplacée : elle est retirée du barème de tous les groupes.</p>';
   ids.forEach(function(b){
     var e=S.seance.etat[b]||'';
-    h+='<div class="rangee">'+pastilleB(b)+'<div class="corps"><b>'+esc(baliseLabel(b))+'</b> <span class="petit">posée par '+esc(poseur(b))+(posteB(b)?' · poste '+esc(posteB(b)):'')+'</span>'+(S.indices&&descB(b)?'<div class="petit">💡 '+esc(descB(b))+'</div>':'')+'</div>'+
+    h+='<div class="rangee">'+pastilleB(b)+'<div class="corps"><b>'+esc(baliseLabel(b))+'</b> <span class="petit">posée par '+esc(poseur(b))+(posteB(b)?' · poste '+esc(posteB(b)):'')+'</span>'+(S.indices&&descB(b)?'<div class="petit">💡 '+esc(descB(b))+'</div>':'')+'</div>'+(S.indices?'<button class="chip" data-act="editindice" data-b="'+esc(b)+'" style="margin:0 6px 0 0" aria-label="Indice de '+esc(baliseLabel(b))+'">💡 '+(descB(b)?'Modifier':'Indice')+'</button>':'')+
       '<button class="chip'+(e==='ok'?' actif':'')+'" data-act="etat" data-b="'+esc(b)+'" data-e="ok" style="margin:0 6px 0 0">✔️</button>'+
       '<button class="chip'+(e==='ko'?' actif':'')+'" data-act="etat" data-b="'+esc(b)+'" data-e="ko" style="margin:0;'+(e==='ko'?'background:#d32f2f;border-color:#d32f2f':'')+'">⚠️</button></div>';
   });
@@ -937,6 +937,7 @@ document.addEventListener('click',function(e){
     case 'delclasse': if(c) demanderMdp(function(){ confirmer('Supprimer la classe '+c.nom+' (chronos, codes et liste d\'élèves) ?',function(){ delete S.rosters[c.id]; S.classes=S.classes.filter(function(x){return x.id!==c.id;}); S.cur=S.classes.length?S.classes[0].id:null; if(!S.classes.length){ try{ localStorage.removeItem(CLE+'_auto'); localStorage.removeItem(CLE+'_avant_maj'); }catch(e){} } sauver(); dessiner(); },'Supprimer la classe',true); }); break;
     case 'exportsauv': exporterSauvegarde(); break;
     case 'restaureravant': try{ var ob=JSON.parse(localStorage.getItem(CLE+'_avant_maj')); if(!etatValide(ob)) throw 1; confirmer('Restaurer l\'état d\'avant la dernière mise à jour ('+(ob.classes||[]).length+' classe(s), '+nbElevesTotal(ob)+' élève(s)) ? Les données actuelles seront remplacées.',function(){ try{ appliquerEtat(ob); toast('Données restaurées'); }catch(er2){ avertir('Restauration impossible : rien n\'a été modifié.'); } },'Restaurer'); }catch(er){ avertir('Restauration impossible.'); } break;
+    case 'editindice': if(b){ saisir('Indice de '+baliseLabel(b)+' (140 caractères max. ; laisse vide pour le supprimer) :',descB(b),function(v){ var sp=S.seance.parcours; if(!S.seance.desc) S.seance.desc={}; if(!S.seance.desc[sp]) S.seance.desc[sp]={}; v=String(v==null?'':v).replace(/\s+/g,' ').trim().slice(0,140); if(v) S.seance.desc[sp][b]=v; else delete S.seance.desc[sp][b]; sauver(); var y=window.pageYOffset; dessiner(); window.scrollTo(0,y); },'Enregistrer'); } break;
     case 'entreleve': if(c) confirmer('Passer en mode élève pour la classe '+c.nom+' ? La tablette ne montrera plus que Course et Vérif. de cette classe (chrono et saisie des codes). Pour en sortir : bouton « Quitter » et mot de passe prof.',function(){ S.modeEleve=c.id; S.cur=c.id; S.onglet='course'; deverrouille=false; sauver(); dessiner(); window.scrollTo(0,0); },'Passer en mode élève'); break;
     case 'sortireleve': demanderMdp(function(){ S.modeEleve=null; S.onglet='course'; sauver(); dessiner(); toast('Mode professeur'); }); break;
     case 'fermerreglages': allerA('pose'); break;
@@ -1025,11 +1026,22 @@ document.addEventListener('focusin',function(e){ var t=e.target; if(t.getAttribu
 setInterval(function(){ try{ verifAlertesRdv(); }catch(e){} if(S.onglet!=='course') return; majRdvLive(classe()); var els=document.querySelectorAll('[data-live]'); for(var i=0;i<els.length;i++) els[i].textContent=fmt((Date.now()-parseInt(els[i].getAttribute('data-live'),10))/1000); },1000);
 setInterval(sauver,15000);
 window.addEventListener('beforeunload',sauver);
-var wl=null;
-function veille(){ try{ if(navigator.wakeLock) navigator.wakeLock.request('screen').then(function(l){wl=l;},function(){}); }catch(e){} }
+/* Wake Lock : un seul verrou à la fois. Le navigateur le relâche seul quand la page est masquée (événement « release ») ;
+   on le redemande alors au retour, sans empiler de verrous. */
+var wl=null, wlEnCours=false;
+function veille(){
+  try{
+    if(!navigator.wakeLock || wl || wlEnCours || document.visibilityState!=='visible') return;
+    wlEnCours=true;
+    navigator.wakeLock.request('screen').then(function(l){
+      wlEnCours=false; wl=l;
+      if(l.addEventListener) l.addEventListener('release',function(){ if(wl===l) wl=null; });
+    },function(){ wlEnCours=false; });
+  }catch(e){ wlEnCours=false; }
+}
 document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden') sauver(); else veille(); });
 veille();
-document.addEventListener('click',function(){ if(!wl) veille(); },{once:true});
+document.addEventListener('click',function(){ veille(); },{once:true});
 function plein(){ try{ var d=document.documentElement; if(d.requestFullscreen && !document.fullscreenElement) d.requestFullscreen().catch(function(){}); }catch(e){} }
 document.addEventListener('click',plein,{once:true});
 /* ============ BANDEAUX (mise à jour, hors ligne incomplet, rappel de sauvegarde) ============ */
