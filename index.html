@@ -124,7 +124,7 @@ body.mode-sombre .bandeau{background:#5a4318;color:#ffe2a8;border-color:#7a5b22}
 
 <div class="en-tete">
   <h1>🧭 Course d'orientation EPS</h1>
-  <p>Version 2.2</p>
+  <p>Version 2.3</p>
 </div>
 
 <div id="bandeaux"></div>
@@ -163,7 +163,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.2';
+var APP_VER='2.3';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -811,6 +811,8 @@ function dialogue(o,cb){
     '<button class="bouton '+(o.danger?'bouton-danger':'bouton-primaire')+'" data-act="dlgoui">'+esc(o.ok||'OK')+'</button></div></div>';
   var i=$('inDialogue'); if(i){ i.focus(); i.select(); }
 }
+/* Message d'attente sans bouton (calcul un peu long sur les vieilles tablettes) : fermé par fermerDialogue() */
+function attente(msg){ cbDialogue=null; var d=$('dialogue'); d.className='modale-fond'; d.style.zIndex=150; d.innerHTML='<div class="modale" role="status" style="text-align:center"><p style="font-size:1.2em;font-weight:700;margin:16px 0">⏳ '+esc(msg)+'</p><p class="petit" style="margin:0 0 8px">Un instant…</p></div>'; }
 function confirmer(msg,cb,ok,danger){ dialogue({message:msg,ok:ok||'Confirmer',danger:!!danger},cb); }
 function saisir(msg,valeur,cb,ok,secret){ dialogue({message:msg,champ:true,valeur:valeur,ok:ok||'Valider',secret:!!secret},cb); }
 function avertir(msg){ dialogue({message:msg,annuler:false}); }
@@ -858,7 +860,7 @@ document.addEventListener('click',function(e){
     case 'sexe': if(c){ var rs=roster(c), es=eleveDe(rs,el.getAttribute('data-id')); if(es){ es.sexe=es.sexe==='F'?'G':es.sexe==='G'?'?':'F'; sauver(); dessiner(); } } break;
     case 'deleve': if(c){ var rd2=roster(c), ed=eleveDe(rd2,el.getAttribute('data-id')); if(ed) confirmer('Supprimer '+affNom(ed.nom)+' ?',function(){ var idd2=ed.id; rd2.eleves=rd2.eleves.filter(function(x){return x.id!==idd2;}); for(var gk in rd2.compo) rd2.compo[gk]=rd2.compo[gk].filter(function(x){return x!==idd2;}); sauver(); dessiner(); },'Supprimer',true); } break;
     case 'nbg': if(c){ var rg=roster(c), cu=Math.min(S.groupes.length,rg.nbG||nbGroupesAuto(rg)); rg.nbG=Math.max(1,Math.min(S.groupes.length,cu+parseInt(el.getAttribute('data-d'),10))); sauver(); dessiner(); } break;
-    case 'generer': if(c){ var rgn=roster(c); var lancer=function(){ if(genererGroupes(rgn)){ sauver(); dessiner(); } else avertir('Aucun élève présent.'); }; if(Object.keys(rgn.compo).length) confirmer('Remplacer la composition actuelle ?',lancer,'Remplacer'); else lancer(); } break;
+    case 'generer': if(c){ var rgn=roster(c); var lancer=function(){ attente('Génération des groupes…'); setTimeout(function(){ var ok=false; try{ ok=genererGroupes(rgn); }finally{ fermerDialogue(); } if(ok){ sauver(); dessiner(); } else avertir('Aucun élève présent.'); },80); }; if(Object.keys(rgn.compo).length) confirmer('Remplacer la composition actuelle ?',lancer,'Remplacer'); else lancer(); } break;
     case 'videcompo': if(c) confirmer('Effacer la composition des groupes ?',function(){ roster(c).compo={}; sauver(); dessiner(); },'Effacer',true); break;
     case 'videhisto': if(c) demanderMdp(function(){ confirmer('Oublier les séances passées ? Les groupes pourront de nouveau se retrouver.',function(){ roster(c).histo=[]; sauver(); dessiner(); },'Oublier',true); }); break;
     case 'delclasse': if(c) demanderMdp(function(){ confirmer('Supprimer la classe '+c.nom+' (chronos, codes et liste d\'élèves) ?',function(){ delete S.rosters[c.id]; S.classes=S.classes.filter(function(x){return x.id!==c.id;}); S.cur=S.classes.length?S.classes[0].id:null; if(!S.classes.length){ try{ localStorage.removeItem(CLE+'_auto'); localStorage.removeItem(CLE+'_avant_maj'); }catch(e){} } sauver(); dessiner(); },'Supprimer la classe',true); }); break;
