@@ -25,7 +25,10 @@ html,body{margin:0;padding:0}
 body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:var(--couleur-fond);color:var(--couleur-texte);padding-bottom:84px;font-size:16px}
 .cache{display:none!important}
 .conteneur{max-width:900px;margin:0 auto;padding:12px 14px}
-.en-tete{background:var(--couleur-primaire);color:#fff;text-align:center;padding:12px 10px 10px}
+.en-tete{background:var(--couleur-primaire);color:#fff;text-align:center;padding:12px 78px 10px;position:relative}
+.btn-aide{position:absolute;right:8px;top:8px;min-height:44px;min-width:44px;padding:0 12px;border:2px solid #fff;border-radius:22px;background:rgba(255,255,255,.15);color:#fff;font-weight:700;font-size:.9em;cursor:pointer;font-family:inherit}
+.modale h4{margin:14px 0 4px}
+.modale p{margin:4px 0}
 .en-tete h1{margin:0;font-size:1.35em}
 .en-tete p{margin:2px 0 0;font-size:.85em;opacity:.85}
 .section{background:var(--couleur-blanc);border-radius:var(--rayon);padding:16px;margin-bottom:16px;box-shadow:var(--ombre-douce);border-left:5px solid var(--couleur-primaire)}
@@ -131,6 +134,7 @@ body.mode-sombre .bandeau{background:#5a4318;color:#ffe2a8;border-color:#7a5b22}
 <body>
 
 <div class="en-tete">
+  <button class="btn-aide" data-act="aide" aria-label="Aide">❓ Aide</button>
   <h1>🧭 Course d'orientation EPS</h1>
   <p>Version 2.3</p>
 </div>
@@ -171,7 +175,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.18';
+var APP_VER='2.19';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -968,6 +972,26 @@ function masquerMdp(){
 }
 function mdpOk(v){ return S.mdp ? v===S.mdp : String(v).toUpperCase()===MDP_DEFAUT; }
 
+/* ============ AIDE (bouton ❓ du bandeau haut) ============ */
+function aideHtml(){
+  var h='<div class="modale-header"><h3>❓ Aide</h3><button class="btn-fermer" data-act="fermer" aria-label="Fermer l\'aide">&times;</button></div>';
+  if(S.modeEleve){
+    return h+'<p class="petit">Mode élève : tu n\'as que deux onglets.</p>'+
+      '<h4>⏱️ Course</h4><p>Donne le <b>départ</b> (à tous, ou groupe par groupe). Touche <b>Arrivée</b> quand un groupe revient ; si tu t\'es trompé, le bouton <b>Annuler</b> reste affiché 6 secondes.</p>'+
+      '<h4>✅ Vérif.</h4><p>Choisis un groupe, puis tape la lettre relevée sur sa feuille pour chaque balise (vide = non trouvée). ✓ = bon, ✗ = faux. Si un groupe n\'arrive pas à trouver une balise, touche <b>💡 Révéler l\'indice</b> : la balise ne vaudra alors que la moitié des points.</p>'+
+      '<h4>Pénalités, corrections, classement</h4><p>Ils sont réservés au professeur. Tout est enregistré automatiquement.</p>'+
+      '<p class="petit">Pour quitter le mode élève : bouton « Quitter » du bandeau, avec le mot de passe du professeur.</p>';
+  }
+  return h+'<p class="petit">Tout est enregistré automatiquement sur la tablette. Un guide professeur détaillé (PDF) est sur la page de l\'application du site outils-eps.fr.</p>'+
+    '<h4>👥 Groupes</h4><p>Crée la classe (+ Classe), ajoute les élèves (saisie, liste collée ou fichier CSV), signale les absents, règle le nombre de groupes puis <b>Générer les groupes</b> (mixtes, sans répéter les séances précédentes). Chaque élève peut être déplacé à la main.</p>'+
+    '<h4>📍 Pose</h4><p>Choisis 2 couleurs et <b>Attribuer</b> : chaque groupe pose une balise. Après la pose, « Contrôle des balises » : ✔️ en place, ⚠️ invalide (retirée pour tout le monde). <b>💡 Indice</b> : écris, modifie ou supprime l\'indice d\'une balise.</p>'+
+    '<h4>🗺️ Carte</h4><p>Choisis le parcours, touche une balise de la liste, puis touche son emplacement sur la carte. Indique le n° de poste et, si tu veux, un indice. <b>Toucher une pastille</b> affiche ses infos dans le bandeau au-dessus de la carte. <b>Appui prolongé puis glisser</b> la déplace.</p>'+
+    '<h4>⏱️ Course</h4><p>Départ (tous ou groupe par groupe), <b>Arrivée</b> à chaque retour (Annuler pendant 6 s). Heure de RDV max : une pénalité par minute de retard s\'ajoute toute seule. Bouton <b>⋯</b> : pénalités, correction des heures, groupe absent.</p>'+
+    '<h4>✅ Vérif.</h4><p>Choisis un groupe et tape la lettre relevée pour chaque balise. <b>💡 Révéler l\'indice</b> (avec confirmation) : la balise trouvée ne vaut alors que les points « avec indice ».</p>'+
+    '<h4>🏆 Podium</h4><p>Classement aux <b>points</b>, puis au temps (course + pénalités). Export CSV ou copie vers Excel.</p>'+
+    '<h4>⚙️ Réglages (mot de passe)</h4><p>Mot de passe, <b>mode élève</b> (confier la tablette à un élève dispensé : Course et Vérif. d\'une seule classe), indices, points par balise, durée des pénalités, jeux de balises, sauvegarde et restauration, <b>Nouvelle séance</b>.</p>'+
+    '<h4>En cas de souci</h4><p>Ne vide jamais les données du site dans Chrome (tu perdrais classes et élèves). Si un bandeau propose une nouvelle version, touche « Recharger ». Pense à exporter une sauvegarde de temps en temps (Réglages).</p>';
+}
 /* ============ ACTIONS (clics) ============ */
 document.addEventListener('click',function(e){
   var cw=e.target.closest&&e.target.closest('#carteWrap');
@@ -1040,7 +1064,7 @@ document.addEventListener('click',function(e){
       if(idd){ S.sets=S.sets.map(function(s){return s.id===idd?obj:s;}); } else S.sets.push(obj);
       sauver(); fermerModale(); dessiner(); break;
     case 'chgmdp': saisir('Nouveau mot de passe (vide = revenir au mot de passe par défaut) :','',function(nv){ if(nv!==null){ S.mdp=nv.trim()||null; sauver(); toast('Mot de passe mis à jour'); } },'Enregistrer',true); break;
-    case 'aide': ouvrirModale('<div class="modale-header"><h3>Aide</h3><button class="btn-fermer" data-act="fermer">&times;</button></div><p><b>1. Pose</b> : choisis 2 couleurs, attribue les balises aux groupes, place chaque balise sur la carte, contrôle-les.</p><p><b>2. Course</b> : crée la classe, donne le départ (tous ou groupe par groupe), touche « Arrivée » à chaque retour, ajoute les pénalités.</p><p><b>3. Vérif.</b> : saisis les lettres relevées sur la feuille de chaque groupe.</p><p><b>4. Classement</b> : balises validées, puis temps. Export CSV.</p><p>Tout est enregistré automatiquement sur la tablette.</p>'); break;
+    case 'aide': ouvrirModale(aideHtml()); break;
     case 'nouvelle': var lanceNouvelle=function(){ confirmer('Terminer la séance ? Balises, positions et résultats seront effacés ; les groupes actuels sont archivés. Dernière sauvegarde : '+texteAge()+'.',function(){ for(var rn in S.rosters){ var ro=S.rosters[rn]; if(Object.keys(ro.compo).some(function(k){return ro.compo[k].length;})){ ro.histo.push(JSON.parse(JSON.stringify(ro.compo))); } ro.compo={}; ro.absent={}; } var d=etatInitial(); d.rosters=S.rosters; d.classes=S.classes.map(function(k){ k.depart={all:null,g:{}}; k.arrivee={}; k.pen={}; k.codes={}; k.absents={}; k.indices={}; return k; }); d.cur=S.cur; d.sets=S.sets; d.groupes=S.groupes; d.penSec=S.penSec; d.mdp=S.mdp; d.sombre=S.sombre; d.afficherAttendu=S.afficherAttendu; d.initiales=S.initiales; d.indices=S.indices; d.ptsBalise=S.ptsBalise; d.ptsIndice=S.ptsIndice; d.derniereSauv=S.derniereSauv; d.rappelJusqua=S.rappelJusqua; d.onglet='pose'; S=d; attribuerAuto(); uiVerifG=null; uiSel=null; sauver(); dessiner(); toast('Nouvelle séance prête : balises attribuées'); },'Terminer la séance',true); }; if(deverrouille) lanceNouvelle(); else demanderMdp(lanceNouvelle); break;
     case 'okmdp': var v=$('inMdp').value.trim(); if(mdpOk(v)){ fermerModale(); var f=cbMdp; cbMdp=null; if(f) f(); } else { echecs++; afficherMdp('Mot de passe incorrect.'); } break;
     case 'resetmdp':
