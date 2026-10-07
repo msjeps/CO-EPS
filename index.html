@@ -162,12 +162,12 @@ var GROUPES_DEFAUT=['A1','A2','A3','A4','B1','B2','B3','B4','C1','C2','C3','C4',
 function etatInitial(){
   return {
     v:1, groupes:GROUPES_DEFAUT.slice(),
-    sets:[], penSec:60, indices:true, mdp:null, sombre:false, afficherAttendu:true, initiales:false, derniereSauv:0, rappelJusqua:0,
+    sets:[], penSec:60, indices:true, ptsBalise:1, ptsIndice:0.5, mdp:null, sombre:false, afficherAttendu:true, initiales:false, derniereSauv:0, rappelJusqua:0,
     seance:{setIds:['Orange','Bleu'], assign:{}, parcours:1, pos:{}, etat:{}, poste:{}, desc:{}},
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.7';
+var APP_VER='2.8';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -191,6 +191,8 @@ function etatValide(o){
     if(o.cur!==null && typeof o.cur!=='string') o.cur=null;
     if(typeof o.initiales!=='boolean') o.initiales=false;
     if(typeof o.indices!=='boolean') o.indices=true;
+    if(!estNb(o.ptsBalise)||o.ptsBalise<0.5||o.ptsBalise>100) o.ptsBalise=1;
+    if(!estNb(o.ptsIndice)||o.ptsIndice<0||o.ptsIndice>o.ptsBalise) o.ptsIndice=Math.min(0.5,o.ptsBalise);
     if(!estNb(o.derniereSauv)) o.derniereSauv=0;
     if(!estNb(o.rappelJusqua)) o.rappelJusqua=0;
     var i,j,k,g;
@@ -215,10 +217,11 @@ function etatValide(o){
         if(!estObj(c.depart.g)) c.depart.g={};
         if(c.depart.all===undefined) c.depart.all=null;
         if(c.depart.all!==null&&!estNb(c.depart.all)) return false;
-        ['arrivee','pen','codes','absents'].forEach(function(f){ if(!estObj(c[f])) c[f]={}; });
+        ['arrivee','pen','codes','absents','indices'].forEach(function(f){ if(!estObj(c[f])) c[f]={}; });
         if(!valeursNb(c.depart.g)||!valeursNb(c.arrivee)) return false;
         for(g in c.pen){ var pn=c.pen[g]; if(!estObj(pn)) return false; ['sep','ind','dep','rdv'].forEach(function(f){ if(!estNb(pn[f])) pn[f]=0; }); }
-        for(g in c.codes) if(!estObj(c.codes[g])) return false; } }
+        for(g in c.codes) if(!estObj(c.codes[g])) return false;
+        for(g in c.indices) if(!estObj(c.indices[g])) delete c.indices[g]; } }
     if('rosters' in o){ if(!estObj(o.rosters)) return false;
       for(k in o.rosters){ var r=o.rosters[k]; if(!estObj(r)||!Array.isArray(r.eleves)) return false;
         for(j=0;j<r.eleves.length;j++){ var e=r.eleves[j]; if(!estObj(e)||!RE_ID.test(e.id)||typeof e.nom!=='string') return false; if(e.sexe!=='F'&&e.sexe!=='G') e.sexe='?'; }
@@ -326,7 +329,7 @@ function posB(bid){ var p=S.seance.pos[S.seance.parcours]; return p?p[bid]:null;
 /* ============ CLASSES / CHRONO ============ */
 function classe(){ for(var i=0;i<S.classes.length;i++) if(S.classes[i].id===S.cur) return S.classes[i]; return null; }
 function nouvelleClasse(nom){
-  var c={id:'c'+Date.now(), nom:nom, rdv:'', mode:'tous', depart:{all:null,g:{}}, arrivee:{}, pen:{}, codes:{}, absents:{}};
+  var c={id:'c'+Date.now(), nom:nom, rdv:'', mode:'tous', depart:{all:null,g:{}}, arrivee:{}, pen:{}, codes:{}, absents:{}, indices:{}};
   S.classes.push(c); S.cur=c.id; return c;
 }
 function debut(c,g){ return c.depart.g[g]||c.depart.all||null; }
@@ -334,22 +337,25 @@ function penG(c,g){ return c.pen[g]||(c.pen[g]={sep:0,ind:0,dep:0,rdv:0}); }
 function nbPen(c,g){ var p=c.pen[g]; return p?(p.sep+p.ind+p.dep+p.rdv):0; }
 function tempsCourse(c,g){ var d=debut(c,g),a=c.arrivee[g]; return (d&&a)?(a-d)/1000:null; }
 function tempsFinal(c,g){ var t=tempsCourse(c,g); return t==null?null:t+nbPen(c,g)*S.penSec; }
+function fmtPts(x){ return String(Math.round(x*100)/100).replace('.',','); }
+function indiceUtilise(c,g,b){ return !!(S.indices&&c.indices&&c.indices[g]&&c.indices[g][b]); }
 function nbValides(c,g){
-  var n=0,tot=0, cd=c.codes[g]||{};
-  aChercher(g).forEach(function(b){ if(invalide(b)) return; tot++; var att=codeAttendu(b,g); if(att && (cd[b]||'')===att) n++; });
-  return {n:n,tot:tot};
+  var n=0,tot=0,pts=0,nbInd=0, cd=c.codes[g]||{};
+  aChercher(g).forEach(function(b){ if(invalide(b)) return; tot++; var att=codeAttendu(b,g);
+    if(att && (cd[b]||'')===att){ n++; if(indiceUtilise(c,g,b)){ nbInd++; pts+=S.ptsIndice; } else pts+=S.ptsBalise; } });
+  return {n:n,tot:tot,pts:Math.round(pts*100)/100,max:Math.round(tot*S.ptsBalise*100)/100,ind:nbInd};
 }
 function classement(c){
   var rows=S.groupes.filter(function(g){return !c.absents[g];}).map(function(g){
-    var v=nbValides(c,g); return {g:g,n:v.n,tot:v.tot,tc:tempsCourse(c,g),pen:nbPen(c,g),tf:tempsFinal(c,g),fini:!!c.arrivee[g]&&!!debut(c,g)};
+    var v=nbValides(c,g); return {g:g,n:v.n,tot:v.tot,pts:v.pts,max:v.max,ind:v.ind,tc:tempsCourse(c,g),pen:nbPen(c,g),tf:tempsFinal(c,g),fini:!!c.arrivee[g]&&!!debut(c,g)};
   });
   rows.sort(function(a,b){
     if(a.fini!==b.fini) return a.fini?-1:1;
-    if(a.n!==b.n) return b.n-a.n;
+    if(a.pts!==b.pts) return b.pts-a.pts;
     if(a.tf!==b.tf) return (a.tf||0)-(b.tf||0);
     return a.g<b.g?-1:1;
   });
-  var rang=0,prev=null; rows.forEach(function(r,i){ if(!r.fini){r.rang='';return;} if(!prev||prev.n!==r.n||Math.round(prev.tf)!==Math.round(r.tf)) rang=i+1; r.rang=rang; prev=r; });
+  var rang=0,prev=null; rows.forEach(function(r,i){ if(!r.fini){r.rang='';return;} if(!prev||prev.pts!==r.pts||Math.round(prev.tf)!==Math.round(r.tf)) rang=i+1; r.rang=rang; prev=r; });
   return rows;
 }
 
@@ -674,16 +680,16 @@ function vueVerif(){
   var c=classe(), h='<div class="section section-verif"><h2>Vérification des codes</h2>'+selecteurClasse();
   if(!c) return h+'<p>Crée une classe pour commencer.</p></div>';
   h+='<label>Choisis le groupe</label><div class="chips">';
-  S.groupes.forEach(function(g){ if(c.absents[g]) return; var v=nbValides(c,g), saisi=Object.keys(c.codes[g]||{}).length>0; h+='<button class="chip'+(uiVerifG===g?' actif':'')+(saisi?' fait':'')+'" data-act="vg" data-g="'+esc(g)+'"><b>'+esc(g)+'</b> '+(saisi?v.n+'/'+v.tot:'')+'</button>'; });
+  S.groupes.forEach(function(g){ if(c.absents[g]) return; var v=nbValides(c,g), saisi=Object.keys(c.codes[g]||{}).length>0; h+='<button class="chip'+(uiVerifG===g?' actif':'')+(saisi?' fait':'')+'" data-act="vg" data-g="'+esc(g)+'"><b>'+esc(g)+'</b> '+(saisi?fmtPts(v.pts)+'/'+fmtPts(v.max):'')+'</button>'; });
   h+='</div></div>';
   if(uiVerifG && !c.absents[uiVerifG]){
     var g=uiVerifG, cd=c.codes[g]||{}, v=nbValides(c,g);
     h+='<div class="section section-verif"><h2>Groupe '+esc(g)+'</h2>'+(nomsGroupe(c,g)?'<p class="petit">'+esc(nomsGroupe(c,g))+'</p>':'')+'<p>Balise posée par ce groupe : <b>'+esc(S.seance.assign[g]?baliseLabel(S.seance.assign[g]):'—')+'</b> (non cherchée)</p>';
-    h+='<p>Score : <b id="vscore">'+v.n+' / '+v.tot+'</b></p>';
+    h+='<p>Score : <b id="vscore">'+fmtPts(v.pts)+' / '+fmtPts(v.max)+' pt'+(v.max>1?'s':'')+'</b></p>';
     aChercher(g).forEach(function(b){
       var inv=invalide(b), att=codeAttendu(b,g), val=cd[b]||'';
       var res=inv?'':(val===''?'':(val===att?'<span class="res ok">✓</span>':'<span class="res ko">✗</span>'));
-      h+='<div class="rangee" data-b="'+esc(b)+'">'+pastilleB(b)+'<div class="corps"><b>'+esc(baliseLabel(b))+'</b>'+(inv?' <span class="tag tag-ko">invalide — non comptée</span>':'')+'<div class="petit" data-att="'+esc(b)+'">'+(S.afficherAttendu&&val!==''&&val!==att&&!inv?'attendu : <b>'+esc(att||'?')+'</b>':'')+'</div></div>'+
+      h+='<div class="rangee" data-b="'+esc(b)+'">'+pastilleB(b)+'<div class="corps"><b>'+esc(baliseLabel(b))+'</b>'+(inv?' <span class="tag tag-ko">invalide — non comptée</span>':'')+(indiceUtilise(c,g,b)?' <span class="tag tag-att">indice utilisé</span>':'')+'<div class="petit" data-att="'+esc(b)+'">'+(S.afficherAttendu&&val!==''&&val!==att&&!inv?'attendu : <b>'+esc(att||'?')+'</b>':'')+'</div>'+(S.indices&&!inv&&descB(b)?(indiceUtilise(c,g,b)?'<div class="petit">💡 '+esc(descB(b))+'</div>':'<button class="chip" style="margin:4px 0 0" data-act="indice" data-g="'+esc(g)+'" data-b="'+esc(b)+'">💡 Révéler l\'indice</button>'):'')+'</div>'+
         '<input class="saisie" type="text" maxlength="1" inputmode="text" autocapitalize="characters" autocomplete="off" data-in="'+esc(b)+'" value="'+esc(val)+'"'+(inv?' disabled':'')+'><div class="res-zone" style="width:34px;text-align:center">'+res+'</div></div>';
     });
     h+='<p class="petit">Tape la lettre relevée par le groupe (vide = non trouvée). Passage automatique à la balise suivante.</p></div>';
@@ -701,7 +707,7 @@ function saisieCode(inp){
   var zone=row.querySelector('.res-zone'), at=row.querySelector('[data-att]');
   zone.innerHTML = v===''?'':(v===att?'<span class="res ok">✓</span>':'<span class="res ko">✗</span>');
   at.innerHTML = (S.afficherAttendu&&v!==''&&v!==att)?'attendu : <b>'+esc(att||'?')+'</b>':'';
-  var sc=nbValides(c,g); $('vscore').textContent=sc.n+' / '+sc.tot;
+  var sc=nbValides(c,g); $('vscore').textContent=fmtPts(sc.pts)+' / '+fmtPts(sc.max)+' pt'+(sc.max>1?'s':'');
   if(v!==''){ var all=document.querySelectorAll('input[data-in]:not([disabled])'); for(var i=0;i<all.length;i++){ if(all[i]===inp){ if(all[i+1]){ all[i+1].focus(); all[i+1].select&&all[i+1].select(); } else inp.blur(); break; } } }
 }
 
@@ -710,10 +716,10 @@ function vueClassement(){
   var c=classe(), h='<div class="section section-classement"><h2>Classement</h2>'+selecteurClasse();
   if(!c) return h+'<p>Aucune classe.</p></div>';
   var rows=classement(c);
-  h+='<p class="petit">Tri : nombre de balises validées, puis temps (course + pénalités de '+(S.penSec/60)+' min). Seuls les groupes arrivés sont classés.</p>';
-  h+='<div class="defil"><table class="tab"><thead><tr><th>#</th><th style="text-align:left">Groupe</th><th>Balises</th><th>Course</th><th>Pén.</th><th>Temps final</th></tr></thead><tbody>';
+  h+='<p class="petit">Tri : points (balise trouvée = '+fmtPts(S.ptsBalise)+(S.indices?', avec indice = '+fmtPts(S.ptsIndice):'')+'), puis temps (course + pénalités de '+(S.penSec/60)+' min). Seuls les groupes arrivés sont classés.</p>';
+  h+='<div class="defil"><table class="tab"><thead><tr><th>#</th><th style="text-align:left">Groupe</th><th>Points</th><th>Balises</th><th>Course</th><th>Pén.</th><th>Temps final</th></tr></thead><tbody>';
   rows.forEach(function(r){
-    h+='<tr class="'+(r.rang&&r.rang<=3?'podium-'+r.rang:'')+'"><td><b>'+(r.rang||'–')+'</b></td><td class="g">'+esc(r.g)+(nomsGroupe(c,r.g)?'<div class="petit" style="font-weight:400">'+esc(nomsGroupe(c,r.g))+'</div>':'')+'</td><td>'+r.n+'/'+r.tot+'</td><td class="temps">'+(r.tc!=null?fmt(r.tc):'–')+'</td><td>'+(r.pen?'+'+r.pen:'')+'</td><td class="temps">'+(r.tf!=null?fmt(r.tf):'<span class="petit">en course</span>')+'</td></tr>';
+    h+='<tr class="'+(r.rang&&r.rang<=3?'podium-'+r.rang:'')+'"><td><b>'+(r.rang||'–')+'</b></td><td class="g">'+esc(r.g)+(nomsGroupe(c,r.g)?'<div class="petit" style="font-weight:400">'+esc(nomsGroupe(c,r.g))+'</div>':'')+'</td><td><b>'+fmtPts(r.pts)+'</b></td><td>'+r.n+'/'+r.tot+(r.ind?' <span class="petit">('+r.ind+' ind.)</span>':'')+'</td><td class="temps">'+(r.tc!=null?fmt(r.tc):'–')+'</td><td>'+(r.pen?'+'+r.pen:'')+'</td><td class="temps">'+(r.tf!=null?fmt(r.tf):'<span class="petit">en course</span>')+'</td></tr>';
   });
   h+='</tbody></table></div></div>';
   h+='<div class="section section-classement"><h2>Export</h2><div class="rangee"><div class="corps">Inclure le détail balise par balise</div><label class="switch"><input type="checkbox" data-chg="csvdetail"'+(uiCsvDetail?' checked':'')+'><span class="slider"></span></label></div>'+
@@ -729,16 +735,16 @@ function celCsv(x,sep){
 }
 function construireCsv(c,sep){
   var rows=classement(c), bals=balisesAssignees();
-  var ent=['Rang','Groupe','Élèves','Balise posée','N° poste','Balises validées','Balises à chercher','Départ','Arrivée','Temps course (h:mm:ss)','Pénalités (nb)','Pénalités (min)','Temps final (h:mm:ss)'];
+  var ent=['Rang','Groupe','Élèves','Balise posée','N° poste','Points','Points max','Balises validées','Balises à chercher','Indices utilisés','Départ','Arrivée','Temps course (h:mm:ss)','Pénalités (nb)','Pénalités (min)','Temps final (h:mm:ss)'];
   if(uiCsvDetail) bals.forEach(function(b){ ent.push(baliseLabel(b)); });
   var lignes=[ent];
   rows.forEach(function(r){
     var d=debut(c,r.g), a=c.arrivee[r.g];
-    var l=[r.rang,r.g,nomsGroupe(c,r.g,true).replace(/ · /g,' / '),S.seance.assign[r.g]?baliseLabel(S.seance.assign[r.g]):'',S.seance.assign[r.g]?posteB(S.seance.assign[r.g]):'',r.n,r.tot,d?heure(d):'',a?heure(a):'',r.tc!=null?fmtHms(r.tc):'',r.pen,r.pen*S.penSec/60,r.tf!=null?fmtHms(r.tf):''];
+    var l=[r.rang,r.g,nomsGroupe(c,r.g,true).replace(/ · /g,' / '),S.seance.assign[r.g]?baliseLabel(S.seance.assign[r.g]):'',S.seance.assign[r.g]?posteB(S.seance.assign[r.g]):'',fmtPts(r.pts),fmtPts(r.max),r.n,r.tot,r.ind,d?heure(d):'',a?heure(a):'',r.tc!=null?fmtHms(r.tc):'',r.pen,r.pen*S.penSec/60,r.tf!=null?fmtHms(r.tf):''];
     if(uiCsvDetail) bals.forEach(function(b){
       if(S.seance.assign[r.g]===b){ l.push('(posée)'); return; }
       if(invalide(b)){ l.push('invalide'); return; }
-      var v=(c.codes[r.g]||{})[b]||''; l.push(v===''?'non trouvée':(v===codeAttendu(b,r.g)?'OK':'faux ('+v+')'));
+      var v=(c.codes[r.g]||{})[b]||''; l.push(v===''?'non trouvée':(v===codeAttendu(b,r.g)?(indiceUtilise(c,r.g,b)?'OK (indice)':'OK'):'faux ('+v+')'));
     });
     lignes.push(l);
   });
@@ -790,6 +796,7 @@ function vueReglages(){
      '<div class="rangee"><div class="corps">Afficher le code attendu quand une saisie est fausse</div><label class="switch"><input type="checkbox" data-chg="attendu"'+(S.afficherAttendu?' checked':'')+'><span class="slider"></span></label></div>'+
      '<div class="rangee"><div class="corps">Élèves affichés par initiales (écran partagé ou projeté)<div class="petit">Ex. « DUPONT Léa » devient « D.L. ». L\'export CSV garde les noms complets ; modifier un nom demande le mot de passe.</div></div><label class="switch"><input type="checkbox" data-chg="initiales"'+(S.initiales?' checked':'')+'><span class="slider"></span></label></div></div>';
   h+='<div class="section"><h2>Indices</h2><div class="rangee"><div class="corps">Indices sur les balises<div class="petit">Le groupe qui pose la balise peut écrire un indice (onglet Carte). Désactivé : les indices ne s\'affichent plus (ils restent enregistrés).</div></div><label class="switch"><input type="checkbox" data-chg="indices"'+(S.indices?' checked':'')+'><span class="slider"></span></label></div></div>';
+  h+='<div class="section"><h2>Points</h2><label>Points par balise trouvée</label><div class="stepper-nombre"><button class="stepper-btn" data-act="ptsb" data-d="-0.5" aria-label="Moins de points">−</button><input type="text" readonly value="'+fmtPts(S.ptsBalise)+'"><button class="stepper-btn" data-act="ptsb" data-d="0.5" aria-label="Plus de points">+</button></div>'+(S.indices?'<label>Points par balise trouvée avec indice</label><div class="stepper-nombre"><button class="stepper-btn" data-act="ptsi" data-d="-0.5" aria-label="Moins de points avec indice">−</button><input type="text" readonly value="'+fmtPts(S.ptsIndice)+'"><button class="stepper-btn" data-act="ptsi" data-d="0.5" aria-label="Plus de points avec indice">+</button></div>':'')+'<p class="petit">Le classement se fait aux points, puis au temps. Une balise non trouvée vaut 0, même si son indice a été révélé.</p></div>';
   h+='<div class="section"><h2>Sauvegarde</h2><p class="petit">Dernière sauvegarde : <b>'+texteAge()+'</b>.</p><p class="petit">Sauvegarde toutes les données (classes, élèves, groupes, résultats, balises) dans un fichier (sans le mot de passe prof). Il contient les noms des élèves : garde-le sur ta tablette ou ton ordinateur, ne le partage pas.</p><button class="bouton bouton-secondaire" data-act="exportsauv">⬇️ Exporter une sauvegarde</button></div>';
   h+='<div class="section" style="border-left-color:#1f6ea5"><h2>Restauration</h2><p>Recharge tes classes, élèves, groupes et jeux de balises depuis un fichier de sauvegarde (<b>CO_EPS_sauvegarde_….json</b>) : après un effacement des données, une réinstallation, ou pour copier la configuration d\'un appareil à un autre.</p><p class="petit">'+(EST_IOS?'Sur iPhone / iPad, choisis le fichier dans l\'app <b>Fichiers</b>. ':'')+'Tu verras le nombre de classes et d\'élèves avant de confirmer. <b>Les données actuelles de cet appareil seront remplacées</b> : exporte d\'abord une sauvegarde si elles sont récentes. Le mot de passe prof de cet appareil est conservé.</p><button class="bouton bouton-primaire" data-act="choisirsauv">⬆️ Restaurer depuis un fichier</button><input type="file" id="fichierSauv" class="cache" accept=".json,application/json" data-chg="fichiersauv">'+(localStorage.getItem(CLE+'_avant_maj')?'<button class="bouton bouton-clair" data-act="restaureravant">Restaurer l\'état d\'avant la dernière mise à jour</button>':'')+'</div>';
   h+='<div class="section"><h2>Sécurité</h2><button class="bouton bouton-secondaire" data-act="chgmdp">Changer le mot de passe prof</button><button class="bouton bouton-clair" data-act="aide">Aide</button></div>';
@@ -934,6 +941,9 @@ document.addEventListener('click',function(e){
     case 'majheures': if(c){ var rd=debut(c,g)||c.arrivee[g]||Date.now(); var dd=secDepuisHeure($('hDep').value,rd), aa=secDepuisHeure($('hArr').value,rd); if(dd){ c.depart.g[g]=dd; } if(aa){ c.arrivee[g]=aa; } sauver(); fermerModale(); dessiner(); } break;
     case 'effdep': if(c){ delete c.depart.g[g]; if(c.mode==='groupe') {} sauver(); fermerModale(); dessiner(); } break;
     case 'effarr': if(c){ delete c.arrivee[g]; sauver(); fermerModale(); dessiner(); } break;
+    case 'indice': if(c&&g&&b){ confirmer('Révéler l\'indice de '+baliseLabel(b)+' au groupe '+g+' ? Si la balise est trouvée, elle ne vaudra que '+fmtPts(S.ptsIndice)+' pt au lieu de '+fmtPts(S.ptsBalise)+'.',function(){ if(!c.indices[g]) c.indices[g]={}; c.indices[g][b]=true; sauver(); dessiner(); },'Révéler l\'indice',true); } break;
+    case 'ptsb': S.ptsBalise=Math.max(0.5,Math.min(100,S.ptsBalise+parseFloat(el.getAttribute('data-d')))); if(S.ptsIndice>S.ptsBalise) S.ptsIndice=S.ptsBalise; sauver(); dessiner(); break;
+    case 'ptsi': S.ptsIndice=Math.max(0,Math.min(S.ptsBalise,S.ptsIndice+parseFloat(el.getAttribute('data-d')))); sauver(); dessiner(); break;
     case 'vg': uiVerifG=g; dessiner(); focusVerif(); break;
     case 'csv': telechargerCsv(); break;
     case 'copier': copierCsv(); break;
@@ -955,7 +965,7 @@ document.addEventListener('click',function(e){
       sauver(); fermerModale(); dessiner(); break;
     case 'chgmdp': saisir('Nouveau mot de passe (vide = revenir au mot de passe par défaut) :','',function(nv){ if(nv!==null){ S.mdp=nv.trim()||null; sauver(); toast('Mot de passe mis à jour'); } },'Enregistrer',true); break;
     case 'aide': ouvrirModale('<div class="modale-header"><h3>Aide</h3><button class="btn-fermer" data-act="fermer">&times;</button></div><p><b>1. Pose</b> : choisis 2 couleurs, attribue les balises aux groupes, place chaque balise sur la carte, contrôle-les.</p><p><b>2. Course</b> : crée la classe, donne le départ (tous ou groupe par groupe), touche « Arrivée » à chaque retour, ajoute les pénalités.</p><p><b>3. Vérif.</b> : saisis les lettres relevées sur la feuille de chaque groupe.</p><p><b>4. Classement</b> : balises validées, puis temps. Export CSV.</p><p>Tout est enregistré automatiquement sur la tablette.</p>'); break;
-    case 'nouvelle': demanderMdp(function(){ confirmer('Terminer la séance ? Balises, positions et résultats seront effacés ; les groupes actuels sont archivés. Dernière sauvegarde : '+texteAge()+'.',function(){ for(var rn in S.rosters){ var ro=S.rosters[rn]; if(Object.keys(ro.compo).some(function(k){return ro.compo[k].length;})){ ro.histo.push(JSON.parse(JSON.stringify(ro.compo))); } ro.compo={}; ro.absent={}; } var d=etatInitial(); d.rosters=S.rosters; d.classes=S.classes.map(function(k){ k.depart={all:null,g:{}}; k.arrivee={}; k.pen={}; k.codes={}; k.absents={}; return k; }); d.cur=S.cur; d.sets=S.sets; d.groupes=S.groupes; d.penSec=S.penSec; d.mdp=S.mdp; d.sombre=S.sombre; d.afficherAttendu=S.afficherAttendu; d.initiales=S.initiales; d.indices=S.indices; d.derniereSauv=S.derniereSauv; d.rappelJusqua=S.rappelJusqua; d.onglet='pose'; S=d; uiVerifG=null; uiSel=null; sauver(); dessiner(); toast('Nouvelle séance prête'); },'Terminer la séance',true); }); break;
+    case 'nouvelle': demanderMdp(function(){ confirmer('Terminer la séance ? Balises, positions et résultats seront effacés ; les groupes actuels sont archivés. Dernière sauvegarde : '+texteAge()+'.',function(){ for(var rn in S.rosters){ var ro=S.rosters[rn]; if(Object.keys(ro.compo).some(function(k){return ro.compo[k].length;})){ ro.histo.push(JSON.parse(JSON.stringify(ro.compo))); } ro.compo={}; ro.absent={}; } var d=etatInitial(); d.rosters=S.rosters; d.classes=S.classes.map(function(k){ k.depart={all:null,g:{}}; k.arrivee={}; k.pen={}; k.codes={}; k.absents={}; k.indices={}; return k; }); d.cur=S.cur; d.sets=S.sets; d.groupes=S.groupes; d.penSec=S.penSec; d.mdp=S.mdp; d.sombre=S.sombre; d.afficherAttendu=S.afficherAttendu; d.initiales=S.initiales; d.indices=S.indices; d.ptsBalise=S.ptsBalise; d.ptsIndice=S.ptsIndice; d.derniereSauv=S.derniereSauv; d.rappelJusqua=S.rappelJusqua; d.onglet='pose'; S=d; uiVerifG=null; uiSel=null; sauver(); dessiner(); toast('Nouvelle séance prête'); },'Terminer la séance',true); }); break;
     case 'okmdp': var v=$('inMdp').value.trim(); if(mdpOk(v)){ fermerModale(); var f=cbMdp; cbMdp=null; if(f) f(); } else { echecs++; afficherMdp('Mot de passe incorrect.'); } break;
     case 'resetmdp':
       if(!finReset){ finReset=Date.now()+ATTENTE_RESET*1000; afficherMdp(''); clearInterval(timerReset); timerReset=setInterval(majCompteReset,1000); }
