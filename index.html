@@ -174,11 +174,11 @@ function etatInitial(){
   return {
     v:1, groupes:GROUPES_DEFAUT.slice(),
     sets:[], penSec:60, nbPose:1, nbChercher:0, modeEleve:null, indices:true, ptsBalise:1, ptsIndice:0.5, mdp:null, sombre:false, afficherAttendu:true, initiales:false, derniereSauv:0, rappelJusqua:0,
-    seance:{setIds:['Orange','Bleu'], assign:{}, parcours:1, pos:{}, etat:{}, poste:{}, desc:{}, ordre:{}, meme:{}, cherche:{}},
+    seance:{setIds:['Orange','Bleu'], assign:{}, parcours:1, pos:{}, etat:{}, poste:{}, desc:{}, ordre:{}, meme:{}, cherche:{}, nbPG:{}},
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.22';
+var APP_VER='2.23';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -216,9 +216,10 @@ function etatValide(o){
         if(!estObj(st.codes)) st.codes={}; } }
     if('seance' in o){ var se=o.seance; if(!estObj(se)) return false;
       if('setIds' in se){ if(!Array.isArray(se.setIds)||!toutesChaines(se.setIds)) return false; } else se.setIds=['Orange','Bleu'];
-      ['assign','pos','etat','poste','desc','ordre','meme','cherche'].forEach(function(f){ if(!estObj(se[f])) se[f]={}; });
+      ['assign','pos','etat','poste','desc','ordre','meme','cherche','nbPG'].forEach(function(f){ if(!estObj(se[f])) se[f]={}; });
       if(!estNb(se.parcours)||se.parcours<1||se.parcours>5) se.parcours=1;
-      for(k in se.assign){ if(typeof se.assign[k]==='string') se.assign[k]=[se.assign[k]]; if(!Array.isArray(se.assign[k])||se.assign[k].length>3||!toutesChaines(se.assign[k])) return false; if(se.assign[k].length>o.nbPose) se.assign[k]=se.assign[k].slice(0,o.nbPose); }
+      for(k in se.nbPG){ var nq=se.nbPG[k]; if(!estNb(nq)||nq<1||nq>3) delete se.nbPG[k]; else se.nbPG[k]=Math.round(nq); }
+      for(k in se.assign){ if(typeof se.assign[k]==='string') se.assign[k]=[se.assign[k]]; if(!Array.isArray(se.assign[k])||se.assign[k].length>3||!toutesChaines(se.assign[k])) return false; var lim=Math.max(o.nbPose,se.nbPG[k]||0); if(se.assign[k].length>lim) se.assign[k]=se.assign[k].slice(0,lim); }
       for(k in se.pos){ if(!estObj(se.pos[k])) return false; for(g in se.pos[k]){ var pp=se.pos[k][g]; if(!estObj(pp)||!estNb(pp.x)||!estNb(pp.y)) return false; } }
       for(k in se.poste) if(!estObj(se.poste[k])) return false;
       for(k in se.meme) if(typeof se.meme[k]!=='boolean') delete se.meme[k];
@@ -345,13 +346,17 @@ function listeBalisesSeance(){
    (les cases gardent leur rang dans la liste déroulante). Toujours lire via balisesDe(g). */
 function balisesDe(g){ var a=S.seance.assign[g], r=[]; if(Array.isArray(a)) for(var i=0;i<a.length;i++) if(a[i]) r.push(a[i]); return r; }
 /* Tour 1 : balise n°1 de chaque groupe, tour 2 : n°2... (les balises d'un même groupe viennent de couleurs différentes) */
+/* Nombre de balises posées par un groupe : réglage du groupe (S.seance.nbPG, 2.23) sinon S.nbPose */
+function nbPoseG(g){ var v=S.seance.nbPG&&S.seance.nbPG[g]; return (v>=1&&v<=3)?v:S.nbPose; }
+function totalPose(){ var t=0; S.groupes.forEach(function(g){ t+=nbPoseG(g); }); return t; }
 function attribuerAuto(){
-  var l=listeBalisesSeance(), n=S.groupes.length; S.seance.assign={};
-  S.groupes.forEach(function(g,i){ var a=[]; for(var r=0;r<S.nbPose;r++){ var b=l[r*n+i]; if(b) a.push(b); } if(a.length) S.seance.assign[g]=a; });
+  var l=listeBalisesSeance(), k=0, mx=0; S.seance.assign={};
+  S.groupes.forEach(function(g){ if(nbPoseG(g)>mx) mx=nbPoseG(g); });
+  for(var r=0;r<mx;r++) S.groupes.forEach(function(g){ if(nbPoseG(g)>r){ var b=l[k++]; if(b){ if(!S.seance.assign[g]) S.seance.assign[g]=[]; S.seance.assign[g].push(b); } } });
 }
 /* Ajoute des jeux de balises à la séance jusqu'à en avoir assez (nombre de groupes x balises par groupe) */
 function completerJeux(){
-  var besoin=S.groupes.length*S.nbPose, ids=S.seance.setIds;
+  var besoin=totalPose(), ids=S.seance.setIds;
   function cap(){ var t=0; ids.forEach(function(id){ var st=getSet(id); if(st) t+=st.n; }); return t; }
   var libres=tousLesSets().map(function(x){return x.id;}).filter(function(id){return ids.indexOf(id)<0;});
   while(cap()<besoin&&libres.length){ var id=libres.shift(), vide=ids.indexOf(''); if(vide>=0) ids[vide]=id; else ids.push(id); }
@@ -714,7 +719,7 @@ function lierEtiquettes(){
     var gc=document.querySelectorAll('input[data-cb]');
     for(i=0;i<gc.length;i++) gc[i].setAttribute('aria-label','Code de la balise '+gc[i].getAttribute('data-cb')+', groupe '+gc[i].getAttribute('data-cg'));
     var as=document.querySelectorAll('select[data-chg="assign"]');
-    for(i=0;i<as.length;i++) as[i].setAttribute('aria-label','Balise posée par le groupe '+as[i].getAttribute('data-g')+(S.nbPose>1?' (n°'+(parseInt(as[i].getAttribute('data-i'),10)+1)+')':''));
+    for(i=0;i<as.length;i++) as[i].setAttribute('aria-label','Balise posée par le groupe '+as[i].getAttribute('data-g')+(nbPoseG(as[i].getAttribute('data-g'))>1?' (n°'+(parseInt(as[i].getAttribute('data-i'),10)+1)+')':''));
     var fs=document.querySelectorAll('input[type="file"]');
     for(i=0;i<fs.length;i++) if(!fs[i].getAttribute('aria-label')&&!(fs[i].labels&&fs[i].labels.length)) fs[i].setAttribute('aria-label',fs[i].getAttribute('data-chg')==='fichiersauv'?'Choisir un fichier de sauvegarde à restaurer':'Choisir un fichier');
     var mv=document.querySelectorAll('select[data-chg="moveel"]');
@@ -759,8 +764,8 @@ function vuePose(){
   var l=listeBalisesSeance(), ids=balisesAssignees();
   var posees=ids.filter(function(b){return posB(b);}).length, ok=ids.filter(function(b){return S.seance.etat[b]==='ok';}).length, ko=ids.filter(invalide).length;
   var h='<div class="section section-pose"><h2>Balises de la séance</h2>'+selectSets()+
-    '<label>Balises posées par groupe</label><div class="chips">'+[1,2,3].map(function(k){ return '<button class="chip'+(S.nbPose===k?' actif':'')+'" data-act="nbpose" data-n="'+k+'">'+k+'</button>'; }).join('')+'</div>'+
-    '<p class="petit">'+S.groupes.length+' groupe(s) x '+S.nbPose+' = '+(S.groupes.length*S.nbPose)+' balises à poser ; chaque groupe en cherchera '+(S.groupes.length*S.nbPose-S.nbPose)+'. Les jeux de couleur sont complétés tout seuls (compte au moins '+Math.ceil(S.groupes.length*S.nbPose/8)+' jeux de 8 balises).</p>'+
+    '<label>Balises posées par groupe (valeur par défaut)</label><div class="chips">'+[1,2,3].map(function(k){ return '<button class="chip'+(S.nbPose===k?' actif':'')+'" data-act="nbpose" data-n="'+k+'">'+k+'</button>'; }).join('')+'</div>'+
+    (function(){ var t=totalPose(), mn=Infinity, mx=0; S.groupes.forEach(function(g){ var c=t-nbPoseG(g); if(c<mn) mn=c; if(c>mx) mx=c; }); return '<p class="petit">'+S.groupes.length+' groupe(s) : '+t+' balises à poser ; sans limite, chaque groupe en cherche '+(mn===mx?mn:'de '+mn+' à '+mx)+'. Le nombre de balises posées se règle aussi <b>groupe par groupe</b> dans « Qui pose quoi ? ». Les jeux de couleur sont complétés tout seuls (compte au moins '+Math.ceil(t/8)+' jeux de 8 balises).</p>'; })()+
     (function(){ var mp=taillePoolMax(), cur=limite()||mp; return '<label>Balises à chercher par groupe</label><div class="stepper-nombre"><button class="stepper-btn" data-act="nbch" data-d="-1" aria-label="Moins de balises à chercher">−</button><input type="text" readonly value="'+(limite()?cur:'Toutes ('+mp+')')+'" aria-label="Balises à chercher par groupe"><button class="stepper-btn" data-act="nbch" data-d="1" aria-label="Plus de balises à chercher">+</button></div><p class="petit">Même nombre pour tous les groupes. Si ce nombre est inférieur aux balises posées, l\'appli choisit pour chaque groupe ses balises et leur ordre : <b>onglet Carte, Générer les parcours</b> (départ, arrivée et balises à placer d\'abord).'+(limite()&&!parcoursAJour()?' <b style="color:#b00020">⚠️ Parcours à générer.</b>':'')+'</p>'; })()+
     '<button class="bouton bouton-secondaire" data-act="auto">Attribuer automatiquement aux groupes</button>'+
     '<p class="petit">Ex. : Orange 1 → A1, Orange 2 → A2… puis 1re balise de la 2e couleur → premier groupe restant (avec 2 ou 3 balises par groupe : un tour par balise, donc des couleurs différentes pour un même groupe). Chaque ligne reste modifiable.</p></div>';
@@ -768,13 +773,15 @@ function vuePose(){
   h+='<p class="petit">📍 posées '+posees+'/'+ids.length+' · ✔️ vérifiées en place '+ok+(ko?' · ⚠️ invalides '+ko:'')+'</p>';
   S.groupes.forEach(function(g){
     var raw=Array.isArray(S.seance.assign[g])?S.seance.assign[g]:[], lignes='';
-    for(var si=0;si<S.nbPose;si++){
+    var npg=nbPoseG(g);
+    for(var si=0;si<npg;si++){
       var b=raw[si]||'';
       var opts='<option value="">- aucune -</option>'+l.concat(allAssignedOutside(l)).map(function(x){ var p=poseur(x); return '<option value="'+esc(x)+'"'+(b===x?' selected':'')+'>'+esc(baliseLabel(x))+(p&&p!==g?' (déjà '+p+')':'')+'</option>'; }).join('');
       var st=''; if(b){ var e=S.seance.etat[b]; st = e==='ko'?'<span class="tag tag-ko">invalide</span>': e==='ok'?'<span class="tag tag-ok">vérifiée</span>': posB(b)?'<span class="tag tag-att">posée</span>':'<span class="tag">à poser</span>'; }
       lignes+='<div style="display:flex;align-items:center;'+(si?'margin-top:6px':'')+'"><select style="flex:1" data-chg="assign" data-g="'+esc(g)+'" data-i="'+si+'">'+opts+'</select><span style="min-width:78px;text-align:right">'+st+'</span></div>';
     }
-    h+='<div class="rangee"><div class="nom">'+esc(g)+'</div><div class="corps">'+lignes+'</div></div>';
+    var pg='<div style="margin-bottom:6px"><span class="petit">Balises posées :</span> '+[1,2,3].map(function(k){ return '<button class="chip'+(npg===k?' actif':'')+'" data-act="nbpg" data-g="'+esc(g)+'" data-n="'+k+'" style="margin:0 0 0 6px" aria-label="'+k+' balise(s) posée(s) par le groupe '+esc(g)+'">'+k+'</button>'; }).join('')+'</div>';
+    h+='<div class="rangee"><div class="nom">'+esc(g)+'</div><div class="corps">'+pg+lignes+'</div></div>';
   });
   h+='</div>';
   h+='<div class="section section-pose"><h2>Contrôle des balises</h2><p class="petit">Après la pose, fais le tour : « vérifiée » = en place et lisible. « Invalide » = manquante ou déplacée : elle est retirée du barème de tous les groupes.</p>';
@@ -1020,7 +1027,7 @@ function celCsv(x,sep){
 }
 function construireCsv(c,sep){
   var rows=classement(c), bals=balisesAssignees();
-  var ent=['Rang','Groupe','Élèves',S.nbPose>1?'Balises posées':'Balise posée','N° poste','Points','Points max','Balises validées','Balises à chercher','Indices utilisés','Départ','Arrivée','Temps course (h:mm:ss)','Pénalités (nb)','Pénalités (min)','Temps final (h:mm:ss)'];
+  var ent=['Rang','Groupe','Élèves',S.groupes.some(function(x){return balisesDe(x).length>1;})?'Balises posées':'Balise posée','N° poste','Points','Points max','Balises validées','Balises à chercher','Indices utilisés','Départ','Arrivée','Temps course (h:mm:ss)','Pénalités (nb)','Pénalités (min)','Temps final (h:mm:ss)'];
   if(uiCsvDetail) bals.forEach(function(b){ ent.push(baliseLabel(b)); });
   var lignes=[ent];
   rows.forEach(function(r){
@@ -1244,7 +1251,8 @@ document.addEventListener('click',function(e){
     case 'dlgnon': fermerDialogue(); break;
     case 'auto': attribuerAuto(); sauver(); dessiner(); break;
     case 'nbch': var mpl=taillePoolMax(), cu=limite()||mpl, nv=cu+parseInt(el.getAttribute('data-d'),10); nv=Math.max(2,nv); S.nbChercher=(nv>=mpl)?0:nv; sauver(); dessiner(); break;
-    case 'nbpose': var nn=parseInt(el.getAttribute('data-n'),10); if(nn>=1&&nn<=3&&nn!==S.nbPose){ var chg=function(){ S.nbPose=nn; completerJeux(); attribuerAuto(); sauver(); dessiner(); toast(nn+' balise(s) par groupe : balises réattribuées'); }; if(Object.keys(S.seance.assign).length) confirmer('Passer à '+nn+' balise(s) par groupe réattribue toutes les balises aux groupes (les attributions actuelles sont remplacées ; les positions sur la carte restent).',chg,'Réattribuer'); else chg(); } break;
+    case 'nbpg': var ngp=parseInt(el.getAttribute('data-n'),10); if(g&&ngp>=1&&ngp<=3&&nbPoseG(g)!==ngp){ if(!S.seance.nbPG) S.seance.nbPG={}; if(ngp===S.nbPose) delete S.seance.nbPG[g]; else S.seance.nbPG[g]=ngp; var rawg=Array.isArray(S.seance.assign[g])?S.seance.assign[g].slice(0,ngp):[]; while(rawg.length<ngp) rawg.push(''); completerJeux(); var libres=listeBalisesSeance().filter(function(x){return !poseur(x);}); for(var q=0;q<ngp;q++) if(!rawg[q]&&libres.length) rawg[q]=libres.shift(); S.seance.assign[g]=rawg; sauver(); var wyp=window.pageYOffset; dessiner(); window.scrollTo(0,wyp); } break;
+    case 'nbpose': var nn=parseInt(el.getAttribute('data-n'),10); if(nn>=1&&nn<=3&&nn!==S.nbPose){ var chg=function(){ S.nbPose=nn; S.seance.nbPG={}; completerJeux(); attribuerAuto(); sauver(); dessiner(); toast(nn+' balise(s) par groupe : balises réattribuées'); }; if(Object.keys(S.seance.assign).length) confirmer('Passer à '+nn+' balise(s) par groupe réattribue toutes les balises aux groupes, y compris les réglages par groupe (les attributions actuelles sont remplacées ; les positions sur la carte restent).',chg,'Réattribuer'); else chg(); } break;
     case 'memeda': if(!S.seance.meme) S.seance.meme={}; var spm=S.seance.parcours; S.seance.meme[spm]=!S.seance.meme[spm]; if(S.seance.meme[spm]&&uiSel==='#arr') uiSel='#dep'; if(uiInfo==='#arr'&&S.seance.meme[spm]) uiInfo=null; sauver(); var wym=window.pageYOffset; dessiner(); window.scrollTo(0,wym); break;
     case 'genordre': var lanceOrdre=function(){ var res=genererOrdres(); if(res.manque){ avertir('Place d\'abord toutes les balises sur la carte : il en manque '+res.manque+'.'); return; } if(res.sansDA){ avertir('Place d\'abord le départ ▲ et l\'arrivée ◎ sur la carte (ou touche « Départ = arrivée » s\'ils sont au même endroit).'); return; } if(res.vide){ avertir('Il faut au moins 2 balises à chercher par groupe.'); return; } sauver(); var wy=window.pageYOffset; dessiner(); window.scrollTo(0,wy); toast('Parcours générés pour '+res.n+' groupe(s)'); }; if(aOrdre()) confirmer('Remplacer les parcours actuels par de nouveaux parcours ?',lanceOrdre,'Régénérer'); else lanceOrdre(); break;
     case 'effordre': confirmer('Effacer les parcours ? Chaque groupe cherchera dans l\'ordre de la liste.',function(){ if(S.seance.ordre) delete S.seance.ordre[S.seance.parcours]; S.seance.cherche={}; sauver(); var wy=window.pageYOffset; dessiner(); window.scrollTo(0,wy); },'Effacer',true); break;
@@ -1274,7 +1282,7 @@ document.addEventListener('click',function(e){
       var msgs=[], anciens=S.groupes.filter(function(x){return l.indexOf(x)<0;});
       if(!l.every(function(x){return /^[A-D][1-4]$/.test(x);})) msgs.push('Les codes des balises d\'origine (PDF) n\'existent que pour les groupes A1 à D4 : avec les autres noms, aucune saisie ne sera validée sur ces balises (seuls les jeux personnalisés fonctionneront).');
       if(anciens.length&&groupesAvecDonnees(anciens)) msgs.push('Des chronos, pénalités, codes ou compositions sont déjà enregistrés pour : '+anciens.join(', ')+'. Ils ne seront plus rattachés à aucun groupe.');
-      var enreg=function(){ S.groupes=l; for(var k in S.seance.assign) if(l.indexOf(k)<0) delete S.seance.assign[k]; sauver(); toast('Groupes enregistrés'); };
+      var enreg=function(){ S.groupes=l; for(var k in S.seance.assign) if(l.indexOf(k)<0){ delete S.seance.assign[k]; if(S.seance.nbPG) delete S.seance.nbPG[k]; } sauver(); toast('Groupes enregistrés'); };
       if(msgs.length) confirmer(msgs.join('\n\n')+'\n\nEnregistrer quand même ?',enreg,'Enregistrer'); else enreg(); } break;
     case 'pensec': S.penSec=Math.max(0,S.penSec+parseInt(el.getAttribute('data-d'),10)); sauver(); dessiner(); break;
     case 'newset': modaleSet(''); break;
