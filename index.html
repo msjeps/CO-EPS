@@ -84,6 +84,9 @@ body.mode-sombre :focus-visible{outline-color:#ffd54f}
 .info-pastille{background:#222;color:#fff;border-radius:10px;padding:8px 12px;margin:8px 0;font-size:14px;line-height:1.35;min-height:44px;overflow:hidden}
 .info-pastille .petit{color:#ddd}
 .marqueur{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.marq-spec{width:26px;height:26px;margin:-13px 0 0 -13px;background:#fff;color:#000;line-height:0;border-radius:50%}
+.marq-spec::after{left:-9px;top:-9px}
+.marq-spec svg{width:24px;height:24px;display:block}
 .marqueur.sel{box-shadow:0 0 0 2px #000,0 0 0 4px #fff;z-index:2}
 .marqueur.deplace{box-shadow:0 0 0 2px #000,0 0 0 5px #fff;z-index:3}
 .chips{display:flex;flex-wrap:wrap}
@@ -171,11 +174,11 @@ function etatInitial(){
   return {
     v:1, groupes:GROUPES_DEFAUT.slice(),
     sets:[], penSec:60, modeEleve:null, indices:true, ptsBalise:1, ptsIndice:0.5, mdp:null, sombre:false, afficherAttendu:true, initiales:false, derniereSauv:0, rappelJusqua:0,
-    seance:{setIds:['Orange','Bleu'], assign:{}, parcours:1, pos:{}, etat:{}, poste:{}, desc:{}},
+    seance:{setIds:['Orange','Bleu'], assign:{}, parcours:1, pos:{}, etat:{}, poste:{}, desc:{}, ordre:{}, meme:{}},
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.20';
+var APP_VER='2.21';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -211,11 +214,13 @@ function etatValide(o){
         if(!estObj(st.codes)) st.codes={}; } }
     if('seance' in o){ var se=o.seance; if(!estObj(se)) return false;
       if('setIds' in se){ if(!Array.isArray(se.setIds)||!toutesChaines(se.setIds)) return false; } else se.setIds=['Orange','Bleu'];
-      ['assign','pos','etat','poste','desc'].forEach(function(f){ if(!estObj(se[f])) se[f]={}; });
+      ['assign','pos','etat','poste','desc','ordre','meme'].forEach(function(f){ if(!estObj(se[f])) se[f]={}; });
       if(!estNb(se.parcours)||se.parcours<1||se.parcours>5) se.parcours=1;
       for(k in se.assign) if(typeof se.assign[k]!=='string') return false;
       for(k in se.pos){ if(!estObj(se.pos[k])) return false; for(g in se.pos[k]){ var pp=se.pos[k][g]; if(!estObj(pp)||!estNb(pp.x)||!estNb(pp.y)) return false; } }
       for(k in se.poste) if(!estObj(se.poste[k])) return false;
+      for(k in se.meme) if(typeof se.meme[k]!=='boolean') delete se.meme[k];
+      for(k in se.ordre){ if(!estObj(se.ordre[k])){ delete se.ordre[k]; continue; } for(g in se.ordre[k]) if(!Array.isArray(se.ordre[k][g])||!toutesChaines(se.ordre[k][g])) delete se.ordre[k][g]; }
       for(k in se.desc){ if(!estObj(se.desc[k])){ delete se.desc[k]; continue; } for(g in se.desc[k]) if(typeof se.desc[k][g]!=='string') delete se.desc[k][g]; } }
     if('classes' in o){ if(!Array.isArray(o.classes)) return false;
       for(i=0;i<o.classes.length;i++){ var c=o.classes[i];
@@ -344,6 +349,106 @@ function invalide(bid){ return S.seance.etat[bid]==='ko'; }
 function descB(bid){ var p=S.seance.desc&&S.seance.desc[S.seance.parcours]; return p&&typeof p[bid]==='string'?p[bid]:''; }
 function posteB(bid){ var p=S.seance.poste&&S.seance.poste[S.seance.parcours]; return p&&p[bid]?p[bid]:''; }
 function posB(bid){ var p=S.seance.pos[S.seance.parcours]; return p?p[bid]:null; }
+/* Départ ▲ et arrivée ◎ (2.21) : stockés dans S.seance.pos[parcours] sous les clés '#dep' et '#arr'
+   (aucun identifiant de balise ne contient '#') ; S.seance.meme[parcours] = départ et arrivée au même endroit (◎ avec ▲). */
+function estSpec(k){ return k==='#dep'||k==='#arr'; }
+function memeDA(){ var m=S.seance.meme; return !!(m&&m[S.seance.parcours]); }
+function ptDepart(){ return posB('#dep')||null; }
+function ptArrivee(){ return memeDA()?ptDepart():(posB('#arr')||null); }
+function nomSpec(k){ return k==='#dep'?(memeDA()?'Départ et arrivée':'Départ'):'Arrivée'; }
+function svgSpec(k){
+  var t='<polygon points="12,3 21,20 3,20" fill="none" stroke="#b0107a" stroke-width="2.6"/>', c='<circle cx="12" cy="12" r="10" fill="none" stroke="#b0107a" stroke-width="2.4"/><circle cx="12" cy="12" r="6" fill="none" stroke="#b0107a" stroke-width="2.4"/>';
+  if(k==='#arr') return '<svg viewBox="0 0 24 24" aria-hidden="true">'+c+'</svg>';
+  if(memeDA()) return '<svg viewBox="0 0 24 24" aria-hidden="true">'+c.replace('r="6"','r="9.5"').replace('r="10"','r="11"')+'<polygon points="12,6 17.5,16.5 6.5,16.5" fill="none" stroke="#b0107a" stroke-width="2.2"/></svg>';
+  return '<svg viewBox="0 0 24 24" aria-hidden="true">'+t+'</svg>';
+}
+/* Parcours individuels (2.21) : S.seance.ordre[parcours][groupe] = liste d'identifiants de balises dans l'ordre de recherche.
+   ordreG() reste correct si les attributions changent après la génération (balises retirées ignorées, nouvelles ajoutées à la fin). */
+function ordreG(g){
+  var set=aChercher(g), o=S.seance.ordre&&S.seance.ordre[S.seance.parcours], st=o&&o[g], res=[], i;
+  if(Array.isArray(st)) for(i=0;i<st.length;i++) if(set.indexOf(st[i])>=0&&res.indexOf(st[i])<0) res.push(st[i]);
+  for(i=0;i<set.length;i++) if(res.indexOf(set[i])<0) res.push(set[i]);
+  return res;
+}
+function aOrdre(){ var o=S.seance.ordre&&S.seance.ordre[S.seance.parcours]; return !!o&&Object.keys(o).length>0; }
+function nomPoste(b){ var n=posteB(b); return n?String(n):baliseLabel(b); }
+function suiteOrdre(g){ return ordreG(g).filter(function(b){return !invalide(b);}).map(nomPoste).join(' → '); }
+var uiRatio=0.72;
+function ratioCarte(){ var im=$('carteImg'); if(im&&im.naturalWidth>0&&im.naturalHeight>0) uiRatio=im.naturalHeight/im.naturalWidth; return uiRatio; }
+function distPt(a,b,r){ var dx=a.x-b.x, dy=(a.y-b.y)*r; return Math.sqrt(dx*dx+dy*dy); }
+function longueurOrdre(rt,P,r,D,A){ var s=0,i; for(i=1;i<rt.length;i++) s+=distPt(P[rt[i-1]],P[rt[i]],r); if(rt.length){ if(D) s+=distPt(D,P[rt[0]],r); if(A) s+=distPt(P[rt[rt.length-1]],A,r); } return s; }
+function melanger(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)), t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+function deuxOpt(rt,P,r,maxPas,D,A){
+  var pas=0, amel=true, n=rt.length, i, j, av, ap, t, u, x, pg, pd;
+  while(amel&&pas<maxPas){ amel=false;
+    for(i=0;i<n-1&&pas<maxPas;i++) for(j=i+1;j<n&&pas<maxPas;j++){
+      pg=i>0?P[rt[i-1]]:D; pd=j<n-1?P[rt[j+1]]:A;
+      av=(pg?distPt(pg,P[rt[i]],r):0)+(pd?distPt(P[rt[j]],pd,r):0);
+      ap=(pg?distPt(pg,P[rt[j]],r):0)+(pd?distPt(P[rt[i]],pd,r):0);
+      if(ap<av-1e-9){ for(t=i,u=j;t<u;t++,u--){ x=rt[t]; rt[t]=rt[u]; rt[u]=x; } pas++; amel=true; }
+    }
+  }
+  return rt;
+}
+function permutations(a){ if(a.length<=1) return [a.slice()]; var res=[], i, rest, p, k; for(i=0;i<a.length;i++){ rest=a.slice(0,i).concat(a.slice(i+1)); p=permutations(rest); for(k=0;k<p.length;k++) res.push([a[i]].concat(p[k])); } return res; }
+/* Un parcours par groupe : mêmes balises à trouver (sauf la sienne), ordres différents, longueurs voisines.
+   1) candidats : ordres aléatoires plus ou moins raccourcis (2-opt) ; 2) cible = 1,3 × longueur optimale moyenne,
+   on garde les candidats à ±12 % de la cible ; 3) choix groupe par groupe en minimisant les points communs avec les
+   autres (même balise au même rang, même départ, même enchaînement), plusieurs passes. */
+function planifierOrdres(sets,P,r,D,A){
+  var gs=Object.keys(sets), cand={}, somme=0, T, choix={}, pass, k, NC=500;
+  gs.forEach(function(g){
+    var L=[], m=Infinity, rt, l, set=sets[g];
+    if(set.length<=6){ permutations(set).forEach(function(q){ l=longueurOrdre(q,P,r,D,A); L.push({r:q,l:l}); if(l<m) m=l; }); }
+    else for(k=0;k<NC;k++){ rt=deuxOpt(melanger(set.slice()),P,r,k<NC/4?9999:Math.floor(Math.random()*set.length*1.5),D,A); l=longueurOrdre(rt,P,r,D,A); L.push({r:rt,l:l}); if(l<m) m=l; }
+    cand[g]=L; somme+=m;
+  });
+  T=somme/gs.length*1.3;
+  gs.forEach(function(g){
+    var L=cand[g].slice().sort(function(a,b){return Math.abs(a.l-T)-Math.abs(b.l-T);}), bande=L.filter(function(c){return Math.abs(c.l-T)<=T*0.12;});
+    cand[g]=bande.length>=20?bande:L.slice(0,20);
+  });
+  function cout(g,c){
+    var s=15*Math.abs(c.l-T)/T, rt=c.r, h, q, i, j;
+    for(h=0;h<gs.length;h++){ if(gs[h]===g||!choix[gs[h]]) continue; q=choix[gs[h]].r;
+      if(q[0]===rt[0]) s+=4;
+      for(i=0;i<rt.length;i++) if(q[i]===rt[i]) s+=1;
+      for(i=1;i<rt.length;i++){ j=q.indexOf(rt[i-1]); if(j>=0){ if(q[j+1]===rt[i]) s+=1.5; else if(j>0&&q[j-1]===rt[i]) s+=0.75; } }
+    }
+    return s;
+  }
+  for(pass=0;pass<4;pass++) melanger(gs.slice()).forEach(function(g){
+    var bm=Infinity, bc=null;
+    cand[g].forEach(function(c){ var s=cout(g,c); if(s<bm){ bm=s; bc=c; } });
+    choix[g]=bc;
+  });
+  return choix;
+}
+/* Renvoie {manque:n} (balises non placées), {sansDA:true} (départ ou arrivée non placé), {vide:true} ou {ok:true,n:nb de groupes} */
+function genererOrdres(){
+  var P={}, manque=0, r=ratioCarte(), sets={}, nb=0;
+  balisesAssignees().forEach(function(b){ if(invalide(b)) return; var p=posB(b); if(p) P[b]=p; else manque++; });
+  if(manque) return {manque:manque};
+  var D=ptDepart(), A=ptArrivee();
+  if(!D||!A) return {sansDA:true};
+  S.groupes.forEach(function(g){ var set=aChercher(g).filter(function(b){return !invalide(b);}); if(set.length>=2){ sets[g]=set; nb++; } });
+  if(!nb) return {vide:true};
+  var ch=planifierOrdres(sets,P,r,D,A), sp=S.seance.parcours, o={};
+  for(var g in ch) o[g]=ch[g].r.slice();
+  if(!S.seance.ordre) S.seance.ordre={};
+  S.seance.ordre[sp]=o;
+  return {ok:true,n:nb};
+}
+function longueursOrdres(){
+  var r=ratioCarte(), res={}, tot=0, n=0, D=ptDepart(), A=ptArrivee();
+  if(!D||!A) return null;
+  for(var i=0;i<S.groupes.length;i++){ var g=S.groupes[i], rt=ordreG(g).filter(function(b){return !invalide(b);}); if(rt.length<2) continue;
+    for(var j=0;j<rt.length;j++) if(!posB(rt[j])) return null;
+    var P={}; rt.forEach(function(b){ P[b]=posB(b); }); res[g]=longueurOrdre(rt,P,r,D,A); tot+=res[g]; n++; }
+  if(!n) return null;
+  var moy=tot/n, out={}; for(var k in res) out[k]=Math.round(res[k]/moy*100);
+  return out;
+}
 
 /* ============ CLASSES / CHRONO ============ */
 function classe(){ for(var i=0;i<S.classes.length;i++) if(S.classes[i].id===S.cur) return S.classes[i]; return null; }
@@ -603,17 +708,35 @@ function vueCarte(){
   for(var i=1;i<=5;i++) h+='<button class="chip'+(sp===i?' actif':'')+'" data-act="parcours" data-p="'+i+'">Parcours '+i+'</button>';
   h+='</div>';
   var ids=balisesAssignees();
-  if(uiSel&&ids.indexOf(uiSel)<0) uiSel=null;
+  if(uiSel&&!estSpec(uiSel)&&ids.indexOf(uiSel)<0) uiSel=null;
+  if(uiSel==='#arr'&&memeDA()) uiSel='#dep';
   h+='<p class="petit">1) Touche une balise ci-dessous · 2) touche son emplacement sur la carte (la sélection s\'efface une fois posée ; retouche la balise pour l\'annuler). Touche une pastille pour voir son poste et son indice (bandeau au-dessus de la carte). Pour écrire l\'indice d\'une balise, touche-la dans la liste (ou onglet Pose). Pour déplacer une balise déjà posée : appui prolongé sur sa pastille, puis glisse-la.</p><div class="chips">';
+  h+='<button class="chip'+(uiSel==='#dep'?' actif':'')+(posB('#dep')?' fait':'')+'" data-act="selb" data-b="#dep">'+(memeDA()?'◎▲ Départ et arrivée':'▲ Départ')+(posB('#dep')?' ✓':'')+'</button>';
+  if(!memeDA()) h+='<button class="chip'+(uiSel==='#arr'?' actif':'')+(posB('#arr')?' fait':'')+'" data-act="selb" data-b="#arr">◎ Arrivée'+(posB('#arr')?' ✓':'')+'</button>';
+  h+='<button class="chip'+(memeDA()?' actif':'')+'" data-act="memeda">Départ = arrivée</button></div><div class="chips">';
   ids.forEach(function(b){ var p=posB(b); h+='<button class="chip'+(uiSel===b?' actif':'')+(p?' fait':'')+'" data-act="selb" data-b="'+esc(b)+'">'+pastilleB(b,poseur(b)).replace('min-width:34px','min-width:30px')+' '+esc(baliseLabel(b))+(posteB(b)?' · poste '+esc(posteB(b)):'')+(p?' ✓':'')+'</button>'; });
   if(!ids.length) h+='<span class="petit">Attribue d\'abord les balises (onglet Pose).</span>';
-  h+='</div>'+(uiSel?'<div class="ligne" style="align-items:flex-end"><div style="min-width:200px"><label>N° du poste sur la carte pour '+esc(baliseLabel(uiSel))+'</label><select data-chg="poste"><option value="">- non précisé -</option>'+postesOptions(uiSel)+'</select></div></div>'+(S.indices?'<label>Indice / description de la balise (140 caractères max.)</label><input type="text" maxlength="140" data-chg="desc" value="'+esc(descB(uiSel))+'" placeholder="Ex. : derrière le banc, sous le 3e platane">':''):'')+'<div class="ligne"><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="-1">− Zoom</button><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="1">+ Zoom</button>'+
+  h+='</div>'+(uiSel&&!estSpec(uiSel)?'<div class="ligne" style="align-items:flex-end"><div style="min-width:200px"><label>N° du poste sur la carte pour '+esc(baliseLabel(uiSel))+'</label><select data-chg="poste"><option value="">- non précisé -</option>'+postesOptions(uiSel)+'</select></div></div>'+(S.indices?'<label>Indice / description de la balise (140 caractères max.)</label><input type="text" maxlength="140" data-chg="desc" value="'+esc(descB(uiSel))+'" placeholder="Ex. : derrière le banc, sous le 3e platane">':''):'')+'<div class="ligne"><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="-1">− Zoom</button><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="1">+ Zoom</button>'+
      '<button class="bouton bouton-clair bouton-petit" data-act="retirerpos">Retirer la position de la balise choisie</button></div>';
   h+='<div class="info-pastille" id="infoPastille">'+contenuInfo()+'</div>';
   h+='<div class="carte-wrap" id="carteWrap"><div class="carte-inner" id="carteInner" style="width:'+(uiZoom*100)+'%"><img id="carteImg" src="cartes/parcours'+sp+'.jpg" alt="Carte du parcours '+sp+'" onerror="this.parentNode.innerHTML=\'<p style=&quot;padding:20px;line-height:1.4&quot;>Carte du parcours '+sp+' introuvable.<br>Ajoute le fichier <b>cartes/parcours'+sp+'.jpg</b> dans le dossier de l\\\'appli.</p>\'">';
   ids.forEach(function(b){ var p=posB(b); if(!p) return; var s=getSet(parseB(b).setId); h+='<div class="marqueur'+(uiInfo===b?' sel':'')+'" role="img" aria-label="'+esc(baliseLabel(b))+', posée par '+esc(poseur(b))+'" data-b="'+esc(b)+'" style="left:'+p.x+'%;top:'+p.y+'%;background:'+baliseCouleur(b)+';color:'+(s&&s.builtin&&TEXTE_SOMBRE[s.id]?'#222':'#fff')+'">'+esc(poseur(b))+'</div>'; });
+  ['#dep','#arr'].forEach(function(k){ if(k==='#arr'&&memeDA()) return; var p=posB(k); if(!p) return; h+='<div class="marqueur marq-spec'+(uiInfo===k?' sel':'')+'" role="img" aria-label="'+esc(nomSpec(k))+'" data-b="'+k+'" style="left:'+p.x+'%;top:'+p.y+'%">'+svgSpec(k)+'</div>'; });
   h+='</div></div></div>';
+  h+=sectionOrdres();
   return h;
+}
+function sectionOrdres(){
+  var h='<div class="section section-pose"><h2>Parcours des groupes</h2>', gs=S.groupes.filter(function(g){ return aChercher(g).filter(function(b){return !invalide(b);}).length>=2; });
+  h+='<p class="petit">Chaque groupe cherche les mêmes balises (sauf la sienne) dans un <b>ordre différent</b>, pour que les groupes ne se suivent pas, avec des distances voisines. À faire <b>une fois le départ ▲, l\'arrivée ◎ et toutes les balises placés sur la carte</b> ci-dessus ; les groupes sont ceux qui ont une balise attribuée. Les numéros affichés sont les n° de poste.</p>';
+  h+='<button class="bouton bouton-secondaire" data-act="genordre">🔀 '+(aOrdre()?'Régénérer':'Générer')+' les parcours ('+gs.length+' groupe'+(gs.length>1?'s':'')+')</button>';
+  if(aOrdre()){
+    h+='<button class="bouton bouton-clair" data-act="effordre">Effacer les parcours</button>';
+    var lg=longueursOrdres();
+    gs.forEach(function(g){ h+='<div class="rangee"><div class="nom">'+esc(g)+'</div><div class="corps petit" style="word-break:break-word">'+esc(suiteOrdre(g))+'</div>'+(lg&&lg[g]?'<div style="min-width:58px;text-align:right"><span class="tag" title="Distance par rapport à la moyenne des groupes">≈ '+lg[g]+' %</span></div>':'')+'</div>'; });
+    h+='<p class="petit">« ≈ 100 % » = distance moyenne des parcours (départ, balises dans l\'ordre, arrivée), à vol d\'oiseau. Une balise déplacée ou un jeu de balises modifié : régénère les parcours.</p>';
+  }
+  return h+'</div>';
 }
 function postesOptions(bid){ var h='',cur=posteB(bid),pris={},pp=(S.seance.poste&&S.seance.poste[S.seance.parcours])||{}; for(var k in pp) if(k!==bid) pris[pp[k]]=k;
   for(var i=1;i<=20;i++){ h+='<option value="'+i+'"'+(String(cur)===String(i)?' selected':'')+'>'+i+(pris[i]?' (déjà '+esc(baliseLabel(pris[i]))+')':'')+'</option>'; } return h; }
@@ -621,7 +744,9 @@ function postesOptions(bid){ var h='',cur=posteB(bid),pris={},pp=(S.seance.poste
    un appui prolongé puis un glissement déplace la pastille. */
 function contenuInfo(){
   if(!uiInfo||!posB(uiInfo)) return '<span class="petit">Touche une pastille pour voir son poste et son indice. Appui prolongé puis glisser pour la déplacer.</span>';
-  var n=posteB(uiInfo), h='<button class="chip" data-act="fermerinfo" style="float:right;margin:0 0 0 8px" aria-label="Fermer">✕</button><b>'+esc(baliseLabel(uiInfo))+' · '+(n?'poste '+esc(n):'poste non précisé')+'</b>';
+  var n=posteB(uiInfo), h='<button class="chip" data-act="fermerinfo" style="float:right;margin:0 0 0 8px" aria-label="Fermer">✕</button>';
+  if(estSpec(uiInfo)) return h+'<b>'+esc(nomSpec(uiInfo))+'</b>';
+  h+='<b>'+esc(baliseLabel(uiInfo))+' · '+(n?'poste '+esc(n):'poste non précisé')+'</b>';
   if(S.indices&&descB(uiInfo)) h+='<div>💡 '+esc(descB(uiInfo))+'</div>';
   return h;
 }
@@ -666,7 +791,7 @@ function clicCarte(ev){
   sauver();
   var sx=$('carteWrap').scrollLeft, sy=$('carteWrap').scrollTop;
   var ids=balisesAssignees(), idx=ids.indexOf(uiSel), nxt=null;
-  if(!etaitPose) for(var i=1;i<=ids.length;i++){ var c=ids[(idx+i)%ids.length]; if(!posB(c)){nxt=c;break;} }
+  if(!etaitPose&&!estSpec(uiSel)) for(var i=1;i<=ids.length;i++){ var c=ids[(idx+i)%ids.length]; if(!posB(c)){nxt=c;break;} }
   uiSel=nxt;
   dessiner(); $('carteWrap').scrollLeft=sx; $('carteWrap').scrollTop=sy;
 }
@@ -723,7 +848,7 @@ function vueCourse(){
     if(a&&d){ mid='<span class="temps">'+fmt(tempsFinal(c,g))+'</span> <span class="petit">('+fmt(tempsCourse(c,g))+(np?' + '+np+' pén.':'')+')</span>'; btn='<span class="tag tag-ok">arrivé '+heure(a)+'</span>'; }
     else if(d){ mid='<span class="temps" data-live="'+d+'">'+fmt((Date.now()-d)/1000)+'</span>'+(np?' <span class="petit">+'+np+' pén.</span>':''); btn='<button class="bouton bouton-danger bouton-petit" data-act="arrivee" data-g="'+esc(g)+'">Arrivée</button>'; }
     else { mid='<span class="petit">'+(c.mode==='tous'?'en attente du départ':'prêt')+'</span>'; btn= c.mode==='groupe'?'<button class="bouton bouton-primaire bouton-petit" data-act="depart" data-g="'+esc(g)+'">Départ</button>':''; }
-    var nm0=nomsGroupe(c,g); h+='<div class="rangee"><div class="nom">'+esc(g)+'</div><div class="corps">'+(nm0?'<div class="petit">'+esc(nm0)+'</div>':'')+mid+'</div><div>'+btn+'</div>'+(S.modeEleve?'':'<button class="chip" data-act="grp" data-g="'+esc(g)+'" style="margin:0 0 0 8px" aria-label="Détails du groupe '+esc(g)+'">⋯</button>')+'</div>';
+    var nm0=nomsGroupe(c,g); h+='<div class="rangee"><div class="nom">'+esc(g)+'</div><div class="corps">'+(nm0?'<div class="petit">'+esc(nm0)+'</div>':'')+(aOrdre()?'<div class="petit" style="word-break:break-word">🧭 '+esc(suiteOrdre(g))+'</div>':'')+mid+'</div><div>'+btn+'</div>'+(S.modeEleve?'':'<button class="chip" data-act="grp" data-g="'+esc(g)+'" style="margin:0 0 0 8px" aria-label="Détails du groupe '+esc(g)+'">⋯</button>')+'</div>';
   });
   return h+(S.modeEleve?'<p class="petit">Pénalités et corrections : demande au professeur.</p></div>':'<p class="petit">« ⋯ » : pénalités (+'+S.penSec/60+' min chacune), correction des heures, groupe absent.</p></div>');
 }
@@ -754,10 +879,10 @@ function vueVerif(){
     var g=uiVerifG, cd=c.codes[g]||{}, v=nbValides(c,g);
     h+='<div class="section section-verif"><h2>Groupe '+esc(g)+'</h2>'+(nomsGroupe(c,g)?'<p class="petit">'+esc(nomsGroupe(c,g))+'</p>':'')+'<p>Balise posée par ce groupe : <b>'+esc(S.seance.assign[g]?baliseLabel(S.seance.assign[g]):'-')+'</b> (non cherchée)</p>';
     h+='<p>Score : <b id="vscore">'+fmtPts(v.pts)+' / '+fmtPts(v.max)+' pt'+(v.max>1?'s':'')+'</b></p>';
-    aChercher(g).forEach(function(b){
+    ordreG(g).forEach(function(b){
       var inv=invalide(b), att=codeAttendu(b,g), val=cd[b]||'';
       var res=inv?'':(val===''?'':(val===att?'<span class="res ok">✓</span>':'<span class="res ko">✗</span>'));
-      h+='<div class="rangee" data-b="'+esc(b)+'">'+pastilleB(b)+'<div class="corps"><b>'+esc(baliseLabel(b))+'</b>'+(inv?' <span class="tag tag-ko">invalide - non comptée</span>':'')+(indiceUtilise(c,g,b)?' <span class="tag tag-att">indice utilisé</span>':'')+'<div class="petit" data-att="'+esc(b)+'">'+(S.afficherAttendu&&val!==''&&val!==att&&!inv?'attendu : <b>'+esc(att||'?')+'</b>':'')+'</div>'+(S.indices&&!inv&&descB(b)?(indiceUtilise(c,g,b)?'<div class="petit">💡 '+esc(descB(b))+'</div>':'<button class="chip" style="margin:4px 0 0" data-act="indice" data-g="'+esc(g)+'" data-b="'+esc(b)+'">💡 Révéler l\'indice</button>'):'')+'</div>'+
+      h+='<div class="rangee" data-b="'+esc(b)+'">'+pastilleB(b)+'<div class="corps">'+(posteB(b)?'<b>Poste '+esc(posteB(b))+'</b> <span class="petit">· '+esc(baliseLabel(b))+'</span>':'<b>'+esc(baliseLabel(b))+'</b>')+(inv?' <span class="tag tag-ko">invalide - non comptée</span>':'')+(indiceUtilise(c,g,b)?' <span class="tag tag-att">indice utilisé</span>':'')+'<div class="petit" data-att="'+esc(b)+'">'+(S.afficherAttendu&&val!==''&&val!==att&&!inv?'attendu : <b>'+esc(att||'?')+'</b>':'')+'</div>'+(S.indices&&!inv&&descB(b)?(indiceUtilise(c,g,b)?'<div class="petit">💡 '+esc(descB(b))+'</div>':'<button class="chip" style="margin:4px 0 0" data-act="indice" data-g="'+esc(g)+'" data-b="'+esc(b)+'">💡 Révéler l\'indice</button>'):'')+'</div>'+
         '<input class="saisie" type="text" maxlength="1" inputmode="text" autocapitalize="characters" autocomplete="off" data-in="'+esc(b)+'" value="'+esc(val)+'"'+(inv?' disabled':'')+'><div class="res-zone" style="width:34px;text-align:center">'+res+'</div></div>';
     });
     h+='<p class="petit">Tape la lettre relevée par le groupe (vide = non trouvée). Passage automatique à la balise suivante.</p></div>';
@@ -985,9 +1110,9 @@ function aideHtml(){
   return h+'<p class="petit">Tout est enregistré automatiquement sur la tablette. Un guide professeur détaillé (PDF) est sur la page de l\'application du site outils-eps.fr.</p>'+
     '<h4>👥 Groupes</h4><p>Crée la classe (+ Classe), ajoute les élèves (saisie, liste collée ou fichier CSV), signale les absents, règle le nombre de groupes puis <b>Générer les groupes</b> (mixtes, sans répéter les séances précédentes). Chaque élève peut être déplacé à la main.</p>'+
     '<h4>📍 Pose</h4><p>Choisis 2 couleurs et <b>Attribuer</b> : chaque groupe pose une balise. Après la pose, « Contrôle des balises » : ✔️ en place, ⚠️ invalide (retirée pour tout le monde). <b>💡 Indice</b> : écris, modifie ou supprime l\'indice d\'une balise.</p>'+
-    '<h4>🗺️ Carte</h4><p>Choisis le parcours, touche une balise de la liste, puis touche son emplacement sur la carte. Indique le n° de poste et, si tu veux, un indice. <b>Toucher une pastille</b> affiche ses infos dans le bandeau au-dessus de la carte. <b>Appui prolongé puis glisser</b> la déplace.</p>'+
+    '<h4>🗺️ Carte</h4><p>Choisis le parcours, touche une balise de la liste, puis touche son emplacement sur la carte. Indique le n° de poste et, si tu veux, un indice. <b>Toucher une pastille</b> affiche ses infos dans le bandeau au-dessus de la carte. <b>Appui prolongé puis glisser</b> la déplace. Place aussi le <b>départ ▲</b> et l\'<b>arrivée ◎</b> (bouton « Départ = arrivée » s\'ils sont confondus). Une fois tout placé : <b>Générer les parcours</b> donne à chaque groupe un ordre de recherche différent.</p>'+
     '<h4>⏱️ Course</h4><p>Départ (tous ou groupe par groupe), <b>Arrivée</b> à chaque retour (Annuler pendant 6 s). Heure de RDV max : une pénalité par minute de retard s\'ajoute toute seule. Bouton <b>⋯</b> : pénalités, correction des heures, groupe absent.</p>'+
-    '<h4>✅ Vérif.</h4><p>Choisis un groupe et tape la lettre relevée pour chaque balise. <b>💡 Révéler l\'indice</b> (avec confirmation) : la balise trouvée ne vaut alors que les points « avec indice ».</p>'+
+    '<h4>✅ Vérif.</h4><p>Choisis un groupe et tape la lettre relevée pour chaque balise (le <b>n° de poste</b> est affiché ; les balises sont dans l\'ordre du parcours du groupe). <b>💡 Révéler l\'indice</b> (avec confirmation) : la balise trouvée ne vaut alors que les points « avec indice ».</p>'+
     '<h4>🏆 Podium</h4><p>Classement aux <b>points</b>, puis au temps (course + pénalités). Export CSV ou copie vers Excel.</p>'+
     '<h4>⚙️ Réglages (mot de passe)</h4><p>Mot de passe, <b>mode élève</b> (confier la tablette à un élève dispensé : Course et Vérif. d\'une seule classe), indices, points par balise, durée des pénalités, jeux de balises, sauvegarde et restauration, <b>Nouvelle séance</b>.</p>'+
     '<h4>En cas de souci</h4><p>Ne vide jamais les données du site dans Chrome (tu perdrais classes et élèves). Si un bandeau propose une nouvelle version, touche « Recharger ». Pense à exporter une sauvegarde de temps en temps (Réglages).</p>';
@@ -1025,6 +1150,9 @@ document.addEventListener('click',function(e){
     case 'dlgoui': var fd=cbDialogue, vd=$('inDialogue')?$('inDialogue').value:null; fermerDialogue(); if(fd) fd(vd); break;
     case 'dlgnon': fermerDialogue(); break;
     case 'auto': attribuerAuto(); sauver(); dessiner(); break;
+    case 'memeda': if(!S.seance.meme) S.seance.meme={}; var spm=S.seance.parcours; S.seance.meme[spm]=!S.seance.meme[spm]; if(S.seance.meme[spm]&&uiSel==='#arr') uiSel='#dep'; if(uiInfo==='#arr'&&S.seance.meme[spm]) uiInfo=null; sauver(); var wym=window.pageYOffset; dessiner(); window.scrollTo(0,wym); break;
+    case 'genordre': var lanceOrdre=function(){ var res=genererOrdres(); if(res.manque){ avertir('Place d\'abord toutes les balises sur la carte : il en manque '+res.manque+'.'); return; } if(res.sansDA){ avertir('Place d\'abord le départ ▲ et l\'arrivée ◎ sur la carte (ou touche « Départ = arrivée » s\'ils sont au même endroit).'); return; } if(res.vide){ avertir('Il faut au moins 2 balises à chercher par groupe.'); return; } sauver(); var wy=window.pageYOffset; dessiner(); window.scrollTo(0,wy); toast('Parcours générés pour '+res.n+' groupe(s)'); }; if(aOrdre()) confirmer('Remplacer les parcours actuels par de nouveaux parcours ?',lanceOrdre,'Régénérer'); else lanceOrdre(); break;
+    case 'effordre': confirmer('Effacer les parcours ? Chaque groupe cherchera dans l\'ordre de la liste.',function(){ if(S.seance.ordre) delete S.seance.ordre[S.seance.parcours]; sauver(); var wy=window.pageYOffset; dessiner(); window.scrollTo(0,wy); },'Effacer',true); break;
     case 'etat': var e2=el.getAttribute('data-e'); S.seance.etat[b]=(S.seance.etat[b]===e2)?'':e2; sauver(); dessiner(); break;
     case 'parcours': S.seance.parcours=parseInt(el.getAttribute('data-p'),10); uiSel=null; uiInfo=null; sauver(); dessiner(); break;
     case 'selb': var cw0=$('carteWrap'), sx0=cw0?cw0.scrollLeft:0, sy0=cw0?cw0.scrollTop:0; uiSel=(uiSel===b?null:b); dessiner(); var cw1=$('carteWrap'); if(cw1){ cw1.scrollLeft=sx0; cw1.scrollTop=sy0; } break;
