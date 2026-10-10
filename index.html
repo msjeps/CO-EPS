@@ -173,12 +173,12 @@ var GROUPES_DEFAUT=['A1','A2','A3','A4','B1','B2','B3','B4','C1','C2','C3','C4',
 function etatInitial(){
   return {
     v:1, groupes:GROUPES_DEFAUT.slice(),
-    sets:[], penSec:60, modeEleve:null, indices:true, ptsBalise:1, ptsIndice:0.5, mdp:null, sombre:false, afficherAttendu:true, initiales:false, derniereSauv:0, rappelJusqua:0,
-    seance:{setIds:['Orange','Bleu'], assign:{}, parcours:1, pos:{}, etat:{}, poste:{}, desc:{}, ordre:{}, meme:{}},
+    sets:[], penSec:60, nbPose:1, nbChercher:0, modeEleve:null, indices:true, ptsBalise:1, ptsIndice:0.5, mdp:null, sombre:false, afficherAttendu:true, initiales:false, derniereSauv:0, rappelJusqua:0,
+    seance:{setIds:['Orange','Bleu'], assign:{}, parcours:1, pos:{}, etat:{}, poste:{}, desc:{}, ordre:{}, meme:{}, cherche:{}},
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.21';
+var APP_VER='2.22';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -203,6 +203,8 @@ function etatValide(o){
     if(typeof o.initiales!=='boolean') o.initiales=false;
     if(typeof o.indices!=='boolean') o.indices=true;
     if(typeof o.modeEleve!=='string') o.modeEleve=null;
+    if(!estNb(o.nbPose)||o.nbPose<1||o.nbPose>3) o.nbPose=1; else o.nbPose=Math.round(o.nbPose);
+    if(!estNb(o.nbChercher)||o.nbChercher<0||o.nbChercher>200) o.nbChercher=0; else o.nbChercher=Math.round(o.nbChercher);
     if(!estNb(o.ptsBalise)||o.ptsBalise<0.5||o.ptsBalise>100) o.ptsBalise=1;
     if(!estNb(o.ptsIndice)||o.ptsIndice<0||o.ptsIndice>o.ptsBalise) o.ptsIndice=Math.min(0.5,o.ptsBalise);
     if(!estNb(o.derniereSauv)) o.derniereSauv=0;
@@ -214,12 +216,13 @@ function etatValide(o){
         if(!estObj(st.codes)) st.codes={}; } }
     if('seance' in o){ var se=o.seance; if(!estObj(se)) return false;
       if('setIds' in se){ if(!Array.isArray(se.setIds)||!toutesChaines(se.setIds)) return false; } else se.setIds=['Orange','Bleu'];
-      ['assign','pos','etat','poste','desc','ordre','meme'].forEach(function(f){ if(!estObj(se[f])) se[f]={}; });
+      ['assign','pos','etat','poste','desc','ordre','meme','cherche'].forEach(function(f){ if(!estObj(se[f])) se[f]={}; });
       if(!estNb(se.parcours)||se.parcours<1||se.parcours>5) se.parcours=1;
-      for(k in se.assign) if(typeof se.assign[k]!=='string') return false;
+      for(k in se.assign){ if(typeof se.assign[k]==='string') se.assign[k]=[se.assign[k]]; if(!Array.isArray(se.assign[k])||se.assign[k].length>3||!toutesChaines(se.assign[k])) return false; if(se.assign[k].length>o.nbPose) se.assign[k]=se.assign[k].slice(0,o.nbPose); }
       for(k in se.pos){ if(!estObj(se.pos[k])) return false; for(g in se.pos[k]){ var pp=se.pos[k][g]; if(!estObj(pp)||!estNb(pp.x)||!estNb(pp.y)) return false; } }
       for(k in se.poste) if(!estObj(se.poste[k])) return false;
       for(k in se.meme) if(typeof se.meme[k]!=='boolean') delete se.meme[k];
+      for(k in se.cherche) if(!Array.isArray(se.cherche[k])||!toutesChaines(se.cherche[k])) delete se.cherche[k];
       for(k in se.ordre){ if(!estObj(se.ordre[k])){ delete se.ordre[k]; continue; } for(g in se.ordre[k]) if(!Array.isArray(se.ordre[k][g])||!toutesChaines(se.ordre[k][g])) delete se.ordre[k][g]; }
       for(k in se.desc){ if(!estObj(se.desc[k])){ delete se.desc[k]; continue; } for(g in se.desc[k]) if(typeof se.desc[k][g]!=='string') delete se.desc[k][g]; } }
     if('classes' in o){ if(!Array.isArray(o.classes)) return false;
@@ -338,13 +341,51 @@ function codeAttendu(id,g){
 function listeBalisesSeance(){
   var l=[]; S.seance.setIds.forEach(function(sid){ var s=getSet(sid); if(!s) return; for(var n=1;n<=s.n;n++) l.push(baliseId(sid,n)); }); return l;
 }
+/* Plusieurs balises par groupe (2.22) : S.seance.assign[g] = tableau de 1 à S.nbPose identifiants ; '' = case vide
+   (les cases gardent leur rang dans la liste déroulante). Toujours lire via balisesDe(g). */
+function balisesDe(g){ var a=S.seance.assign[g], r=[]; if(Array.isArray(a)) for(var i=0;i<a.length;i++) if(a[i]) r.push(a[i]); return r; }
+/* Tour 1 : balise n°1 de chaque groupe, tour 2 : n°2... (les balises d'un même groupe viennent de couleurs différentes) */
 function attribuerAuto(){
-  var l=listeBalisesSeance(); S.seance.assign={};
-  S.groupes.forEach(function(g,i){ if(l[i]) S.seance.assign[g]=l[i]; });
+  var l=listeBalisesSeance(), n=S.groupes.length; S.seance.assign={};
+  S.groupes.forEach(function(g,i){ var a=[]; for(var r=0;r<S.nbPose;r++){ var b=l[r*n+i]; if(b) a.push(b); } if(a.length) S.seance.assign[g]=a; });
 }
-function poseur(bid){ for(var g in S.seance.assign) if(S.seance.assign[g]===bid) return g; return null; }
-function balisesAssignees(){ var l=[]; S.groupes.forEach(function(g){ var b=S.seance.assign[g]; if(b) l.push(b); }); return l; }
-function aChercher(g){ return balisesAssignees().filter(function(b){ return S.seance.assign[g]!==b; }); }
+/* Ajoute des jeux de balises à la séance jusqu'à en avoir assez (nombre de groupes x balises par groupe) */
+function completerJeux(){
+  var besoin=S.groupes.length*S.nbPose, ids=S.seance.setIds;
+  function cap(){ var t=0; ids.forEach(function(id){ var st=getSet(id); if(st) t+=st.n; }); return t; }
+  var libres=tousLesSets().map(function(x){return x.id;}).filter(function(id){return ids.indexOf(id)<0;});
+  while(cap()<besoin&&libres.length){ var id=libres.shift(), vide=ids.indexOf(''); if(vide>=0) ids[vide]=id; else ids.push(id); }
+}
+function poseur(bid){ for(var g in S.seance.assign) if(balisesDe(g).indexOf(bid)>=0) return g; return null; }
+function balisesAssignees(){ var l=[]; S.groupes.forEach(function(g){ balisesDe(g).forEach(function(b){ l.push(b); }); }); return l; }
+/* Toutes les balises posées par les autres groupes */
+function autresBalises(g){ var own=balisesDe(g); return balisesAssignees().filter(function(b){ return own.indexOf(b)<0; }); }
+/* Nombre de balises à chercher par groupe (2.22) : S.nbChercher, 0 = toutes les autres ; jamais plus que ce qu'offre le groupe
+   qui en a le moins. Les balises de chaque groupe sont fixées par « Générer les parcours » (S.seance.cherche[g]). */
+function limite(){
+  var v=S.nbChercher||0; if(v<=0) return 0; var m=Infinity, any=false;
+  S.groupes.forEach(function(g){ if(!balisesDe(g).length) return; any=true; var n=autresBalises(g).filter(function(b){return !invalide(b);}).length; if(n<m) m=n; });
+  return any?Math.min(v,m):0;
+}
+function aChercher(g){
+  var pool=autresBalises(g), N=limite();
+  if(!N||pool.length<=N) return pool;
+  var st=S.seance.cherche&&S.seance.cherche[g], res=[], i;
+  if(Array.isArray(st)) for(i=0;i<st.length&&res.length<N;i++) if(pool.indexOf(st[i])>=0&&res.indexOf(st[i])<0) res.push(st[i]);
+  for(i=0;i<pool.length&&res.length<N;i++) if(res.indexOf(pool[i])<0&&!invalide(pool[i])) res.push(pool[i]);
+  return res;
+}
+/* Faux tant que les parcours n'ont pas été générés pour la limite choisie (les groupes cherchent alors les N premières balises) */
+function parcoursAJour(){
+  var N=limite(); if(!N) return true;
+  return S.groupes.every(function(g){
+    if(!balisesDe(g).length) return true;
+    var pool=autresBalises(g).filter(function(b){return !invalide(b);}); if(pool.length<=N) return true;
+    var st=S.seance.cherche&&S.seance.cherche[g];
+    return Array.isArray(st)&&st.filter(function(b){return pool.indexOf(b)>=0;}).length===N;
+  });
+}
+function taillePoolMax(){ var m=0; S.groupes.forEach(function(g){ if(!balisesDe(g).length) return; var n=autresBalises(g).length; if(n>m) m=n; }); return m; }
 function invalide(bid){ return S.seance.etat[bid]==='ko'; }
 function descB(bid){ var p=S.seance.desc&&S.seance.desc[S.seance.parcours]; return p&&typeof p[bid]==='string'?p[bid]:''; }
 function posteB(bid){ var p=S.seance.poste&&S.seance.poste[S.seance.parcours]; return p&&p[bid]?p[bid]:''; }
@@ -424,6 +465,45 @@ function planifierOrdres(sets,P,r,D,A){
   });
   return choix;
 }
+/* Choix des N balises de chaque groupe parmi celles des autres, puis de leur ordre : recherche locale (remplacer une balise,
+   échanger deux rangs, inverser un tronçon), coût = écart à la longueur cible + points communs avec les autres groupes
+   + déséquilibre du nombre de groupes qui cherchent chaque balise. Départ : balises les moins cherchées d'abord. */
+function planifierSousEnsembles(pools,N,P,r,D,A){
+  var W={TM:1.1,len:100,cov:0.7,tours:6,it:250}, gs=Object.keys(pools), choix={}, use={}, tot={}, somme=0;
+  gs.forEach(function(x){ pools[x].forEach(function(b){ tot[b]=1; }); });
+  var cible=Math.max(1,gs.length*N/Object.keys(tot).length);
+  gs.forEach(function(x){
+    var pl=melanger(pools[x].slice()).sort(function(a,b){ return (use[a]||0)-(use[b]||0); }).slice(0,N);
+    var rt=deuxOpt(melanger(pl.slice()),P,r,9999,D,A);
+    choix[x]={r:rt,l:longueurOrdre(rt,P,r,D,A)}; somme+=choix[x].l; rt.forEach(function(b){ use[b]=(use[b]||0)+1; });
+  });
+  var T=somme/gs.length*W.TM;
+  function cout(x,rt,l){
+    var s=W.len*Math.abs(l-T)/T, h, q, i, j, u;
+    for(h=0;h<gs.length;h++){ if(gs[h]===x) continue; q=choix[gs[h]].r;
+      if(q[0]===rt[0]) s+=4;
+      for(i=0;i<rt.length;i++) if(q[i]===rt[i]) s+=1;
+      for(i=1;i<rt.length;i++){ j=q.indexOf(rt[i-1]); if(j>=0){ if(q[j+1]===rt[i]) s+=1.5; else if(j>0&&q[j-1]===rt[i]) s+=0.75; } }
+    }
+    for(i=0;i<rt.length;i++){ u=use[rt[i]]-1; s+=W.cov*u*u/cible; }
+    return s;
+  }
+  for(var tour=0;tour<W.tours;tour++) melanger(gs.slice()).forEach(function(x){
+    var cur=choix[x], cc=cout(x,cur.r,cur.l), pl=pools[x];
+    for(var it=0;it<W.it;it++){
+      var rt=cur.r.slice(), m=Math.random(), a, b, t, hors, l, c2;
+      if(m<0.6){ hors=pl.filter(function(z){return rt.indexOf(z)<0;}); if(!hors.length) continue; rt[Math.floor(Math.random()*rt.length)]=hors[Math.floor(Math.random()*hors.length)]; rt=deuxOpt(rt,P,r,50,D,A); }
+      else if(m<0.8){ a=Math.floor(Math.random()*rt.length); b=Math.floor(Math.random()*rt.length); t=rt[a]; rt[a]=rt[b]; rt[b]=t; rt=deuxOpt(rt,P,r,50,D,A); }
+      else { a=Math.floor(Math.random()*rt.length); b=Math.floor(Math.random()*rt.length); if(a>b){ t=a; a=b; b=t; } rt=rt.slice(0,a).concat(rt.slice(a,b+1).reverse()).concat(rt.slice(b+1)); }
+      l=longueurOrdre(rt,P,r,D,A);
+      cur.r.forEach(function(z){ use[z]--; }); rt.forEach(function(z){ use[z]=(use[z]||0)+1; });
+      c2=cout(x,rt,l);
+      if(c2<cc-1e-9){ cur={r:rt,l:l}; cc=c2; choix[x]=cur; }
+      else { rt.forEach(function(z){ use[z]--; }); cur.r.forEach(function(z){ use[z]=(use[z]||0)+1; }); }
+    }
+  });
+  return choix;
+}
 /* Renvoie {manque:n} (balises non placées), {sansDA:true} (départ ou arrivée non placé), {vide:true} ou {ok:true,n:nb de groupes} */
 function genererOrdres(){
   var P={}, manque=0, r=ratioCarte(), sets={}, nb=0;
@@ -431,12 +511,13 @@ function genererOrdres(){
   if(manque) return {manque:manque};
   var D=ptDepart(), A=ptArrivee();
   if(!D||!A) return {sansDA:true};
-  S.groupes.forEach(function(g){ var set=aChercher(g).filter(function(b){return !invalide(b);}); if(set.length>=2){ sets[g]=set; nb++; } });
+  var N=limite(), plein=true;
+  S.groupes.forEach(function(g){ var set=autresBalises(g).filter(function(b){return !invalide(b);}); if(set.length>=2){ sets[g]=set; nb++; if(N&&set.length>N) plein=false; } });
   if(!nb) return {vide:true};
-  var ch=planifierOrdres(sets,P,r,D,A), sp=S.seance.parcours, o={};
-  for(var g in ch) o[g]=ch[g].r.slice();
+  var ch=(N&&!plein)?planifierSousEnsembles(sets,N,P,r,D,A):planifierOrdres(sets,P,r,D,A), sp=S.seance.parcours, o={}, ch2={};
+  for(var g in ch){ o[g]=ch[g].r.slice(); if(N&&!plein) ch2[g]=ch[g].r.slice(); }
   if(!S.seance.ordre) S.seance.ordre={};
-  S.seance.ordre[sp]=o;
+  S.seance.ordre[sp]=o; S.seance.cherche=ch2;
   return {ok:true,n:nb};
 }
 function longueursOrdres(){
@@ -633,7 +714,7 @@ function lierEtiquettes(){
     var gc=document.querySelectorAll('input[data-cb]');
     for(i=0;i<gc.length;i++) gc[i].setAttribute('aria-label','Code de la balise '+gc[i].getAttribute('data-cb')+', groupe '+gc[i].getAttribute('data-cg'));
     var as=document.querySelectorAll('select[data-chg="assign"]');
-    for(i=0;i<as.length;i++) as[i].setAttribute('aria-label','Balise posée par le groupe '+as[i].getAttribute('data-g'));
+    for(i=0;i<as.length;i++) as[i].setAttribute('aria-label','Balise posée par le groupe '+as[i].getAttribute('data-g')+(S.nbPose>1?' (n°'+(parseInt(as[i].getAttribute('data-i'),10)+1)+')':''));
     var fs=document.querySelectorAll('input[type="file"]');
     for(i=0;i<fs.length;i++) if(!fs[i].getAttribute('aria-label')&&!(fs[i].labels&&fs[i].labels.length)) fs[i].setAttribute('aria-label',fs[i].getAttribute('data-chg')==='fichiersauv'?'Choisir un fichier de sauvegarde à restaurer':'Choisir un fichier');
     var mv=document.querySelectorAll('select[data-chg="moveel"]');
@@ -669,7 +750,7 @@ function dessiner(){
 function selectSets(){
   var opts=tousLesSets().map(function(s){return '<option value="'+esc(s.id)+'">'+esc(s.nom)+' ('+s.n+' balises)</option>';}).join('');
   var ids=S.seance.setIds, h='';
-  for(var i=0;i<2;i++){
+  for(var i=0;i<Math.max(2,ids.length);i++){
     h+='<div><label>Couleur / jeu n°'+(i+1)+'</label><select data-chg="setid" data-i="'+i+'">'+tousLesSets().map(function(s){return '<option value="'+esc(s.id)+'"'+(ids[i]===s.id?' selected':'')+'>'+esc(s.nom)+' ('+s.n+' balises)</option>';}).join('')+'<option value=""'+(!ids[i]?' selected':'')+'>- aucun -</option></select></div>';
   }
   return '<div class="grille g2">'+h+'</div>';
@@ -678,15 +759,22 @@ function vuePose(){
   var l=listeBalisesSeance(), ids=balisesAssignees();
   var posees=ids.filter(function(b){return posB(b);}).length, ok=ids.filter(function(b){return S.seance.etat[b]==='ok';}).length, ko=ids.filter(invalide).length;
   var h='<div class="section section-pose"><h2>Balises de la séance</h2>'+selectSets()+
+    '<label>Balises posées par groupe</label><div class="chips">'+[1,2,3].map(function(k){ return '<button class="chip'+(S.nbPose===k?' actif':'')+'" data-act="nbpose" data-n="'+k+'">'+k+'</button>'; }).join('')+'</div>'+
+    '<p class="petit">'+S.groupes.length+' groupe(s) x '+S.nbPose+' = '+(S.groupes.length*S.nbPose)+' balises à poser ; chaque groupe en cherchera '+(S.groupes.length*S.nbPose-S.nbPose)+'. Les jeux de couleur sont complétés tout seuls (compte au moins '+Math.ceil(S.groupes.length*S.nbPose/8)+' jeux de 8 balises).</p>'+
+    (function(){ var mp=taillePoolMax(), cur=limite()||mp; return '<label>Balises à chercher par groupe</label><div class="stepper-nombre"><button class="stepper-btn" data-act="nbch" data-d="-1" aria-label="Moins de balises à chercher">−</button><input type="text" readonly value="'+(limite()?cur:'Toutes ('+mp+')')+'" aria-label="Balises à chercher par groupe"><button class="stepper-btn" data-act="nbch" data-d="1" aria-label="Plus de balises à chercher">+</button></div><p class="petit">Même nombre pour tous les groupes. Si ce nombre est inférieur aux balises posées, l\'appli choisit pour chaque groupe ses balises et leur ordre : <b>onglet Carte, Générer les parcours</b> (départ, arrivée et balises à placer d\'abord).'+(limite()&&!parcoursAJour()?' <b style="color:#b00020">⚠️ Parcours à générer.</b>':'')+'</p>'; })()+
     '<button class="bouton bouton-secondaire" data-act="auto">Attribuer automatiquement aux groupes</button>'+
-    '<p class="petit">Ex. : Orange 1 → A1, Orange 2 → A2… puis 1re balise de la 2e couleur → premier groupe restant. Chaque ligne reste modifiable.</p></div>';
+    '<p class="petit">Ex. : Orange 1 → A1, Orange 2 → A2… puis 1re balise de la 2e couleur → premier groupe restant (avec 2 ou 3 balises par groupe : un tour par balise, donc des couleurs différentes pour un même groupe). Chaque ligne reste modifiable.</p></div>';
   h+='<div class="section section-pose"><h2>Qui pose quoi ?</h2>';
   h+='<p class="petit">📍 posées '+posees+'/'+ids.length+' · ✔️ vérifiées en place '+ok+(ko?' · ⚠️ invalides '+ko:'')+'</p>';
   S.groupes.forEach(function(g){
-    var b=S.seance.assign[g]||'';
-    var opts='<option value="">- aucune -</option>'+l.concat(allAssignedOutside(l)).map(function(x){ var p=poseur(x); return '<option value="'+esc(x)+'"'+(b===x?' selected':'')+'>'+esc(baliseLabel(x))+(p&&p!==g?' (déjà '+p+')':'')+'</option>'; }).join('');
-    var st=''; if(b){ var e=S.seance.etat[b]; st = e==='ko'?'<span class="tag tag-ko">invalide</span>': e==='ok'?'<span class="tag tag-ok">vérifiée</span>': posB(b)?'<span class="tag tag-att">posée</span>':'<span class="tag">à poser</span>'; }
-    h+='<div class="rangee"><div class="nom">'+esc(g)+'</div><div class="corps"><select data-chg="assign" data-g="'+esc(g)+'">'+opts+'</select></div><div style="min-width:78px;text-align:right">'+st+'</div></div>';
+    var raw=Array.isArray(S.seance.assign[g])?S.seance.assign[g]:[], lignes='';
+    for(var si=0;si<S.nbPose;si++){
+      var b=raw[si]||'';
+      var opts='<option value="">- aucune -</option>'+l.concat(allAssignedOutside(l)).map(function(x){ var p=poseur(x); return '<option value="'+esc(x)+'"'+(b===x?' selected':'')+'>'+esc(baliseLabel(x))+(p&&p!==g?' (déjà '+p+')':'')+'</option>'; }).join('');
+      var st=''; if(b){ var e=S.seance.etat[b]; st = e==='ko'?'<span class="tag tag-ko">invalide</span>': e==='ok'?'<span class="tag tag-ok">vérifiée</span>': posB(b)?'<span class="tag tag-att">posée</span>':'<span class="tag">à poser</span>'; }
+      lignes+='<div style="display:flex;align-items:center;'+(si?'margin-top:6px':'')+'"><select style="flex:1" data-chg="assign" data-g="'+esc(g)+'" data-i="'+si+'">'+opts+'</select><span style="min-width:78px;text-align:right">'+st+'</span></div>';
+    }
+    h+='<div class="rangee"><div class="nom">'+esc(g)+'</div><div class="corps">'+lignes+'</div></div>';
   });
   h+='</div>';
   h+='<div class="section section-pose"><h2>Contrôle des balises</h2><p class="petit">Après la pose, fais le tour : « vérifiée » = en place et lisible. « Invalide » = manquante ou déplacée : elle est retirée du barème de tous les groupes.</p>';
@@ -699,7 +787,7 @@ function vuePose(){
   if(!ids.length) h+='<p class="petit">Aucune balise attribuée.</p>';
   return h+'</div>';
 }
-function allAssignedOutside(l){ var ex=[]; for(var g in S.seance.assign){ var b=S.seance.assign[g]; if(b&&l.indexOf(b)<0&&ex.indexOf(b)<0) ex.push(b);} return ex; }
+function allAssignedOutside(l){ var ex=[]; for(var g in S.seance.assign){ balisesDe(g).forEach(function(b){ if(l.indexOf(b)<0&&ex.indexOf(b)<0) ex.push(b); }); } return ex; }
 
 /* ============ VUE : CARTE ============ */
 function vueCarte(){
@@ -727,13 +815,16 @@ function vueCarte(){
   return h;
 }
 function sectionOrdres(){
-  var h='<div class="section section-pose"><h2>Parcours des groupes</h2>', gs=S.groupes.filter(function(g){ return aChercher(g).filter(function(b){return !invalide(b);}).length>=2; });
-  h+='<p class="petit">Chaque groupe cherche les mêmes balises (sauf la sienne) dans un <b>ordre différent</b>, pour que les groupes ne se suivent pas, avec des distances voisines. À faire <b>une fois le départ ▲, l\'arrivée ◎ et toutes les balises placés sur la carte</b> ci-dessus ; les groupes sont ceux qui ont une balise attribuée. Les numéros affichés sont les n° de poste.</p>';
+  var h='<div class="section section-pose"><h2>Parcours des groupes</h2>', gs=S.groupes.filter(function(g){ return autresBalises(g).filter(function(b){return !invalide(b);}).length>=2; });
+  if(!parcoursAJour()) h+='<p style="color:#b00020;font-weight:700">⚠️ Parcours à (re)générer : chaque groupe cherche pour l\'instant les '+limite()+' premières balises de la liste.</p>';
+  h+='<p class="petit">Chaque groupe cherche '+(limite()?'<b>'+limite()+' balises</b> choisies pour lui parmi celles des autres':'toutes les balises des autres')+' dans un <b>ordre différent</b>, pour que les groupes ne se suivent pas, avec des distances voisines. À faire <b>une fois le départ ▲, l\'arrivée ◎ et toutes les balises placés sur la carte</b> ci-dessus ; les groupes sont ceux qui ont une balise attribuée. Les numéros affichés sont les n° de poste.</p>';
   h+='<button class="bouton bouton-secondaire" data-act="genordre">🔀 '+(aOrdre()?'Régénérer':'Générer')+' les parcours ('+gs.length+' groupe'+(gs.length>1?'s':'')+')</button>';
   if(aOrdre()){
     h+='<button class="bouton bouton-clair" data-act="effordre">Effacer les parcours</button>';
     var lg=longueursOrdres();
     gs.forEach(function(g){ h+='<div class="rangee"><div class="nom">'+esc(g)+'</div><div class="corps petit" style="word-break:break-word">'+esc(suiteOrdre(g))+'</div>'+(lg&&lg[g]?'<div style="min-width:58px;text-align:right"><span class="tag" title="Distance par rapport à la moyenne des groupes">≈ '+lg[g]+' %</span></div>':'')+'</div>'; });
+    var us={}, mn=Infinity, mx=0; gs.forEach(function(g){ aChercher(g).forEach(function(b){ if(!invalide(b)) us[b]=(us[b]||0)+1; }); }); balisesAssignees().forEach(function(b){ if(invalide(b)) return; var u=us[b]||0; if(u<mn) mn=u; if(u>mx) mx=u; });
+    if(limite()&&isFinite(mn)) h+='<p class="petit">Chaque balise est cherchée par '+mn+' à '+mx+' groupe(s).</p>';
     h+='<p class="petit">« ≈ 100 % » = distance moyenne des parcours (départ, balises dans l\'ordre, arrivée), à vol d\'oiseau. Une balise déplacée ou un jeu de balises modifié : régénère les parcours.</p>';
   }
   return h+'</div>';
@@ -841,6 +932,7 @@ function vueCourse(){
     h+= c.depart.all ? '<p>🚦 Départ donné à <b>'+heure(c.depart.all)+'</b>'+(S.modeEleve?'':' <button class="chip" data-act="annulerdepartall">Annuler</button>')+'</p>' : '<button class="bouton bouton-primaire" data-act="departall">🚦 Donner le départ à tous</button>';
   }
   h+=bilanCourse(c);
+  if(limite()&&!parcoursAJour()) h+='<p style="color:#b00020;font-weight:700">⚠️ Parcours non générés'+(S.modeEleve?' : demande au professeur.':' : onglet Carte, « Générer les parcours ».')+'</p>';
   h+='</div><div class="section section-course"><h2>Groupes - '+esc(c.nom)+'</h2>';
   S.groupes.forEach(function(g){
     if(c.absents[g]) { h+='<div class="rangee" style="opacity:.5"><div class="nom">'+esc(g)+'</div><div class="corps petit">absent</div>'+(S.modeEleve?'':'<button class="chip" data-act="grp" data-g="'+esc(g)+'" style="margin:0">⋯</button>')+'</div>'; return; }
@@ -877,7 +969,7 @@ function vueVerif(){
   h+='</div></div>';
   if(uiVerifG && !c.absents[uiVerifG]){
     var g=uiVerifG, cd=c.codes[g]||{}, v=nbValides(c,g);
-    h+='<div class="section section-verif"><h2>Groupe '+esc(g)+'</h2>'+(nomsGroupe(c,g)?'<p class="petit">'+esc(nomsGroupe(c,g))+'</p>':'')+'<p>Balise posée par ce groupe : <b>'+esc(S.seance.assign[g]?baliseLabel(S.seance.assign[g]):'-')+'</b> (non cherchée)</p>';
+    h+='<div class="section section-verif"><h2>Groupe '+esc(g)+'</h2>'+(nomsGroupe(c,g)?'<p class="petit">'+esc(nomsGroupe(c,g))+'</p>':'')+'<p>Balise'+(balisesDe(g).length>1?'s':'')+' posée'+(balisesDe(g).length>1?'s':'')+' par ce groupe : <b>'+esc(balisesDe(g).length?balisesDe(g).map(baliseLabel).join(', '):'-')+'</b> (non cherchée'+(balisesDe(g).length>1?'s':'')+')</p>';
     h+='<p>Score : <b id="vscore">'+fmtPts(v.pts)+' / '+fmtPts(v.max)+' pt'+(v.max>1?'s':'')+'</b></p>';
     ordreG(g).forEach(function(b){
       var inv=invalide(b), att=codeAttendu(b,g), val=cd[b]||'';
@@ -928,14 +1020,15 @@ function celCsv(x,sep){
 }
 function construireCsv(c,sep){
   var rows=classement(c), bals=balisesAssignees();
-  var ent=['Rang','Groupe','Élèves','Balise posée','N° poste','Points','Points max','Balises validées','Balises à chercher','Indices utilisés','Départ','Arrivée','Temps course (h:mm:ss)','Pénalités (nb)','Pénalités (min)','Temps final (h:mm:ss)'];
+  var ent=['Rang','Groupe','Élèves',S.nbPose>1?'Balises posées':'Balise posée','N° poste','Points','Points max','Balises validées','Balises à chercher','Indices utilisés','Départ','Arrivée','Temps course (h:mm:ss)','Pénalités (nb)','Pénalités (min)','Temps final (h:mm:ss)'];
   if(uiCsvDetail) bals.forEach(function(b){ ent.push(baliseLabel(b)); });
   var lignes=[ent];
   rows.forEach(function(r){
     var d=debut(c,r.g), a=c.arrivee[r.g];
-    var l=[r.rang,r.g,nomsGroupe(c,r.g,true).replace(/ · /g,' / '),S.seance.assign[r.g]?baliseLabel(S.seance.assign[r.g]):'',S.seance.assign[r.g]?posteB(S.seance.assign[r.g]):'',fmtPts(r.pts),fmtPts(r.max),r.n,r.tot,r.ind,d?heure(d):'',a?heure(a):'',r.tc!=null?fmtHms(r.tc):'',r.pen,r.pen*S.penSec/60,r.tf!=null?fmtHms(r.tf):''];
+    var l=[r.rang,r.g,nomsGroupe(c,r.g,true).replace(/ · /g,' / '),balisesDe(r.g).map(baliseLabel).join(' + '),balisesDe(r.g).map(posteB).join(' + '),fmtPts(r.pts),fmtPts(r.max),r.n,r.tot,r.ind,d?heure(d):'',a?heure(a):'',r.tc!=null?fmtHms(r.tc):'',r.pen,r.pen*S.penSec/60,r.tf!=null?fmtHms(r.tf):''];
     if(uiCsvDetail) bals.forEach(function(b){
-      if(S.seance.assign[r.g]===b){ l.push('(posée)'); return; }
+      if(balisesDe(r.g).indexOf(b)>=0){ l.push('(posée)'); return; }
+      if(aChercher(r.g).indexOf(b)<0){ l.push('non demandée'); return; }
       if(invalide(b)){ l.push('invalide'); return; }
       var v=(c.codes[r.g]||{})[b]||''; l.push(v===''?'non trouvée':(v===codeAttendu(b,r.g)?(indiceUtilise(c,r.g,b)?'OK (indice)':'OK'):'faux ('+v+')'));
     });
@@ -1109,7 +1202,7 @@ function aideHtml(){
   }
   return h+'<p class="petit">Tout est enregistré automatiquement sur la tablette. Un guide professeur détaillé (PDF) est sur la page de l\'application du site outils-eps.fr.</p>'+
     '<h4>👥 Groupes</h4><p>Crée la classe (+ Classe), ajoute les élèves (saisie, liste collée ou fichier CSV), signale les absents, règle le nombre de groupes puis <b>Générer les groupes</b> (mixtes, sans répéter les séances précédentes). Chaque élève peut être déplacé à la main.</p>'+
-    '<h4>📍 Pose</h4><p>Choisis 2 couleurs et <b>Attribuer</b> : chaque groupe pose une balise. Après la pose, « Contrôle des balises » : ✔️ en place, ⚠️ invalide (retirée pour tout le monde). <b>💡 Indice</b> : écris, modifie ou supprime l\'indice d\'une balise.</p>'+
+    '<h4>📍 Pose</h4><p>Choisis le nombre de balises par groupe (1 à 3) et <b>Attribuer</b> : chaque groupe pose ses balises. Après la pose, « Contrôle des balises » : ✔️ en place, ⚠️ invalide (retirée pour tout le monde). <b>💡 Indice</b> : écris, modifie ou supprime l\'indice d\'une balise.</p>'+
     '<h4>🗺️ Carte</h4><p>Choisis le parcours, touche une balise de la liste, puis touche son emplacement sur la carte. Indique le n° de poste et, si tu veux, un indice. <b>Toucher une pastille</b> affiche ses infos dans le bandeau au-dessus de la carte. <b>Appui prolongé puis glisser</b> la déplace. Place aussi le <b>départ ▲</b> et l\'<b>arrivée ◎</b> (bouton « Départ = arrivée » s\'ils sont confondus). Une fois tout placé : <b>Générer les parcours</b> donne à chaque groupe un ordre de recherche différent.</p>'+
     '<h4>⏱️ Course</h4><p>Départ (tous ou groupe par groupe), <b>Arrivée</b> à chaque retour (Annuler pendant 6 s). Heure de RDV max : une pénalité par minute de retard s\'ajoute toute seule. Bouton <b>⋯</b> : pénalités, correction des heures, groupe absent.</p>'+
     '<h4>✅ Vérif.</h4><p>Choisis un groupe et tape la lettre relevée pour chaque balise (le <b>n° de poste</b> est affiché ; les balises sont dans l\'ordre du parcours du groupe). <b>💡 Révéler l\'indice</b> (avec confirmation) : la balise trouvée ne vaut alors que les points « avec indice ».</p>'+
@@ -1150,9 +1243,11 @@ document.addEventListener('click',function(e){
     case 'dlgoui': var fd=cbDialogue, vd=$('inDialogue')?$('inDialogue').value:null; fermerDialogue(); if(fd) fd(vd); break;
     case 'dlgnon': fermerDialogue(); break;
     case 'auto': attribuerAuto(); sauver(); dessiner(); break;
+    case 'nbch': var mpl=taillePoolMax(), cu=limite()||mpl, nv=cu+parseInt(el.getAttribute('data-d'),10); nv=Math.max(2,nv); S.nbChercher=(nv>=mpl)?0:nv; sauver(); dessiner(); break;
+    case 'nbpose': var nn=parseInt(el.getAttribute('data-n'),10); if(nn>=1&&nn<=3&&nn!==S.nbPose){ var chg=function(){ S.nbPose=nn; completerJeux(); attribuerAuto(); sauver(); dessiner(); toast(nn+' balise(s) par groupe : balises réattribuées'); }; if(Object.keys(S.seance.assign).length) confirmer('Passer à '+nn+' balise(s) par groupe réattribue toutes les balises aux groupes (les attributions actuelles sont remplacées ; les positions sur la carte restent).',chg,'Réattribuer'); else chg(); } break;
     case 'memeda': if(!S.seance.meme) S.seance.meme={}; var spm=S.seance.parcours; S.seance.meme[spm]=!S.seance.meme[spm]; if(S.seance.meme[spm]&&uiSel==='#arr') uiSel='#dep'; if(uiInfo==='#arr'&&S.seance.meme[spm]) uiInfo=null; sauver(); var wym=window.pageYOffset; dessiner(); window.scrollTo(0,wym); break;
     case 'genordre': var lanceOrdre=function(){ var res=genererOrdres(); if(res.manque){ avertir('Place d\'abord toutes les balises sur la carte : il en manque '+res.manque+'.'); return; } if(res.sansDA){ avertir('Place d\'abord le départ ▲ et l\'arrivée ◎ sur la carte (ou touche « Départ = arrivée » s\'ils sont au même endroit).'); return; } if(res.vide){ avertir('Il faut au moins 2 balises à chercher par groupe.'); return; } sauver(); var wy=window.pageYOffset; dessiner(); window.scrollTo(0,wy); toast('Parcours générés pour '+res.n+' groupe(s)'); }; if(aOrdre()) confirmer('Remplacer les parcours actuels par de nouveaux parcours ?',lanceOrdre,'Régénérer'); else lanceOrdre(); break;
-    case 'effordre': confirmer('Effacer les parcours ? Chaque groupe cherchera dans l\'ordre de la liste.',function(){ if(S.seance.ordre) delete S.seance.ordre[S.seance.parcours]; sauver(); var wy=window.pageYOffset; dessiner(); window.scrollTo(0,wy); },'Effacer',true); break;
+    case 'effordre': confirmer('Effacer les parcours ? Chaque groupe cherchera dans l\'ordre de la liste.',function(){ if(S.seance.ordre) delete S.seance.ordre[S.seance.parcours]; S.seance.cherche={}; sauver(); var wy=window.pageYOffset; dessiner(); window.scrollTo(0,wy); },'Effacer',true); break;
     case 'etat': var e2=el.getAttribute('data-e'); S.seance.etat[b]=(S.seance.etat[b]===e2)?'':e2; sauver(); dessiner(); break;
     case 'parcours': S.seance.parcours=parseInt(el.getAttribute('data-p'),10); uiSel=null; uiInfo=null; sauver(); dessiner(); break;
     case 'selb': var cw0=$('carteWrap'), sx0=cw0?cw0.scrollLeft:0, sy0=cw0?cw0.scrollTop:0; uiSel=(uiSel===b?null:b); dessiner(); var cw1=$('carteWrap'); if(cw1){ cw1.scrollLeft=sx0; cw1.scrollTop=sy0; } break;
@@ -1193,7 +1288,7 @@ document.addEventListener('click',function(e){
       sauver(); fermerModale(); dessiner(); break;
     case 'chgmdp': saisir('Nouveau mot de passe (vide = revenir au mot de passe par défaut) :','',function(nv){ if(nv!==null){ S.mdp=nv.trim()||null; sauver(); toast('Mot de passe mis à jour'); } },'Enregistrer',true); break;
     case 'aide': ouvrirModale(aideHtml()); break;
-    case 'nouvelle': var lanceNouvelle=function(){ confirmer('Terminer la séance ? Balises, positions et résultats seront effacés ; les groupes actuels sont archivés. Dernière sauvegarde : '+texteAge()+'.',function(){ for(var rn in S.rosters){ var ro=S.rosters[rn]; if(Object.keys(ro.compo).some(function(k){return ro.compo[k].length;})){ ro.histo.push(JSON.parse(JSON.stringify(ro.compo))); } ro.compo={}; ro.absent={}; } var d=etatInitial(); d.rosters=S.rosters; d.classes=S.classes.map(function(k){ k.depart={all:null,g:{}}; k.arrivee={}; k.pen={}; k.codes={}; k.absents={}; k.indices={}; return k; }); d.cur=S.cur; d.sets=S.sets; d.groupes=S.groupes; d.penSec=S.penSec; d.mdp=S.mdp; d.sombre=S.sombre; d.afficherAttendu=S.afficherAttendu; d.initiales=S.initiales; d.indices=S.indices; d.ptsBalise=S.ptsBalise; d.ptsIndice=S.ptsIndice; d.derniereSauv=S.derniereSauv; d.rappelJusqua=S.rappelJusqua; d.onglet='pose'; S=d; attribuerAuto(); uiVerifG=null; uiSel=null; sauver(); dessiner(); toast('Nouvelle séance prête : balises attribuées'); },'Terminer la séance',true); }; if(deverrouille) lanceNouvelle(); else demanderMdp(lanceNouvelle); break;
+    case 'nouvelle': var lanceNouvelle=function(){ confirmer('Terminer la séance ? Balises, positions et résultats seront effacés ; les groupes actuels sont archivés. Dernière sauvegarde : '+texteAge()+'.',function(){ for(var rn in S.rosters){ var ro=S.rosters[rn]; if(Object.keys(ro.compo).some(function(k){return ro.compo[k].length;})){ ro.histo.push(JSON.parse(JSON.stringify(ro.compo))); } ro.compo={}; ro.absent={}; } var d=etatInitial(); d.rosters=S.rosters; d.classes=S.classes.map(function(k){ k.depart={all:null,g:{}}; k.arrivee={}; k.pen={}; k.codes={}; k.absents={}; k.indices={}; return k; }); d.cur=S.cur; d.sets=S.sets; d.groupes=S.groupes; d.penSec=S.penSec; d.mdp=S.mdp; d.sombre=S.sombre; d.afficherAttendu=S.afficherAttendu; d.initiales=S.initiales; d.nbPose=S.nbPose; d.nbChercher=S.nbChercher; d.indices=S.indices; d.ptsBalise=S.ptsBalise; d.ptsIndice=S.ptsIndice; d.derniereSauv=S.derniereSauv; d.rappelJusqua=S.rappelJusqua; d.onglet='pose'; S=d; completerJeux(); attribuerAuto(); uiVerifG=null; uiSel=null; sauver(); dessiner(); toast('Nouvelle séance prête : balises attribuées'); },'Terminer la séance',true); }; if(deverrouille) lanceNouvelle(); else demanderMdp(lanceNouvelle); break;
     case 'okmdp': var v=$('inMdp').value.trim(); if(mdpOk(v)){ fermerModale(); var f=cbMdp; cbMdp=null; if(f) f(); } else { echecs++; afficherMdp('Mot de passe incorrect.'); } break;
     case 'resetmdp':
       if(!finReset){ finReset=Date.now()+ATTENTE_RESET*1000; afficherMdp(''); clearInterval(timerReset); timerReset=setInterval(majCompteReset,1000); }
@@ -1205,7 +1300,7 @@ document.addEventListener('change',function(e){
   var t=e.target, k=t.getAttribute&&t.getAttribute('data-chg'); if(!k) return; if(S.modeEleve) return; var c=classe();
   switch(k){
     case 'setid': S.seance.setIds[parseInt(t.getAttribute('data-i'),10)]=t.value; sauver(); dessiner(); break;
-    case 'assign': var g=t.getAttribute('data-g'); if(t.value){ for(var x in S.seance.assign) if(S.seance.assign[x]===t.value) delete S.seance.assign[x]; S.seance.assign[g]=t.value; } else delete S.seance.assign[g]; sauver(); dessiner(); break;
+    case 'assign': var g=t.getAttribute('data-g'), ix=parseInt(t.getAttribute('data-i'),10)||0; if(t.value){ for(var x in S.seance.assign) if(Array.isArray(S.seance.assign[x])) S.seance.assign[x]=S.seance.assign[x].map(function(v){ return v===t.value?'':v; }); } if(!Array.isArray(S.seance.assign[g])) S.seance.assign[g]=[]; while(S.seance.assign[g].length<ix) S.seance.assign[g].push(''); S.seance.assign[g][ix]=t.value; sauver(); dessiner(); break;
     case 'fichiereleves': if(c&&t.files&&t.files[0]){ var fr=new FileReader(); fr.onload=function(){ var rs2=importerEleves(roster(c),decoderTexte(fr.result)); sauver(); dessiner(); toast(rs2.ajoutes+' ajouté(s)'+(rs2.majs?' · '+rs2.majs+' genre(s) corrigé(s)':'')+(rs2.doublons?' · '+rs2.doublons+' doublon(s)':'')); }; fr.readAsArrayBuffer(t.files[0]); } break;
     case 'fichiersauv': if(t.files&&t.files[0]){ var fs=new FileReader(); fs.onload=function(){ try{ var ob=JSON.parse(fs.result); if(!ob||!ob.classes||!ob.rosters||!etatValide(ob)) throw 1; confirmer('Restaurer cette sauvegarde ('+ob.classes.length+' classe(s), '+nbElevesTotal(ob)+' élève(s)) ? Les données actuelles seront remplacées.',function(){ try{ appliquerEtat(ob); toast('Sauvegarde restaurée'); }catch(er2){ avertir('Restauration impossible : rien n\'a été modifié.'); } },'Restaurer'); }catch(er){ avertir('Fichier de sauvegarde invalide ou endommagé : rien n\'a été modifié.'); } }; fs.readAsText(t.files[0]); try{ t.value=''; }catch(e){} } break;
     case 'eleveprs': if(c){ var rp=roster(c); if(t.checked) delete rp.absent[t.getAttribute('data-id')]; else rp.absent[t.getAttribute('data-id')]=1; sauver(); dessinerGarde(); } break;
