@@ -178,7 +178,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.27';
+var APP_VER='2.28';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -1093,7 +1093,7 @@ function toastFin(msg){
   var old=$('toastFin'); if(old&&old.parentNode) old.parentNode.removeChild(old);
   var t=document.createElement('div'); t.id='toastFin'; t.className='message-succes';
   t.style.cssText='position:fixed;left:14px;right:14px;bottom:76px;z-index:200;display:flex;align-items:center;justify-content:space-between;text-align:left';
-  t.innerHTML='<span></span><button class="chip" data-act="annulerfin" style="margin:0 0 0 10px;flex-shrink:0">Annuler</button>';
+  t.innerHTML='<span></span><span style="flex-shrink:0"><button class="chip" data-act="annulerfin" style="margin:0 0 0 10px">Annuler</button><button class="chip actif" data-act="validerfin" style="margin:0 0 0 8px">Valider</button></span>';
   t.firstChild.textContent=msg; document.body.appendChild(t);
   setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); },20000);
 }
@@ -1113,7 +1113,11 @@ function terminerSeance(garderPos){
   d.cur=S.cur; d.sets=S.sets; d.groupes=S.groupes; d.penSec=S.penSec; d.mdp=S.mdp; d.sombre=S.sombre; d.afficherAttendu=S.afficherAttendu; d.initiales=S.initiales; d.nbPose=S.nbPose; d.nbChercher=S.nbChercher; d.indices=S.indices; d.ptsBalise=S.ptsBalise; d.ptsIndice=S.ptsIndice; d.derniereSauv=S.derniereSauv; d.rappelJusqua=S.rappelJusqua; d.onglet='pose';
   if(garderPos){ d.seance.setIds=old.setIds; d.seance.pos=old.pos; d.seance.poste=old.poste; d.seance.desc=old.desc; d.seance.meme=old.meme; d.seance.parcours=old.parcours; }
   S=d; completerJeux(); attribuerAuto(); uiVerifG=null; uiSel=null; csvSig=null; sauver(); dessiner();
-  toastFin(garderPos?'Séance terminée : positions des balises conservées':'Séance terminée : tout est remis à zéro');
+  toastFin(garderPos?'Séance terminée, positions conservées':'Séance terminée, tout est remis à zéro');
+}
+function validerFin(){
+  var t=$('toastFin'); if(t&&t.parentNode) t.parentNode.removeChild(t);
+  sauvAvantFin=null; try{ localStorage.removeItem(CLE+'_avant_fin'); }catch(e){}
 }
 function restaurerAvantFin(){
   var t=$('toastFin'); if(t&&t.parentNode) t.parentNode.removeChild(t);
@@ -1376,6 +1380,7 @@ document.addEventListener('click',function(e){
     case 'aide': ouvrirModale(aideHtml()); break;
     case 'nouvelle': case 'finseance': demanderFinSeance(); break;
     case 'annulerfin': restaurerAvantFin(); break;
+    case 'validerfin': validerFin(); break;
     case 'okmdp': var v=$('inMdp').value.trim(); if(mdpOk(v)){ fermerModale(); var f=cbMdp; cbMdp=null; if(f) f(); } else { echecs++; afficherMdp('Mot de passe incorrect.'); } break;
     case 'resetmdp':
       if(!finReset){ finReset=Date.now()+ATTENTE_RESET*1000; afficherMdp(''); clearInterval(timerReset); timerReset=setInterval(majCompteReset,1000); }
