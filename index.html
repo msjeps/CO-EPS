@@ -178,7 +178,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.25';
+var APP_VER='2.27';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -1052,6 +1052,7 @@ function vueClassement(){
   h+='</tbody></table></div></div>';
   h+='<div class="section section-classement"><h2>Export</h2><div class="rangee"><div class="corps">Inclure le détail balise par balise</div><label class="switch"><input type="checkbox" data-chg="csvdetail"'+(uiCsvDetail?' checked':'')+'><span class="slider"></span></label></div>'+
      '<button class="bouton bouton-primaire" data-act="csv">⬇️ Télécharger le CSV</button><button class="bouton bouton-secondaire" data-act="copier">📋 Copier (coller dans Excel)</button></div>';
+  h+='<div class="section" style="border-left-color:#FC466B"><h2>Séance terminée ?</h2><p class="petit">Après avoir téléchargé le CSV : remet à zéro les balises et les résultats pour la prochaine classe. Tu choisis de garder ou non les positions des balises sur la carte, et tu peux annuler juste après.</p><button class="bouton bouton-danger" data-act="finseance">🏁 Terminer la séance</button></div>';
   return h;
 }
 function fmtHms(sec){ sec=Math.max(0,Math.round(sec)); return Math.floor(sec/3600)+':'+pad(Math.floor(sec%3600/60))+':'+pad(sec%60); }
@@ -1086,6 +1087,40 @@ function telechargerBlob(nom,blob){
   var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=nom;
   document.body.appendChild(a); a.click(); setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(a.href);},500);
 }
+/* ============ FIN DE SÉANCE ============ */
+var sauvAvantFin=null;
+function toastFin(msg){
+  var old=$('toastFin'); if(old&&old.parentNode) old.parentNode.removeChild(old);
+  var t=document.createElement('div'); t.id='toastFin'; t.className='message-succes';
+  t.style.cssText='position:fixed;left:14px;right:14px;bottom:76px;z-index:200;display:flex;align-items:center;justify-content:space-between;text-align:left';
+  t.innerHTML='<span></span><button class="chip" data-act="annulerfin" style="margin:0 0 0 10px;flex-shrink:0">Annuler</button>';
+  t.firstChild.textContent=msg; document.body.appendChild(t);
+  setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); },20000);
+}
+function demanderFinSeance(){
+  var res=S.classes.some(aResultats), nonExp=res&&csvSig!==sigResultats();
+  var msg='Terminer la séance ? Les balises attribuées, le contrôle des balises et les résultats (chronos, codes, pénalités) sont effacés ; les groupes actuels sont archivés dans l\'historique. Classes, élèves, jeux de balises et réglages sont conservés.'+
+    (nonExp?'\n\n⚠️ Le CSV n\'a pas été téléchargé ni copié depuis les derniers résultats.':'')+'\n\nGarder les positions des balises sur la carte ?';
+  dialogue({message:msg,ok:'Tout effacer',alt:'Garder les positions',danger:true,
+    cbAlt:function(){ terminerSeance(true); }},function(){ terminerSeance(false); });
+}
+function terminerSeance(garderPos){
+  var avant=JSON.stringify(S); sauvAvantFin=avant; try{ localStorage.setItem(CLE+'_avant_fin',avant); }catch(e){}
+  var old=S.seance;
+  for(var rn in S.rosters){ var ro=S.rosters[rn]; if(Object.keys(ro.compo).some(function(k){return ro.compo[k].length;})){ ro.histo.push(JSON.parse(JSON.stringify(ro.compo))); } ro.compo={}; ro.absent={}; }
+  var d=etatInitial(); d.rosters=S.rosters;
+  d.classes=S.classes.map(function(k){ k.depart={all:null,g:{}}; k.arrivee={}; k.pen={}; k.codes={}; k.absents={}; k.indices={}; return k; });
+  d.cur=S.cur; d.sets=S.sets; d.groupes=S.groupes; d.penSec=S.penSec; d.mdp=S.mdp; d.sombre=S.sombre; d.afficherAttendu=S.afficherAttendu; d.initiales=S.initiales; d.nbPose=S.nbPose; d.nbChercher=S.nbChercher; d.indices=S.indices; d.ptsBalise=S.ptsBalise; d.ptsIndice=S.ptsIndice; d.derniereSauv=S.derniereSauv; d.rappelJusqua=S.rappelJusqua; d.onglet='pose';
+  if(garderPos){ d.seance.setIds=old.setIds; d.seance.pos=old.pos; d.seance.poste=old.poste; d.seance.desc=old.desc; d.seance.meme=old.meme; d.seance.parcours=old.parcours; }
+  S=d; completerJeux(); attribuerAuto(); uiVerifG=null; uiSel=null; csvSig=null; sauver(); dessiner();
+  toastFin(garderPos?'Séance terminée : positions des balises conservées':'Séance terminée : tout est remis à zéro');
+}
+function restaurerAvantFin(){
+  var t=$('toastFin'); if(t&&t.parentNode) t.parentNode.removeChild(t);
+  var brut=sauvAvantFin; if(!brut){ try{ brut=localStorage.getItem(CLE+'_avant_fin'); }catch(e){} }
+  try{ appliquerEtat(JSON.parse(brut)); sauver(); toast('Séance restaurée'); }
+  catch(e){ avertir('Impossible de restaurer la séance précédente.'); }
+}
 function livrerFichier(nom,contenu,type,onOk){
   var blob=new Blob([contenu],{type:type});
   if(EST_IOS&&navigator.share&&navigator.canShare&&window.File){
@@ -1103,14 +1138,17 @@ function livrerFichier(nom,contenu,type,onOk){
   telechargerBlob(nom,blob); if(onOk) onOk();
   toast(EST_IOS?'Fichier ouvert : touche Partager puis « Enregistrer dans Fichiers »':'Fichier enregistré dans Téléchargements',3500);
 }
+/* Signature des résultats au moment du dernier export : « Terminer la séance » avertit si des résultats ont changé depuis */
+var csvSig=null;
+function sigResultats(){ return JSON.stringify(S.classes.map(function(k){ return [k.depart,k.arrivee,k.codes,k.pen]; })); }
 function telechargerCsv(){
   var c=classe(); if(!c) return;
-  livrerFichier('CO_EPS_'+c.nom.replace(/[^A-Za-z0-9À-ÿ_-]/g,'')+'_'+aujourdhui()+'.csv','\ufeff'+construireCsv(c,';'),'text/csv;charset=utf-8');
+  livrerFichier('CO_EPS_'+c.nom.replace(/[^A-Za-z0-9À-ÿ_-]/g,'')+'_'+aujourdhui()+'.csv','\ufeff'+construireCsv(c,';'),'text/csv;charset=utf-8',function(){ csvSig=sigResultats(); });
 }
 function copierCsv(){
   var c=classe(); if(!c) return; var t=$('presse'); t.value=construireCsv(c,'\t'); t.select();
   var ok=false; try{ok=document.execCommand('copy');}catch(e){}
-  toast(ok?'Copié : colle dans Excel / Sheets':'Copie impossible');
+  if(ok) csvSig=sigResultats(); toast(ok?'Copié : colle dans Excel / Sheets':'Copie impossible');
 }
 
 /* ============ VUE : RÉGLAGES ============ */
@@ -1181,13 +1219,14 @@ function nbElevesTotal(o){ var n=0; for(var k in (o.rosters||{})) n+=(o.rosters[
 function ouvrirModale(h){ var m=$('modale'); m.className='modale-fond'; m.innerHTML='<div class="modale" role="dialog" aria-modal="true">'+h+'</div>'; lierEtiquettes(); }
 function fermerModale(){ var m=$('modale'); m.className='cache'; m.innerHTML=''; }
 /* ============ DIALOGUES (remplacent prompt / confirm / alert, qui font sortir du plein écran sur tablette) ============ */
-var cbDialogue=null;
-function fermerDialogue(){ var d=$('dialogue'); d.className='cache'; d.innerHTML=''; cbDialogue=null; }
+var cbDialogue=null, cbAlt=null;
+function fermerDialogue(){ var d=$('dialogue'); d.className='cache'; d.innerHTML=''; cbDialogue=null; cbAlt=null; }
 function dialogue(o,cb){
-  cbDialogue=cb||null; var d=$('dialogue'); d.className='modale-fond'; d.style.zIndex=150;
+  cbDialogue=cb||null; cbAlt=o.alt?(o.cbAlt||null):null; var d=$('dialogue'); d.className='modale-fond'; d.style.zIndex=150;
   d.innerHTML='<div class="modale" role="dialog" aria-modal="true">'+(o.titre?'<h3 style="margin:0 0 8px">'+esc(o.titre)+'</h3>':'')+'<p style="white-space:pre-line;margin:6px 0 10px">'+esc(o.message||'')+'</p>'+
     (o.champ?'<input type="'+(o.secret?'password':'text')+'" id="inDialogue" aria-label="'+esc(o.message||'Saisie')+'" value="'+esc(o.valeur||'')+'" autocomplete="off">':'')+
-    '<div class="grille'+(o.annuler===false?'':' g2')+'">'+(o.annuler===false?'':'<button class="bouton bouton-clair" data-act="dlgnon">Annuler</button>')+
+    '<div class="grille'+(o.annuler===false||o.alt?'':' g2')+'">'+(o.annuler===false?'':'<button class="bouton bouton-clair" data-act="dlgnon">Annuler</button>')+
+    (o.alt?'<button class="bouton bouton-secondaire" data-act="dlgalt">'+esc(o.alt)+'</button>':'')+
     '<button class="bouton '+(o.danger?'bouton-danger':'bouton-primaire')+'" data-act="dlgoui">'+esc(o.ok||'OK')+'</button></div></div>';
   var i=$('inDialogue'); if(i){ i.focus(); i.select(); }
 }
@@ -1267,7 +1306,7 @@ document.addEventListener('click',function(e){
     case 'sexe': if(c){ var rs=roster(c), es=eleveDe(rs,el.getAttribute('data-id')); if(es){ es.sexe=es.sexe==='F'?'G':es.sexe==='G'?'?':'F'; sauver(); dessinerGarde(); } } break;
     case 'deleve': if(c){ var rd2=roster(c), ed=eleveDe(rd2,el.getAttribute('data-id')); if(ed) confirmer('Supprimer '+affNom(ed.nom)+' ?',function(){ var idd2=ed.id; rd2.eleves=rd2.eleves.filter(function(x){return x.id!==idd2;}); for(var gk in rd2.compo) rd2.compo[gk]=rd2.compo[gk].filter(function(x){return x!==idd2;}); sauver(); dessinerGarde(); },'Supprimer',true); } break;
     case 'nbg': if(c){ var rg=roster(c), cu=Math.min(S.groupes.length,rg.nbG||nbGroupesAuto(rg)); rg.nbG=Math.max(1,Math.min(S.groupes.length,cu+parseInt(el.getAttribute('data-d'),10))); sauver(); dessinerGarde(); } break;
-    case 'generer': if(c){ var rgn=roster(c); var lancer=function(){ attente('Génération des groupes…'); setTimeout(function(){ var ok=false; try{ ok=genererGroupes(rgn); }finally{ fermerDialogue(); } if(ok){ var eff=aResultats(c); if(eff) effacerResultats(c); var sp=synchroPose(); sauver(); dessinerGarde(); if(eff||sp) toast((eff?'Résultats précédents effacés':'')+(eff&&sp?' · ':'')+(sp?'balises réattribuées aux '+groupesSeance().length+' groupes':'')+'',3500); } else avertir('Aucun élève présent.'); },80); }; var resG=aResultats(c); if(Object.keys(rgn.compo).length||resG) confirmer((Object.keys(rgn.compo).length?'Remplacer la composition actuelle ?':'Générer les groupes ?')+(resG?' Les résultats déjà enregistrés pour cette classe (départs, arrivées, codes, pénalités) seront effacés.':''),lancer,'Remplacer'); else lancer(); } break;
+    case 'generer': if(c){ var rgn=roster(c); var lancer=function(){ attente('Génération des groupes…'); setTimeout(function(){ var ok=false; try{ ok=genererGroupes(rgn); }finally{ fermerDialogue(); } if(ok){ var eff=aResultats(c); var ctl=Object.keys(S.seance.etat).some(function(k){ return S.seance.etat[k]; }); if(eff) effacerResultats(c); if(eff||ctl) S.seance.etat={}; var sp=synchroPose(); sauver(); dessinerGarde(); if(eff||ctl||sp) toast((eff||ctl?'Résultats et contrôle des balises remis à zéro':'')+(eff&&sp?' · ':'')+(sp?'balises réattribuées aux '+groupesSeance().length+' groupes':'')+'',3500); } else avertir('Aucun élève présent.'); },80); }; var ctlG=Object.keys(S.seance.etat).some(function(k){ return S.seance.etat[k]; }); var resG=aResultats(c)||ctlG; if(Object.keys(rgn.compo).length||resG) confirmer((Object.keys(rgn.compo).length?'Remplacer la composition actuelle ?':'Générer les groupes ?')+(resG?' Les résultats déjà enregistrés (départs, arrivées, codes, pénalités) et le contrôle des balises (vérifiées / invalides) seront remis à zéro. Les positions sur la carte sont conservées.':''),lancer,'Remplacer'); else lancer(); } break;
     case 'effres': if(c) confirmer('Effacer tous les résultats de la classe '+c.nom+' (départs, arrivées, codes, pénalités, absents) ?',function(){ effacerResultats(c); sauver(); dessiner(); toast('Résultats effacés'); },'Tout effacer',true); break;
     case 'videcompo': if(c) confirmer('Effacer la composition des groupes ?',function(){ roster(c).compo={}; synchroPose(); sauver(); dessinerGarde(); },'Effacer',true); break;
     case 'videhisto': if(c) demanderMdp(function(){ confirmer('Oublier les séances passées ? Les groupes pourront de nouveau se retrouver.',function(){ roster(c).histo=[]; sauver(); dessiner(); },'Oublier',true); }); break;
@@ -1286,6 +1325,7 @@ document.addEventListener('click',function(e){
     case 'plustard': S.rappelJusqua=Date.now()+7*86400000; sauver(); retirerBandeau('sauv'); break;
     case 'dlgoui': var fd=cbDialogue, vd=$('inDialogue')?$('inDialogue').value:null; fermerDialogue(); if(fd) fd(vd); break;
     case 'dlgnon': fermerDialogue(); break;
+    case 'dlgalt': var fa=cbAlt; fermerDialogue(); if(fa) fa(); break;
     case 'auto': attribuerAuto(); sauver(); dessiner(); break;
     case 'nbch': var mpl=taillePoolMax(), cu=limite()||mpl, nv=cu+parseInt(el.getAttribute('data-d'),10); nv=Math.max(2,nv); S.nbChercher=(nv>=mpl)?0:nv; sauver(); dessiner(); break;
     case 'nbpg': var ngp=parseInt(el.getAttribute('data-n'),10); if(g&&ngp>=1&&ngp<=3&&nbPoseG(g)!==ngp){ if(!S.seance.nbPG) S.seance.nbPG={}; if(ngp===S.nbPose) delete S.seance.nbPG[g]; else S.seance.nbPG[g]=ngp; var rawg=Array.isArray(S.seance.assign[g])?S.seance.assign[g].slice(0,ngp):[]; while(rawg.length<ngp) rawg.push(''); completerJeux(); var libres=listeBalisesSeance().filter(function(x){return !poseur(x);}); for(var q=0;q<ngp;q++) if(!rawg[q]&&libres.length) rawg[q]=libres.shift(); S.seance.assign[g]=rawg; sauver(); var wyp=window.pageYOffset; dessiner(); window.scrollTo(0,wyp); } break;
@@ -1334,7 +1374,8 @@ document.addEventListener('click',function(e){
       sauver(); fermerModale(); dessiner(); break;
     case 'chgmdp': saisir('Nouveau mot de passe (vide = revenir au mot de passe par défaut) :','',function(nv){ if(nv!==null){ S.mdp=nv.trim()||null; sauver(); toast('Mot de passe mis à jour'); } },'Enregistrer',true); break;
     case 'aide': ouvrirModale(aideHtml()); break;
-    case 'nouvelle': var lanceNouvelle=function(){ confirmer('Terminer la séance ? Balises, positions et résultats seront effacés ; les groupes actuels sont archivés. Dernière sauvegarde : '+texteAge()+'.',function(){ for(var rn in S.rosters){ var ro=S.rosters[rn]; if(Object.keys(ro.compo).some(function(k){return ro.compo[k].length;})){ ro.histo.push(JSON.parse(JSON.stringify(ro.compo))); } ro.compo={}; ro.absent={}; } var d=etatInitial(); d.rosters=S.rosters; d.classes=S.classes.map(function(k){ k.depart={all:null,g:{}}; k.arrivee={}; k.pen={}; k.codes={}; k.absents={}; k.indices={}; return k; }); d.cur=S.cur; d.sets=S.sets; d.groupes=S.groupes; d.penSec=S.penSec; d.mdp=S.mdp; d.sombre=S.sombre; d.afficherAttendu=S.afficherAttendu; d.initiales=S.initiales; d.nbPose=S.nbPose; d.nbChercher=S.nbChercher; d.indices=S.indices; d.ptsBalise=S.ptsBalise; d.ptsIndice=S.ptsIndice; d.derniereSauv=S.derniereSauv; d.rappelJusqua=S.rappelJusqua; d.onglet='pose'; S=d; completerJeux(); attribuerAuto(); uiVerifG=null; uiSel=null; sauver(); dessiner(); toast('Nouvelle séance prête : balises attribuées'); },'Terminer la séance',true); }; if(deverrouille) lanceNouvelle(); else demanderMdp(lanceNouvelle); break;
+    case 'nouvelle': case 'finseance': demanderFinSeance(); break;
+    case 'annulerfin': restaurerAvantFin(); break;
     case 'okmdp': var v=$('inMdp').value.trim(); if(mdpOk(v)){ fermerModale(); var f=cbMdp; cbMdp=null; if(f) f(); } else { echecs++; afficherMdp('Mot de passe incorrect.'); } break;
     case 'resetmdp':
       if(!finReset){ finReset=Date.now()+ATTENTE_RESET*1000; afficherMdp(''); clearInterval(timerReset); timerReset=setInterval(majCompteReset,1000); }
