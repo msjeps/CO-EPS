@@ -178,7 +178,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.28';
+var APP_VER='2.29';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -947,9 +947,12 @@ function bilanCourse(c){
   if(limiteRdv(c,Date.now())!=null) h+='<p style="margin:6px 0 0">⏰ RDV <b>'+esc(c.rdv)+'</b> : <span class="tag" id="rdvLive">…</span></p>';
   return h;
 }
+/* Le décompte du RDV ne démarre qu'avec le premier départ donné (« tous » ou un groupe) */
+function courseLancee(c){ return !!(c.depart.all||Object.keys(c.depart.g).length); }
 function majRdvLive(c){
   var el=$('rdvLive'); if(!el||!c) return;
   var lim=limiteRdv(c,Date.now()); if(lim==null) return;
+  if(!courseLancee(c)){ el.textContent='le décompte démarre au départ'; el.className='tag'; return; }
   var act=groupesActifs(c), fin=act.filter(function(g){return c.arrivee[g]&&debut(c,g);}).length, reste=lim-Date.now();
   if(act.length&&fin===act.length){ el.textContent='tous les groupes sont arrivés'; el.className='tag tag-ok'; }
   else if(reste>0){ el.textContent='dans '+fmt(reste/1000); el.className='tag '+(reste<=300000?'tag-att':'tag-ok'); }
@@ -957,7 +960,7 @@ function majRdvLive(c){
 }
 var alertesRdv={};
 function verifAlertesRdv(){
-  var c=classe(); if(!c||!c.rdv) return; var lim=limiteRdv(c,Date.now()); if(lim==null) return;
+  var c=classe(); if(!c||!c.rdv||!courseLancee(c)) return; var lim=limiteRdv(c,Date.now()); if(lim==null) return;
   var enc=groupesActifs(c).filter(function(g){return debut(c,g)&&!c.arrivee[g];}).length; if(!enc) return;
   var reste=lim-Date.now(), cle=c.id+'|'+c.rdv+'|'+aujourdhui(), a=alertesRdv[cle]||(alertesRdv[cle]={});
   if(reste>0&&reste<=300000&&!a.p){ a.p=1; alerteRdv('⏰ RDV dans moins de 5 minutes : '+enc+' groupe(s) encore en course',[200]); }
