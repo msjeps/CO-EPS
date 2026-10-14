@@ -178,7 +178,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.24';
+var APP_VER='2.25';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -349,11 +349,30 @@ function balisesDe(g){ var a=S.seance.assign[g], r=[]; if(Array.isArray(a)) for(
 /* Tour 1 : balise n°1 de chaque groupe, tour 2 : n°2... (les balises d'un même groupe viennent de couleurs différentes) */
 /* Nombre de balises posées par un groupe : réglage du groupe (S.seance.nbPG, 2.23) sinon S.nbPose */
 function nbPoseG(g){ var v=S.seance.nbPG&&S.seance.nbPG[g]; return (v>=1&&v<=3)?v:S.nbPose; }
-function totalPose(){ var t=0; S.groupes.forEach(function(g){ t+=nbPoseG(g); }); return t; }
+/* Groupes réellement présents dans la séance : ceux qui ont au moins un élève dans la composition de la classe choisie
+   (11 groupes de A1 à C3 : pas de C4). Sans composition, tous les noms de groupes de S.groupes. */
+function groupesSeance(){
+  var c=classe(), r=c&&S.rosters[c.id]; if(!r||!r.compo) return S.groupes;
+  var l=S.groupes.filter(function(g){ return r.compo[g]&&r.compo[g].length; });
+  return l.length?l:S.groupes;
+}
+/* Vrai si les balises attribuées ne correspondent plus aux groupes de la séance (groupe sans balise, ou balise tenue par un groupe absent) */
+function poseDesynchro(){
+  var act=groupesSeance(), need=false;
+  act.forEach(function(g){ if(!balisesDe(g).length) need=true; });
+  for(var k in S.seance.assign) if(balisesDe(k).length&&act.indexOf(k)<0) need=true;
+  return need;
+}
+function synchroPose(){ if(!poseDesynchro()) return false; completerJeux(); attribuerAuto(); return true; }
+function aResultats(c){
+  return !!(c.depart.all||Object.keys(c.depart.g).length||Object.keys(c.arrivee).length||Object.keys(c.codes).some(function(g){ return Object.keys(c.codes[g]||{}).length; }));
+}
+function effacerResultats(c){ c.depart={all:null,g:{}}; c.arrivee={}; c.pen={}; c.codes={}; c.absents={}; c.indices={}; }
+function totalPose(){ var t=0; groupesSeance().forEach(function(g){ t+=nbPoseG(g); }); return t; }
 function attribuerAuto(){
   var l=listeBalisesSeance(), k=0, mx=0; S.seance.assign={};
-  S.groupes.forEach(function(g){ if(nbPoseG(g)>mx) mx=nbPoseG(g); });
-  for(var r=0;r<mx;r++) S.groupes.forEach(function(g){ if(nbPoseG(g)>r){ var b=l[k++]; if(b){ if(!S.seance.assign[g]) S.seance.assign[g]=[]; S.seance.assign[g].push(b); } } });
+  groupesSeance().forEach(function(g){ if(nbPoseG(g)>mx) mx=nbPoseG(g); });
+  for(var r=0;r<mx;r++) groupesSeance().forEach(function(g){ if(nbPoseG(g)>r){ var b=l[k++]; if(b){ if(!S.seance.assign[g]) S.seance.assign[g]=[]; S.seance.assign[g].push(b); } } });
 }
 /* Ajoute des jeux de balises à la séance jusqu'à en avoir assez (nombre de groupes x balises par groupe) */
 function completerJeux(){
@@ -363,14 +382,14 @@ function completerJeux(){
   while(cap()<besoin&&libres.length){ var id=libres.shift(), vide=ids.indexOf(''); if(vide>=0) ids[vide]=id; else ids.push(id); }
 }
 function poseur(bid){ for(var g in S.seance.assign) if(balisesDe(g).indexOf(bid)>=0) return g; return null; }
-function balisesAssignees(){ var l=[]; S.groupes.forEach(function(g){ balisesDe(g).forEach(function(b){ if(l.indexOf(b)<0) l.push(b); }); }); return l; }
+function balisesAssignees(){ var l=[]; groupesSeance().forEach(function(g){ balisesDe(g).forEach(function(b){ if(l.indexOf(b)<0) l.push(b); }); }); return l; }
 /* Toutes les balises posées par les autres groupes */
 function autresBalises(g){ var own=balisesDe(g); return balisesAssignees().filter(function(b){ return own.indexOf(b)<0; }); }
 /* Nombre de balises à chercher par groupe (2.22) : S.nbChercher, 0 = toutes les autres ; jamais plus que ce qu'offre le groupe
    qui en a le moins. Les balises de chaque groupe sont fixées par « Générer les parcours » (S.seance.cherche[g]). */
 function limite(){
   var v=S.nbChercher||0; if(v<=0) return 0; var m=Infinity, any=false;
-  S.groupes.forEach(function(g){ if(!balisesDe(g).length) return; any=true; var n=autresBalises(g).filter(function(b){return !invalide(b);}).length; if(n<m) m=n; });
+  groupesSeance().forEach(function(g){ if(!balisesDe(g).length) return; any=true; var n=autresBalises(g).filter(function(b){return !invalide(b);}).length; if(n<m) m=n; });
   return any?Math.min(v,m):0;
 }
 function aChercher(g){
@@ -384,14 +403,14 @@ function aChercher(g){
 /* Faux tant que les parcours n'ont pas été générés pour la limite choisie (les groupes cherchent alors les N premières balises) */
 function parcoursAJour(){
   var N=limite(); if(!N) return true;
-  return S.groupes.every(function(g){
+  return groupesSeance().every(function(g){
     if(!balisesDe(g).length) return true;
     var pool=autresBalises(g).filter(function(b){return !invalide(b);}); if(pool.length<=N) return true;
     var st=S.seance.cherche&&S.seance.cherche[g];
     return Array.isArray(st)&&st.filter(function(b){return pool.indexOf(b)>=0;}).length===N;
   });
 }
-function taillePoolMax(){ var m=0; S.groupes.forEach(function(g){ if(!balisesDe(g).length) return; var n=autresBalises(g).length; if(n>m) m=n; }); return m; }
+function taillePoolMax(){ var m=0; groupesSeance().forEach(function(g){ if(!balisesDe(g).length) return; var n=autresBalises(g).length; if(n>m) m=n; }); return m; }
 function invalide(bid){ return S.seance.etat[bid]==='ko'; }
 function descB(bid){ var p=S.seance.desc&&S.seance.desc[S.seance.parcours]; return p&&typeof p[bid]==='string'?p[bid]:''; }
 function posteB(bid){ var p=S.seance.poste&&S.seance.poste[S.seance.parcours]; return p&&p[bid]?p[bid]:''; }
@@ -530,7 +549,7 @@ function genererOrdres(){
   var D=ptDepart(), A=ptArrivee();
   if(!D||!A) return {sansDA:true};
   var N=limite(), plein=true;
-  S.groupes.forEach(function(g){ var set=autresBalises(g).filter(function(b){return !invalide(b);}); if(set.length>=2){ sets[g]=set; nb++; if(N&&set.length>N) plein=false; } });
+  groupesSeance().forEach(function(g){ var set=autresBalises(g).filter(function(b){return !invalide(b);}); if(set.length>=2){ sets[g]=set; nb++; if(N&&set.length>N) plein=false; } });
   if(!nb) return {vide:true};
   var ch=(N&&!plein)?planifierSousEnsembles(sets,N,P,r,D,A):planifierOrdres(sets,P,r,D,A), sp=S.seance.parcours, o={}, ch2={};
   for(var g in ch){ o[g]=ch[g].r.slice(); if(N&&!plein) ch2[g]=ch[g].r.slice(); }
@@ -541,7 +560,7 @@ function genererOrdres(){
 function longueursOrdres(){
   var r=ratioCarte(), res={}, tot=0, n=0, D=ptDepart(), A=ptArrivee();
   if(!D||!A) return null;
-  for(var i=0;i<S.groupes.length;i++){ var g=S.groupes[i], rt=ordreG(g).filter(function(b){return !invalide(b);}); if(rt.length<2) continue;
+  for(var i=0;i<groupesSeance().length;i++){ var g=groupesSeance()[i], rt=ordreG(g).filter(function(b){return !invalide(b);}); if(rt.length<2) continue;
     for(var j=0;j<rt.length;j++) if(!posB(rt[j])) return null;
     var P={}; rt.forEach(function(b){ P[b]=posB(b); }); res[g]=longueurOrdre(rt,P,r,D,A); tot+=res[g]; n++; }
   if(!n) return null;
@@ -571,7 +590,7 @@ function nbValides(c,g){
   return {n:n,tot:tot,pts:Math.round(pts*100)/100,max:Math.round(tot*S.ptsBalise*100)/100,ind:nbInd};
 }
 function classement(c){
-  var rows=S.groupes.filter(function(g){return !c.absents[g];}).map(function(g){
+  var rows=groupesSeance().filter(function(g){return !c.absents[g];}).map(function(g){
     var v=nbValides(c,g); return {g:g,n:v.n,tot:v.tot,pts:v.pts,max:v.max,ind:v.ind,tc:tempsCourse(c,g),pen:nbPen(c,g),tf:tempsFinal(c,g),fini:!!c.arrivee[g]&&!!debut(c,g)};
   });
   rows.sort(function(a,b){
@@ -778,13 +797,14 @@ function vuePose(){
   var posees=ids.filter(function(b){return posB(b);}).length, ok=ids.filter(function(b){return S.seance.etat[b]==='ok';}).length, ko=ids.filter(invalide).length;
   var h='<div class="section section-pose"><h2>Balises de la séance</h2>'+selectSets()+
     '<label>Balises posées par groupe (valeur par défaut)</label><div class="chips">'+[1,2,3].map(function(k){ return '<button class="chip'+(S.nbPose===k?' actif':'')+'" data-act="nbpose" data-n="'+k+'">'+k+'</button>'; }).join('')+'</div>'+
-    (function(){ var t=totalPose(), mn=Infinity, mx=0; S.groupes.forEach(function(g){ var c=t-nbPoseG(g); if(c<mn) mn=c; if(c>mx) mx=c; }); return '<p class="petit">'+S.groupes.length+' groupe(s) : '+t+' balises à poser ; sans limite, chaque groupe en cherche '+(mn===mx?mn:'de '+mn+' à '+mx)+'. Le nombre de balises posées se règle aussi <b>groupe par groupe</b> dans « Qui pose quoi ? ». Les jeux de couleur sont complétés tout seuls (compte au moins '+Math.ceil(t/8)+' jeux de 8 balises).</p>'; })()+
+    (function(){ var t=totalPose(), mn=Infinity, mx=0; groupesSeance().forEach(function(g){ var c=t-nbPoseG(g); if(c<mn) mn=c; if(c>mx) mx=c; }); return '<p class="petit">'+groupesSeance().length+' groupe(s) : '+t+' balises à poser ; sans limite, chaque groupe en cherche '+(mn===mx?mn:'de '+mn+' à '+mx)+'. Le nombre de balises posées se règle aussi <b>groupe par groupe</b> dans « Qui pose quoi ? ». Les jeux de couleur sont complétés tout seuls (compte au moins '+Math.ceil(t/8)+' jeux de 8 balises).</p>'; })()+
     (function(){ var mp=taillePoolMax(), cur=limite()||mp; return '<label>Balises à chercher par groupe</label><div class="stepper-nombre"><button class="stepper-btn" data-act="nbch" data-d="-1" aria-label="Moins de balises à chercher">−</button><input type="text" readonly value="'+(limite()?cur:'Toutes ('+mp+')')+'" aria-label="Balises à chercher par groupe"><button class="stepper-btn" data-act="nbch" data-d="1" aria-label="Plus de balises à chercher">+</button></div><p class="petit">Même nombre pour tous les groupes. Si ce nombre est inférieur aux balises posées, l\'appli choisit pour chaque groupe ses balises et leur ordre : <b>onglet Carte, Générer les parcours</b> (départ, arrivée et balises à placer d\'abord).'+(limite()&&!parcoursAJour()?' <b style="color:#b00020">⚠️ Parcours à générer.</b>':'')+'</p>'; })()+
     '<button class="bouton bouton-secondaire" data-act="auto">Attribuer automatiquement aux groupes</button>'+
     '<p class="petit">Ex. : Orange 1 → A1, Orange 2 → A2… puis 1re balise de la 2e couleur → premier groupe restant (avec 2 ou 3 balises par groupe : un tour par balise, donc des couleurs différentes pour un même groupe). Chaque ligne reste modifiable.</p></div>';
   h+='<div class="section section-pose"><h2>Qui pose quoi ?</h2>';
+  if(poseDesynchro()) h+='<p style="color:#b00020;font-weight:700">⚠️ Les balises ne correspondent plus aux '+groupesSeance().length+' groupes de cette classe : touche « Attribuer automatiquement aux groupes ».</p>';
   h+='<p class="petit">📍 posées '+posees+'/'+ids.length+' · ✔️ vérifiées en place '+ok+(ko?' · ⚠️ invalides '+ko:'')+'</p>';
-  S.groupes.forEach(function(g){
+  groupesSeance().forEach(function(g){
     var raw=Array.isArray(S.seance.assign[g])?S.seance.assign[g]:[], lignes='';
     var npg=nbPoseG(g);
     for(var si=0;si<npg;si++){
@@ -835,7 +855,7 @@ function vueCarte(){
   return h;
 }
 function sectionOrdres(){
-  var h='<div class="section section-pose"><h2>Parcours des groupes</h2>', gs=S.groupes.filter(function(g){ return autresBalises(g).filter(function(b){return !invalide(b);}).length>=2; });
+  var h='<div class="section section-pose"><h2>Parcours des groupes</h2>', gs=groupesSeance().filter(function(g){ return autresBalises(g).filter(function(b){return !invalide(b);}).length>=2; });
   if(postesDoublons()) h+='<p style="color:#b00020;font-weight:700">⚠️ Même n° de poste pour deux balises ('+esc(texteDoublons())+') : un parcours afficherait ce poste deux fois. Corrige-les sur la carte.</p>';
   if(!parcoursAJour()) h+='<p style="color:#b00020;font-weight:700">⚠️ Parcours à (re)générer : chaque groupe cherche pour l\'instant les '+limite()+' premières balises de la liste.</p>';
   h+='<p class="petit">Chaque groupe cherche '+(limite()?'<b>'+limite()+' balises</b> choisies pour lui parmi celles des autres':'toutes les balises des autres')+' dans un <b>ordre différent</b>, pour que les groupes ne se suivent pas, avec des distances voisines. À faire <b>une fois le départ ▲, l\'arrivée ◎ et toutes les balises placés sur la carte</b> ci-dessus ; les groupes sont ceux qui ont une balise attribuée. Les numéros affichés sont les n° de poste.</p>';
@@ -917,7 +937,7 @@ function selecteurClasse(){
   return h;
 }
 /* Bilan de la course (arrivés / en course / en attente) et suivi de l'heure de RDV */
-function groupesActifs(c){ return S.groupes.filter(function(g){return !c.absents[g];}); }
+function groupesActifs(c){ return groupesSeance().filter(function(g){return !c.absents[g];}); }
 function limiteRdv(c,ref){ var m=/^(\d+):(\d+)$/.exec(c.rdv||''); if(!m) return null; var lim=new Date(ref); lim.setHours(+m[1],+m[2],59,999); return lim.getTime(); }
 function bilanCourse(c){
   var act=groupesActifs(c), fin=0, enc=0;
@@ -955,7 +975,7 @@ function vueCourse(){
   h+=bilanCourse(c);
   if(limite()&&!parcoursAJour()) h+='<p style="color:#b00020;font-weight:700">⚠️ Parcours non générés'+(S.modeEleve?' : demande au professeur.':' : onglet Carte, « Générer les parcours ».')+'</p>';
   h+='</div><div class="section section-course"><h2>Groupes - '+esc(c.nom)+'</h2>';
-  S.groupes.forEach(function(g){
+  groupesSeance().forEach(function(g){
     if(c.absents[g]) { h+='<div class="rangee" style="opacity:.5"><div class="nom">'+esc(g)+'</div><div class="corps petit">absent</div>'+(S.modeEleve?'':'<button class="chip" data-act="grp" data-g="'+esc(g)+'" style="margin:0">⋯</button>')+'</div>'; return; }
     var d=debut(c,g), a=c.arrivee[g], np=nbPen(c,g), mid, btn;
     if(a&&d){ mid='<span class="temps">'+fmt(tempsFinal(c,g))+'</span> <span class="petit">('+fmt(tempsCourse(c,g))+(np?' + '+np+' pén.':'')+')</span>'; btn='<span class="tag tag-ok">arrivé '+heure(a)+'</span>'+(S.modeEleve?'':' <button class="chip" data-act="relancer" data-g="'+esc(g)+'" style="margin:0" aria-label="Relancer le chrono du groupe '+esc(g)+'">↺ Relancer</button>'); }
@@ -964,6 +984,7 @@ function vueCourse(){
     else { mid='<span class="petit">'+(c.mode==='tous'?'en attente du départ':'prêt')+'</span>'; btn= c.mode==='groupe'?'<button class="bouton bouton-primaire bouton-petit" data-act="depart" data-g="'+esc(g)+'">Départ</button>':''; }
     var nm0=nomsGroupe(c,g); h+='<div class="rangee"><div class="nom">'+esc(g)+'</div><div class="corps">'+(nm0?'<div class="petit">'+esc(nm0)+'</div>':'')+(aOrdre()?'<div class="petit" style="word-break:break-word">🧭 '+esc(suiteOrdre(g))+'</div>':'')+mid+'</div><div>'+btn+'</div>'+(S.modeEleve?'':'<button class="chip" data-act="grp" data-g="'+esc(g)+'" style="margin:0 0 0 8px" aria-label="Détails du groupe '+esc(g)+'">⋯</button>')+'</div>';
   });
+  if(!S.modeEleve&&aResultats(c)) h+='<button class="bouton bouton-clair" data-act="effres">Effacer tous les résultats de cette classe</button>';
   return h+(S.modeEleve?'<p class="petit">Pénalités et corrections : demande au professeur.</p></div>':'<p class="petit">« ⋯ » : pénalités (+'+S.penSec/60+' min chacune), correction des heures, groupe absent.</p></div>');
 }
 function modaleGroupe(g){
@@ -987,7 +1008,7 @@ function vueVerif(){
   var c=classe(), h='<div class="section section-verif"><h2>Vérification des codes</h2>'+selecteurClasse();
   if(!c) return h+'<p>Crée une classe pour commencer.</p></div>';
   h+='<label>Choisis le groupe</label><div class="chips">';
-  S.groupes.forEach(function(g){ if(c.absents[g]) return; var v=nbValides(c,g), saisi=Object.keys(c.codes[g]||{}).length>0; h+='<button class="chip'+(uiVerifG===g?' actif':'')+(saisi?' fait':'')+'" data-act="vg" data-g="'+esc(g)+'"><b>'+esc(g)+'</b> '+(saisi?fmtPts(v.pts)+'/'+fmtPts(v.max):'')+'</button>'; });
+  groupesSeance().forEach(function(g){ if(c.absents[g]) return; var v=nbValides(c,g), saisi=Object.keys(c.codes[g]||{}).length>0; h+='<button class="chip'+(uiVerifG===g?' actif':'')+(saisi?' fait':'')+'" data-act="vg" data-g="'+esc(g)+'"><b>'+esc(g)+'</b> '+(saisi?fmtPts(v.pts)+'/'+fmtPts(v.max):'')+'</button>'; });
   h+='</div></div>';
   if(uiVerifG && !c.absents[uiVerifG]){
     var g=uiVerifG, cd=c.codes[g]||{}, v=nbValides(c,g);
@@ -1042,7 +1063,7 @@ function celCsv(x,sep){
 }
 function construireCsv(c,sep){
   var rows=classement(c), bals=balisesAssignees();
-  var ent=['Rang','Groupe','Élèves',S.groupes.some(function(x){return balisesDe(x).length>1;})?'Balises posées':'Balise posée','N° poste','Points','Points max','Balises validées','Balises à chercher','Indices utilisés','Départ','Arrivée','Temps course (h:mm:ss)','Pénalités (nb)','Pénalités (min)','Temps final (h:mm:ss)'];
+  var ent=['Rang','Groupe','Élèves',groupesSeance().some(function(x){return balisesDe(x).length>1;})?'Balises posées':'Balise posée','N° poste','Points','Points max','Balises validées','Balises à chercher','Indices utilisés','Départ','Arrivée','Temps course (h:mm:ss)','Pénalités (nb)','Pénalités (min)','Temps final (h:mm:ss)'];
   if(uiCsvDetail) bals.forEach(function(b){ ent.push(baliseLabel(b)); });
   var lignes=[ent];
   rows.forEach(function(r){
@@ -1246,8 +1267,9 @@ document.addEventListener('click',function(e){
     case 'sexe': if(c){ var rs=roster(c), es=eleveDe(rs,el.getAttribute('data-id')); if(es){ es.sexe=es.sexe==='F'?'G':es.sexe==='G'?'?':'F'; sauver(); dessinerGarde(); } } break;
     case 'deleve': if(c){ var rd2=roster(c), ed=eleveDe(rd2,el.getAttribute('data-id')); if(ed) confirmer('Supprimer '+affNom(ed.nom)+' ?',function(){ var idd2=ed.id; rd2.eleves=rd2.eleves.filter(function(x){return x.id!==idd2;}); for(var gk in rd2.compo) rd2.compo[gk]=rd2.compo[gk].filter(function(x){return x!==idd2;}); sauver(); dessinerGarde(); },'Supprimer',true); } break;
     case 'nbg': if(c){ var rg=roster(c), cu=Math.min(S.groupes.length,rg.nbG||nbGroupesAuto(rg)); rg.nbG=Math.max(1,Math.min(S.groupes.length,cu+parseInt(el.getAttribute('data-d'),10))); sauver(); dessinerGarde(); } break;
-    case 'generer': if(c){ var rgn=roster(c); var lancer=function(){ attente('Génération des groupes…'); setTimeout(function(){ var ok=false; try{ ok=genererGroupes(rgn); }finally{ fermerDialogue(); } if(ok){ sauver(); dessinerGarde(); } else avertir('Aucun élève présent.'); },80); }; if(Object.keys(rgn.compo).length) confirmer('Remplacer la composition actuelle ?',lancer,'Remplacer'); else lancer(); } break;
-    case 'videcompo': if(c) confirmer('Effacer la composition des groupes ?',function(){ roster(c).compo={}; sauver(); dessinerGarde(); },'Effacer',true); break;
+    case 'generer': if(c){ var rgn=roster(c); var lancer=function(){ attente('Génération des groupes…'); setTimeout(function(){ var ok=false; try{ ok=genererGroupes(rgn); }finally{ fermerDialogue(); } if(ok){ var eff=aResultats(c); if(eff) effacerResultats(c); var sp=synchroPose(); sauver(); dessinerGarde(); if(eff||sp) toast((eff?'Résultats précédents effacés':'')+(eff&&sp?' · ':'')+(sp?'balises réattribuées aux '+groupesSeance().length+' groupes':'')+'',3500); } else avertir('Aucun élève présent.'); },80); }; var resG=aResultats(c); if(Object.keys(rgn.compo).length||resG) confirmer((Object.keys(rgn.compo).length?'Remplacer la composition actuelle ?':'Générer les groupes ?')+(resG?' Les résultats déjà enregistrés pour cette classe (départs, arrivées, codes, pénalités) seront effacés.':''),lancer,'Remplacer'); else lancer(); } break;
+    case 'effres': if(c) confirmer('Effacer tous les résultats de la classe '+c.nom+' (départs, arrivées, codes, pénalités, absents) ?',function(){ effacerResultats(c); sauver(); dessiner(); toast('Résultats effacés'); },'Tout effacer',true); break;
+    case 'videcompo': if(c) confirmer('Effacer la composition des groupes ?',function(){ roster(c).compo={}; synchroPose(); sauver(); dessinerGarde(); },'Effacer',true); break;
     case 'videhisto': if(c) demanderMdp(function(){ confirmer('Oublier les séances passées ? Les groupes pourront de nouveau se retrouver.',function(){ roster(c).histo=[]; sauver(); dessiner(); },'Oublier',true); }); break;
     case 'delclasse': if(c) demanderMdp(function(){ confirmer('Supprimer la classe '+c.nom+' (chronos, codes et liste d\'élèves) ?',function(){ delete S.rosters[c.id]; S.classes=S.classes.filter(function(x){return x.id!==c.id;}); S.cur=S.classes.length?S.classes[0].id:null; if(!S.classes.length){ try{ localStorage.removeItem(CLE+'_auto'); localStorage.removeItem(CLE+'_avant_maj'); }catch(e){} } sauver(); dessiner(); },'Supprimer la classe',true); }); break;
     case 'exportsauv': exporterSauvegarde(); break;
@@ -1328,7 +1350,7 @@ document.addEventListener('change',function(e){
     case 'fichiereleves': if(c&&t.files&&t.files[0]){ var fr=new FileReader(); fr.onload=function(){ var rs2=importerEleves(roster(c),decoderTexte(fr.result)); sauver(); dessiner(); toast(rs2.ajoutes+' ajouté(s)'+(rs2.majs?' · '+rs2.majs+' genre(s) corrigé(s)':'')+(rs2.doublons?' · '+rs2.doublons+' doublon(s)':'')); }; fr.readAsArrayBuffer(t.files[0]); } break;
     case 'fichiersauv': if(t.files&&t.files[0]){ var fs=new FileReader(); fs.onload=function(){ try{ var ob=JSON.parse(fs.result); if(!ob||!ob.classes||!ob.rosters||!etatValide(ob)) throw 1; confirmer('Restaurer cette sauvegarde ('+ob.classes.length+' classe(s), '+nbElevesTotal(ob)+' élève(s)) ? Les données actuelles seront remplacées.',function(){ try{ appliquerEtat(ob); toast('Sauvegarde restaurée'); }catch(er2){ avertir('Restauration impossible : rien n\'a été modifié.'); } },'Restaurer'); }catch(er){ avertir('Fichier de sauvegarde invalide ou endommagé : rien n\'a été modifié.'); } }; fs.readAsText(t.files[0]); try{ t.value=''; }catch(e){} } break;
     case 'eleveprs': if(c){ var rp=roster(c); if(t.checked) delete rp.absent[t.getAttribute('data-id')]; else rp.absent[t.getAttribute('data-id')]=1; sauver(); dessinerGarde(); } break;
-    case 'moveel': if(c){ var rm=roster(c), idm=t.getAttribute('data-id'); for(var gm in rm.compo) rm.compo[gm]=rm.compo[gm].filter(function(x){return x!==idm;}); if(t.value){ if(!rm.compo[t.value]) rm.compo[t.value]=[]; rm.compo[t.value].push(idm); } sauver(); dessinerGarde(); } break;
+    case 'moveel': if(c){ var rm=roster(c), idm=t.getAttribute('data-id'); for(var gm in rm.compo) rm.compo[gm]=rm.compo[gm].filter(function(x){return x!==idm;}); if(t.value){ if(!rm.compo[t.value]) rm.compo[t.value]=[]; rm.compo[t.value].push(idm); } for(var gk2 in rm.compo) if(!rm.compo[gk2].length) delete rm.compo[gk2]; synchroPose(); sauver(); dessinerGarde(); } break;
     case 'poste': if(uiSel){ if(!S.seance.poste) S.seance.poste={}; var spp=S.seance.parcours; if(!S.seance.poste[spp]) S.seance.poste[spp]={}; var autreP=null; if(t.value) for(var kp in S.seance.poste[spp]) if(kp!==uiSel&&String(S.seance.poste[spp][kp])===String(t.value)&&balisesAssignees().indexOf(kp)>=0) autreP=kp; if(autreP){ avertir('Le poste '+t.value+' est déjà celui de '+baliseLabel(autreP)+'. Chaque balise doit avoir un n° de poste différent.'); dessiner(); break; } if(t.value) S.seance.poste[spp][uiSel]=t.value; else delete S.seance.poste[spp][uiSel]; sauver(); dessiner(); } break;
     case 'classe': S.cur=t.value; sauver(); dessiner(); break;
     case 'mode': if(c){ c.mode=t.value; sauver(); dessiner(); } break;
