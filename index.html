@@ -178,7 +178,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.23';
+var APP_VER='2.24';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -307,6 +307,7 @@ function toast(msg,ms){ var t=document.createElement('div'); t.className='messag
 
 /* Toast avec bouton « Annuler » (arrivée touchée par erreur) */
 var dernierArr=null, timerAnn=null;
+var tRdv=0; /* dernier changement du champ « Heure RDV max » : le sélecteur d'heure d'iOS peut laisser passer un toucher vers les boutons Arrivée dessous */
 function fermerToastAnn(){ var t=$('toastAnn'); if(t&&t.parentNode) t.parentNode.removeChild(t); clearTimeout(timerAnn); dernierArr=null; }
 function toastAnnuler(msg){
   var old=$('toastAnn'); if(old&&old.parentNode) old.parentNode.removeChild(old);
@@ -362,7 +363,7 @@ function completerJeux(){
   while(cap()<besoin&&libres.length){ var id=libres.shift(), vide=ids.indexOf(''); if(vide>=0) ids[vide]=id; else ids.push(id); }
 }
 function poseur(bid){ for(var g in S.seance.assign) if(balisesDe(g).indexOf(bid)>=0) return g; return null; }
-function balisesAssignees(){ var l=[]; S.groupes.forEach(function(g){ balisesDe(g).forEach(function(b){ l.push(b); }); }); return l; }
+function balisesAssignees(){ var l=[]; S.groupes.forEach(function(g){ balisesDe(g).forEach(function(b){ if(l.indexOf(b)<0) l.push(b); }); }); return l; }
 /* Toutes les balises posées par les autres groupes */
 function autresBalises(g){ var own=balisesDe(g); return balisesAssignees().filter(function(b){ return own.indexOf(b)<0; }); }
 /* Nombre de balises à chercher par groupe (2.22) : S.nbChercher, 0 = toutes les autres ; jamais plus que ce qu'offre le groupe
@@ -417,6 +418,18 @@ function ordreG(g){
   return res;
 }
 function aOrdre(){ var o=S.seance.ordre&&S.seance.ordre[S.seance.parcours]; return !!o&&Object.keys(o).length>0; }
+/* N° de poste (par parcours) portés par plusieurs balises : {numéro:[balises]} - un même n° afficherait deux fois la même
+   case dans un parcours et ferait croire à un groupe qu'il cherche sa propre balise (bug du 2026-10-14). */
+function postesDoublons(){
+  var seen={}, d={}, any=false;
+  balisesAssignees().forEach(function(b){ var n=posteB(b); if(!n) return; n=String(n); if(!seen[n]) seen[n]=[]; seen[n].push(b); });
+  for(var n in seen) if(seen[n].length>1){ d[n]=seen[n]; any=true; }
+  return any?d:null;
+}
+function texteDoublons(){
+  var d=postesDoublons(); if(!d) return '';
+  return Object.keys(d).map(function(n){ return 'poste '+n+' : '+d[n].map(baliseLabel).join(' et '); }).join(' ; ');
+}
 function nomPoste(b){ var n=posteB(b); return n?String(n):baliseLabel(b); }
 function suiteOrdre(g){ return ordreG(g).filter(function(b){return !invalide(b);}).map(nomPoste).join(' → '); }
 var uiRatio=0.72;
@@ -811,7 +824,7 @@ function vueCarte(){
   h+='<button class="chip'+(memeDA()?' actif':'')+'" data-act="memeda">Départ = arrivée</button></div><div class="chips">';
   ids.forEach(function(b){ var p=posB(b); h+='<button class="chip'+(uiSel===b?' actif':'')+(p?' fait':'')+'" data-act="selb" data-b="'+esc(b)+'">'+pastilleB(b,poseur(b)).replace('min-width:34px','min-width:30px')+' '+esc(baliseLabel(b))+(posteB(b)?' · poste '+esc(posteB(b)):'')+(p?' ✓':'')+'</button>'; });
   if(!ids.length) h+='<span class="petit">Attribue d\'abord les balises (onglet Pose).</span>';
-  h+='</div>'+(uiSel&&!estSpec(uiSel)?'<div class="ligne" style="align-items:flex-end"><div style="min-width:200px"><label>N° du poste sur la carte pour '+esc(baliseLabel(uiSel))+'</label><select data-chg="poste"><option value="">- non précisé -</option>'+postesOptions(uiSel)+'</select></div></div>'+(S.indices?'<label>Indice / description de la balise (140 caractères max.)</label><input type="text" maxlength="140" data-chg="desc" value="'+esc(descB(uiSel))+'" placeholder="Ex. : derrière le banc, sous le 3e platane">':''):'')+'<div class="ligne"><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="-1">− Zoom</button><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="1">+ Zoom</button>'+
+  h+='</div>'+(postesDoublons()?'<p style="color:#b00020;font-weight:700">⚠️ Même n° de poste pour deux balises ('+esc(texteDoublons())+'). Corrige-les avant de générer les parcours.</p>':'')+(uiSel&&!estSpec(uiSel)?'<div class="ligne" style="align-items:flex-end"><div style="min-width:200px"><label>N° du poste sur la carte pour '+esc(baliseLabel(uiSel))+'</label><select data-chg="poste"><option value="">- non précisé -</option>'+postesOptions(uiSel)+'</select></div></div>'+(S.indices?'<label>Indice / description de la balise (140 caractères max.)</label><input type="text" maxlength="140" data-chg="desc" value="'+esc(descB(uiSel))+'" placeholder="Ex. : derrière le banc, sous le 3e platane">':''):'')+'<div class="ligne"><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="-1">− Zoom</button><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="1">+ Zoom</button>'+
      '<button class="bouton bouton-clair bouton-petit" data-act="retirerpos">Retirer la position de la balise choisie</button></div>';
   h+='<div class="info-pastille" id="infoPastille">'+contenuInfo()+'</div>';
   h+='<div class="carte-wrap" id="carteWrap"><div class="carte-inner" id="carteInner" style="width:'+(uiZoom*100)+'%"><img id="carteImg" src="cartes/parcours'+sp+'.jpg" alt="Carte du parcours '+sp+'" onerror="this.parentNode.innerHTML=\'<p style=&quot;padding:20px;line-height:1.4&quot;>Carte du parcours '+sp+' introuvable.<br>Ajoute le fichier <b>cartes/parcours'+sp+'.jpg</b> dans le dossier de l\\\'appli.</p>\'">';
@@ -823,6 +836,7 @@ function vueCarte(){
 }
 function sectionOrdres(){
   var h='<div class="section section-pose"><h2>Parcours des groupes</h2>', gs=S.groupes.filter(function(g){ return autresBalises(g).filter(function(b){return !invalide(b);}).length>=2; });
+  if(postesDoublons()) h+='<p style="color:#b00020;font-weight:700">⚠️ Même n° de poste pour deux balises ('+esc(texteDoublons())+') : un parcours afficherait ce poste deux fois. Corrige-les sur la carte.</p>';
   if(!parcoursAJour()) h+='<p style="color:#b00020;font-weight:700">⚠️ Parcours à (re)générer : chaque groupe cherche pour l\'instant les '+limite()+' premières balises de la liste.</p>';
   h+='<p class="petit">Chaque groupe cherche '+(limite()?'<b>'+limite()+' balises</b> choisies pour lui parmi celles des autres':'toutes les balises des autres')+' dans un <b>ordre différent</b>, pour que les groupes ne se suivent pas, avec des distances voisines. À faire <b>une fois le départ ▲, l\'arrivée ◎ et toutes les balises placés sur la carte</b> ci-dessus ; les groupes sont ceux qui ont une balise attribuée. Les numéros affichés sont les n° de poste.</p>';
   h+='<button class="bouton bouton-secondaire" data-act="genordre">🔀 '+(aOrdre()?'Régénérer':'Générer')+' les parcours ('+gs.length+' groupe'+(gs.length>1?'s':'')+')</button>';
@@ -836,8 +850,8 @@ function sectionOrdres(){
   }
   return h+'</div>';
 }
-function postesOptions(bid){ var h='',cur=posteB(bid),pris={},pp=(S.seance.poste&&S.seance.poste[S.seance.parcours])||{}; for(var k in pp) if(k!==bid) pris[pp[k]]=k;
-  for(var i=1;i<=20;i++){ h+='<option value="'+i+'"'+(String(cur)===String(i)?' selected':'')+'>'+i+(pris[i]?' (déjà '+esc(baliseLabel(pris[i]))+')':'')+'</option>'; } return h; }
+function postesOptions(bid){ var h='',cur=posteB(bid),pris={},pp=(S.seance.poste&&S.seance.poste[S.seance.parcours])||{}; var asg=balisesAssignees(); for(var k in pp) if(k!==bid&&asg.indexOf(k)>=0) pris[pp[k]]=k;
+  for(var i=1;i<=20;i++){ h+='<option value="'+i+'"'+(String(cur)===String(i)?' selected':'')+(pris[i]?' disabled':'')+'>'+i+(pris[i]?' (déjà '+esc(baliseLabel(pris[i]))+')':'')+'</option>'; } return h; }
 /* Pastilles de la carte : un toucher affiche leurs infos (poste, indice) dans le bandeau au-dessus de la carte ;
    un appui prolongé puis un glissement déplace la pastille. */
 function contenuInfo(){
@@ -944,7 +958,8 @@ function vueCourse(){
   S.groupes.forEach(function(g){
     if(c.absents[g]) { h+='<div class="rangee" style="opacity:.5"><div class="nom">'+esc(g)+'</div><div class="corps petit">absent</div>'+(S.modeEleve?'':'<button class="chip" data-act="grp" data-g="'+esc(g)+'" style="margin:0">⋯</button>')+'</div>'; return; }
     var d=debut(c,g), a=c.arrivee[g], np=nbPen(c,g), mid, btn;
-    if(a&&d){ mid='<span class="temps">'+fmt(tempsFinal(c,g))+'</span> <span class="petit">('+fmt(tempsCourse(c,g))+(np?' + '+np+' pén.':'')+')</span>'; btn='<span class="tag tag-ok">arrivé '+heure(a)+'</span>'; }
+    if(a&&d){ mid='<span class="temps">'+fmt(tempsFinal(c,g))+'</span> <span class="petit">('+fmt(tempsCourse(c,g))+(np?' + '+np+' pén.':'')+')</span>'; btn='<span class="tag tag-ok">arrivé '+heure(a)+'</span>'+(S.modeEleve?'':' <button class="chip" data-act="relancer" data-g="'+esc(g)+'" style="margin:0" aria-label="Relancer le chrono du groupe '+esc(g)+'">↺ Relancer</button>'); }
+    else if(a&&!d){ mid='<span class="petit" style="color:#b00020">arrivée '+heure(a)+' sans départ (ancienne saisie ?)</span>'; btn=(S.modeEleve?'':'<button class="chip" data-act="relancer" data-g="'+esc(g)+'" style="margin:0">Effacer</button>'); }
     else if(d){ mid='<span class="temps" data-live="'+d+'">'+fmt((Date.now()-d)/1000)+'</span>'+(np?' <span class="petit">+'+np+' pén.</span>':''); btn='<button class="bouton bouton-danger bouton-petit" data-act="arrivee" data-g="'+esc(g)+'">Arrivée</button>'; }
     else { mid='<span class="petit">'+(c.mode==='tous'?'en attente du départ':'prêt')+'</span>'; btn= c.mode==='groupe'?'<button class="bouton bouton-primaire bouton-petit" data-act="depart" data-g="'+esc(g)+'">Départ</button>':''; }
     var nm0=nomsGroupe(c,g); h+='<div class="rangee"><div class="nom">'+esc(g)+'</div><div class="corps">'+(nm0?'<div class="petit">'+esc(nm0)+'</div>':'')+(aOrdre()?'<div class="petit" style="word-break:break-word">🧭 '+esc(suiteOrdre(g))+'</div>':'')+mid+'</div><div>'+btn+'</div>'+(S.modeEleve?'':'<button class="chip" data-act="grp" data-g="'+esc(g)+'" style="margin:0 0 0 8px" aria-label="Détails du groupe '+esc(g)+'">⋯</button>')+'</div>';
@@ -1056,7 +1071,7 @@ function livrerFichier(nom,contenu,type,onOk){
     try{
       var f=new File([blob],nom,{type:type});
       if(navigator.canShare({files:[f]})){
-        navigator.share({files:[f],title:nom}).then(function(){ if(onOk) onOk(); },function(err){
+        navigator.share({files:[f]}).then(function(){ if(onOk) onOk(); },function(err){
           if(err&&err.name==='AbortError') return;
           telechargerBlob(nom,blob); if(onOk) onOk();
         });
@@ -1254,7 +1269,7 @@ document.addEventListener('click',function(e){
     case 'nbpg': var ngp=parseInt(el.getAttribute('data-n'),10); if(g&&ngp>=1&&ngp<=3&&nbPoseG(g)!==ngp){ if(!S.seance.nbPG) S.seance.nbPG={}; if(ngp===S.nbPose) delete S.seance.nbPG[g]; else S.seance.nbPG[g]=ngp; var rawg=Array.isArray(S.seance.assign[g])?S.seance.assign[g].slice(0,ngp):[]; while(rawg.length<ngp) rawg.push(''); completerJeux(); var libres=listeBalisesSeance().filter(function(x){return !poseur(x);}); for(var q=0;q<ngp;q++) if(!rawg[q]&&libres.length) rawg[q]=libres.shift(); S.seance.assign[g]=rawg; sauver(); var wyp=window.pageYOffset; dessiner(); window.scrollTo(0,wyp); } break;
     case 'nbpose': var nn=parseInt(el.getAttribute('data-n'),10); if(nn>=1&&nn<=3&&nn!==S.nbPose){ var chg=function(){ S.nbPose=nn; S.seance.nbPG={}; completerJeux(); attribuerAuto(); sauver(); dessiner(); toast(nn+' balise(s) par groupe : balises réattribuées'); }; if(Object.keys(S.seance.assign).length) confirmer('Passer à '+nn+' balise(s) par groupe réattribue toutes les balises aux groupes, y compris les réglages par groupe (les attributions actuelles sont remplacées ; les positions sur la carte restent).',chg,'Réattribuer'); else chg(); } break;
     case 'memeda': if(!S.seance.meme) S.seance.meme={}; var spm=S.seance.parcours; S.seance.meme[spm]=!S.seance.meme[spm]; if(S.seance.meme[spm]&&uiSel==='#arr') uiSel='#dep'; if(uiInfo==='#arr'&&S.seance.meme[spm]) uiInfo=null; sauver(); var wym=window.pageYOffset; dessiner(); window.scrollTo(0,wym); break;
-    case 'genordre': var lanceOrdre=function(){ var res=genererOrdres(); if(res.manque){ avertir('Place d\'abord toutes les balises sur la carte : il en manque '+res.manque+'.'); return; } if(res.sansDA){ avertir('Place d\'abord le départ ▲ et l\'arrivée ◎ sur la carte (ou touche « Départ = arrivée » s\'ils sont au même endroit).'); return; } if(res.vide){ avertir('Il faut au moins 2 balises à chercher par groupe.'); return; } sauver(); var wy=window.pageYOffset; dessiner(); window.scrollTo(0,wy); toast('Parcours générés pour '+res.n+' groupe(s)'); }; if(aOrdre()) confirmer('Remplacer les parcours actuels par de nouveaux parcours ?',lanceOrdre,'Régénérer'); else lanceOrdre(); break;
+    case 'genordre': if(postesDoublons()){ avertir('Deux balises ont le même n° de poste ('+texteDoublons()+'). Corrige-le avant de générer les parcours.'); break; } var lanceOrdre=function(){ var res=genererOrdres(); if(res.manque){ avertir('Place d\'abord toutes les balises sur la carte : il en manque '+res.manque+'.'); return; } if(res.sansDA){ avertir('Place d\'abord le départ ▲ et l\'arrivée ◎ sur la carte (ou touche « Départ = arrivée » s\'ils sont au même endroit).'); return; } if(res.vide){ avertir('Il faut au moins 2 balises à chercher par groupe.'); return; } sauver(); var wy=window.pageYOffset; dessiner(); window.scrollTo(0,wy); toast('Parcours générés pour '+res.n+' groupe(s)'); }; if(aOrdre()) confirmer('Remplacer les parcours actuels par de nouveaux parcours ?',lanceOrdre,'Régénérer'); else lanceOrdre(); break;
     case 'effordre': confirmer('Effacer les parcours ? Chaque groupe cherchera dans l\'ordre de la liste.',function(){ if(S.seance.ordre) delete S.seance.ordre[S.seance.parcours]; S.seance.cherche={}; sauver(); var wy=window.pageYOffset; dessiner(); window.scrollTo(0,wy); },'Effacer',true); break;
     case 'etat': var e2=el.getAttribute('data-e'); S.seance.etat[b]=(S.seance.etat[b]===e2)?'':e2; sauver(); dessiner(); break;
     case 'parcours': S.seance.parcours=parseInt(el.getAttribute('data-p'),10); uiSel=null; uiInfo=null; sauver(); dessiner(); break;
@@ -1262,10 +1277,11 @@ document.addEventListener('click',function(e){
     case 'zoom': uiZoom=Math.max(1,Math.min(4,uiZoom+parseInt(el.getAttribute('data-d'),10))); dessiner(); break;
     case 'retirerpos': if(uiSel&&S.seance.pos[S.seance.parcours]){ delete S.seance.pos[S.seance.parcours][uiSel]; sauver(); dessiner(); } break;
     case 'newclasse': saisir('Nom de la classe (ex. 6eB) :','',function(nom){ if(nom&&nom.trim()){ nom=nom.trim(); if(S.classes.some(function(x){return x.nom.toLowerCase()===nom.toLowerCase();})){ avertir('Une classe porte déjà ce nom. Choisis un autre nom (ex. 6eB-lundi).'); return; } nouvelleClasse(nom); sauver(); dessiner(); } }); break;
-    case 'departall': if(c){ c.depart.all=Date.now(); S.groupes.forEach(function(x){ if(!c.absents[x]) {} }); sauver(); dessiner(); } break;
-    case 'annulerdepartall': if(c) confirmer('Annuler le départ de tous ?',function(){ c.depart.all=null; sauver(); dessiner(); },'Annuler le départ',true); break;
-    case 'depart': if(c){ c.depart.g[g]=Date.now(); sauver(); dessiner(); } break;
-    case 'arrivee': if(c){ var now=Date.now(); dernierArr={cid:c.id,g:g}; c.arrivee[g]=now; sauver(); dessiner(); try{ if(navigator.vibrate) navigator.vibrate(60); }catch(ve){} toastAnnuler('Arrivée '+g+' enregistrée à '+heure(now)); } break;
+    case 'departall': if(c){ var nbDa=S.groupes.filter(function(x){ return !c.absents[x]; }).length; confirmer('Donner le départ maintenant à '+nbDa+' groupe(s) en même temps ? (Les heures de départ et d\'arrivée déjà présentes pour cette classe sont effacées.)',function(){ c.arrivee={}; c.depart.g={}; c.depart.all=Date.now(); sauver(); dessiner(); },'Donner le départ'); } break;
+    case 'annulerdepartall': if(c) confirmer('Annuler le départ de tous ? Les arrivées des groupes sans départ individuel sont effacées.',function(){ c.depart.all=null; for(var xg in c.arrivee) if(!c.depart.g[xg]) delete c.arrivee[xg]; sauver(); dessiner(); },'Annuler le départ',true); break;
+    case 'depart': if(c){ delete c.arrivee[g]; c.depart.g[g]=Date.now(); sauver(); dessiner(); } break;
+    case 'relancer': if(c) confirmer('Relancer le chrono du groupe '+g+' ? Son arrivée est effacée ; le chrono repart de son heure de départ.',function(){ delete c.arrivee[g]; sauver(); dessiner(); },'Relancer'); break;
+    case 'arrivee': if(c&&e.isTrusted!==false&&Date.now()-tRdv>2500&&debut(c,g)&&!c.arrivee[g]){ var now=Date.now(); dernierArr={cid:c.id,g:g}; c.arrivee[g]=now; sauver(); dessiner(); try{ if(navigator.vibrate) navigator.vibrate(60); }catch(ve){} toastAnnuler('Arrivée '+g+' enregistrée à '+heure(now)); } break;
     case 'annulerarr': if(dernierArr){ var ca=null; S.classes.forEach(function(x){ if(x.id===dernierArr.cid) ca=x; }); if(ca){ delete ca.arrivee[dernierArr.g]; sauver(); dessiner(); } fermerToastAnn(); } break;
     case 'grp': modaleGroupe(g); break;
     case 'pen': if(c){ var pp=penG(c,g), k=el.getAttribute('data-k'); if(k==='rdv') break; pp[k]=Math.max(0,pp[k]+parseInt(el.getAttribute('data-d'),10)); sauver(); modaleGroupe(g); dessiner(); } break;
@@ -1313,10 +1329,10 @@ document.addEventListener('change',function(e){
     case 'fichiersauv': if(t.files&&t.files[0]){ var fs=new FileReader(); fs.onload=function(){ try{ var ob=JSON.parse(fs.result); if(!ob||!ob.classes||!ob.rosters||!etatValide(ob)) throw 1; confirmer('Restaurer cette sauvegarde ('+ob.classes.length+' classe(s), '+nbElevesTotal(ob)+' élève(s)) ? Les données actuelles seront remplacées.',function(){ try{ appliquerEtat(ob); toast('Sauvegarde restaurée'); }catch(er2){ avertir('Restauration impossible : rien n\'a été modifié.'); } },'Restaurer'); }catch(er){ avertir('Fichier de sauvegarde invalide ou endommagé : rien n\'a été modifié.'); } }; fs.readAsText(t.files[0]); try{ t.value=''; }catch(e){} } break;
     case 'eleveprs': if(c){ var rp=roster(c); if(t.checked) delete rp.absent[t.getAttribute('data-id')]; else rp.absent[t.getAttribute('data-id')]=1; sauver(); dessinerGarde(); } break;
     case 'moveel': if(c){ var rm=roster(c), idm=t.getAttribute('data-id'); for(var gm in rm.compo) rm.compo[gm]=rm.compo[gm].filter(function(x){return x!==idm;}); if(t.value){ if(!rm.compo[t.value]) rm.compo[t.value]=[]; rm.compo[t.value].push(idm); } sauver(); dessinerGarde(); } break;
-    case 'poste': if(uiSel){ if(!S.seance.poste) S.seance.poste={}; var spp=S.seance.parcours; if(!S.seance.poste[spp]) S.seance.poste[spp]={}; if(t.value) S.seance.poste[spp][uiSel]=t.value; else delete S.seance.poste[spp][uiSel]; sauver(); dessiner(); } break;
+    case 'poste': if(uiSel){ if(!S.seance.poste) S.seance.poste={}; var spp=S.seance.parcours; if(!S.seance.poste[spp]) S.seance.poste[spp]={}; var autreP=null; if(t.value) for(var kp in S.seance.poste[spp]) if(kp!==uiSel&&String(S.seance.poste[spp][kp])===String(t.value)&&balisesAssignees().indexOf(kp)>=0) autreP=kp; if(autreP){ avertir('Le poste '+t.value+' est déjà celui de '+baliseLabel(autreP)+'. Chaque balise doit avoir un n° de poste différent.'); dessiner(); break; } if(t.value) S.seance.poste[spp][uiSel]=t.value; else delete S.seance.poste[spp][uiSel]; sauver(); dessiner(); } break;
     case 'classe': S.cur=t.value; sauver(); dessiner(); break;
     case 'mode': if(c){ c.mode=t.value; sauver(); dessiner(); } break;
-    case 'rdv': if(c){ c.rdv=t.value; sauver(); } break;
+    case 'rdv': if(c){ c.rdv=t.value; tRdv=Date.now(); sauver(); } break;
     case 'absent': if(c){ var gg=t.getAttribute('data-g'); if(t.checked) c.absents[gg]=1; else delete c.absents[gg]; sauver(); dessiner(); } break;
     case 'csvdetail': uiCsvDetail=t.checked; break;
     case 'sombre': S.sombre=t.checked; sauver(); dessiner(); break;
