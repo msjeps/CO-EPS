@@ -178,7 +178,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.34';
+var APP_VER='2.35';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -829,7 +829,7 @@ function vuePose(){
   h+='<div class="section section-pose"><h2>Contrôle des balises</h2><p class="petit">Après la pose, fais le tour : « vérifiée » = en place et lisible. « Invalide » = manquante ou déplacée : elle est retirée du barème de tous les groupes.</p>';
   ids.slice().sort(function(x,y){ return (parseInt(posteB(x),10)||0)-(parseInt(posteB(y),10)||0); }).forEach(function(b){
     var e=S.seance.etat[b]||'';
-    h+='<div class="rangee">'+tagPoste(b)+'<div class="corps"><b>Poste '+esc(posteB(b))+'</b> <span class="petit">· '+esc(baliseLabel(b))+' · posée par '+esc(poseur(b))+'</span>'+(S.indices&&descB(b)?'<div class="petit">💡 '+esc(descB(b))+'</div>':'')+'</div>'+(S.indices?'<button class="chip" data-act="editindice" data-b="'+esc(b)+'" style="margin:0 6px 0 0" aria-label="Indice de '+esc(baliseLabel(b))+'">💡 '+(descB(b)?'Modifier':'Indice')+'</button>':'')+
+    h+='<div class="rangee">'+tagPoste(b)+'<div class="corps"><b>'+esc(baliseLabel(b))+'</b> <span class="petit">posée par '+esc(poseur(b))+' (poste '+esc(posteB(b))+')</span>'+(S.indices&&descB(b)?'<div class="petit">💡 '+esc(descB(b))+'</div>':'')+'</div>'+(S.indices?'<button class="chip" data-act="editindice" data-b="'+esc(b)+'" style="margin:0 6px 0 0" aria-label="Indice de '+esc(baliseLabel(b))+'">💡 '+(descB(b)?'Modifier':'Indice')+'</button>':'')+
       '<button class="chip'+(e==='ok'?' actif':'')+'" data-act="etat" data-b="'+esc(b)+'" data-e="ok" style="margin:0 6px 0 0">✔️</button>'+
       '<button class="chip'+(e==='ko'?' actif':'')+'" data-act="etat" data-b="'+esc(b)+'" data-e="ko" style="margin:0;'+(e==='ko'?'background:#d32f2f;border-color:#d32f2f':'')+'">⚠️</button></div>';
   });
