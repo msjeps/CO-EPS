@@ -178,7 +178,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.29';
+var APP_VER='2.30';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -450,7 +450,7 @@ function texteDoublons(){
   return Object.keys(d).map(function(n){ return 'poste '+n+' : '+d[n].map(baliseLabel).join(' et '); }).join(' ; ');
 }
 function nomPoste(b){ var n=posteB(b); return n?String(n):baliseLabel(b); }
-function suiteOrdre(g){ return ordreG(g).filter(function(b){return !invalide(b);}).map(nomPoste).join(' → '); }
+function suiteOrdre(g){ return ordreG(g).filter(function(b){return !invalide(b);}).map(function(b){ var n=posteB(b); return n?String(n):'?'; }).join(' → '); }
 var uiRatio=0.72;
 function ratioCarte(){ var im=$('carteImg'); if(im&&im.naturalWidth>0&&im.naturalHeight>0) uiRatio=im.naturalHeight/im.naturalWidth; return uiRatio; }
 function distPt(a,b,r){ var dx=a.x-b.x, dy=(a.y-b.y)*r; return Math.sqrt(dx*dx+dy*dy); }
@@ -857,6 +857,7 @@ function vueCarte(){
 function sectionOrdres(){
   var h='<div class="section section-pose"><h2>Parcours des groupes</h2>', gs=groupesSeance().filter(function(g){ return autresBalises(g).filter(function(b){return !invalide(b);}).length>=2; });
   if(postesDoublons()) h+='<p style="color:#b00020;font-weight:700">⚠️ Même n° de poste pour deux balises ('+esc(texteDoublons())+') : un parcours afficherait ce poste deux fois. Corrige-les sur la carte.</p>';
+  var sansP=balisesAssignees().filter(function(b){ return !invalide(b)&&!posteB(b); }); if(sansP.length) h+='<p style="color:#b00020;font-weight:700">⚠️ N° de poste manquant pour : '+esc(sansP.map(baliseLabel).join(', '))+' (affiché « ? » dans les parcours). Touche la balise sur la carte et choisis son n° de poste.</p>';
   if(!parcoursAJour()) h+='<p style="color:#b00020;font-weight:700">⚠️ Parcours à (re)générer : chaque groupe cherche pour l\'instant les '+limite()+' premières balises de la liste.</p>';
   h+='<p class="petit">Chaque groupe cherche '+(limite()?'<b>'+limite()+' balises</b> choisies pour lui parmi celles des autres':'toutes les balises des autres')+' dans un <b>ordre différent</b>, pour que les groupes ne se suivent pas, avec des distances voisines. À faire <b>une fois le départ ▲, l\'arrivée ◎ et toutes les balises placés sur la carte</b> ci-dessus ; les groupes sont ceux qui ont une balise attribuée. Les numéros affichés sont les n° de poste.</p>';
   h+='<button class="bouton bouton-secondaire" data-act="genordre">🔀 '+(aOrdre()?'Régénérer':'Générer')+' les parcours ('+gs.length+' groupe'+(gs.length>1?'s':'')+')</button>';
