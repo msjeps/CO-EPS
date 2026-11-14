@@ -178,7 +178,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.35';
+var APP_VER='2.37';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -364,7 +364,33 @@ function poseDesynchro(){
   for(var k in S.seance.assign) if(balisesDe(k).length&&act.indexOf(k)<0) need=true;
   return need;
 }
-function synchroPose(){ if(!poseDesynchro()) return false; completerJeux(); attribuerAuto(); return true; }
+/* Le POSTE (emplacement sur la carte, n° de poste, indice) et sa place dans les parcours appartiennent au poste, pas à la balise :
+   quand la balise d'un poste est remplacée (Rouge 1 introuvable -> Violet 3), la nouvelle balise reprend la position, le n° de poste,
+   l'indice et le rang dans les parcours de l'ancienne. Les parcours ne changent donc pas. */
+function transfererBalise(old,nw){
+  var se=S.seance, p, g, l, i, j;
+  ['pos','poste','desc'].forEach(function(f){ var o=se[f]; if(!o) return; for(p in o){ if(!estObj(o[p])) continue; delete o[p][nw]; if(o[p][old]!==undefined){ o[p][nw]=o[p][old]; delete o[p][old]; } } });
+  function maj(l){ var ok=l.indexOf(old)>=0, r=[]; for(var i=0;i<l.length;i++){ if(l[i]===nw) continue; r.push(l[i]===old?nw:l[i]); } return ok?r:l.filter(function(x){return x!==nw;}); }
+  if(se.ordre) for(p in se.ordre) if(estObj(se.ordre[p])) for(g in se.ordre[p]) if(Array.isArray(se.ordre[p][g])) se.ordre[p][g]=maj(se.ordre[p][g]);
+  if(se.cherche) for(g in se.cherche) if(Array.isArray(se.cherche[g])) se.cherche[g]=maj(se.cherche[g]);
+}
+/* Resynchronisation INCRÉMENTALE : les groupes conservés gardent leurs balises (donc leurs parcours) ; seules les balises des groupes
+   disparus sont libérées, puis données aux groupes nouveaux ou incomplets. Les parcours ne changent que si le nombre de groupes
+   ou le placement des balises change (ou sur « Régénérer les parcours »). */
+function synchroPose(){
+  if(!poseDesynchro()) return false;
+  var act=groupesSeance(), k;
+  for(k in S.seance.assign) if(act.indexOf(k)<0){ delete S.seance.assign[k]; if(S.seance.nbPG) delete S.seance.nbPG[k]; }
+  completerJeux();
+  var libres=listeBalisesSeance().filter(function(b){ return !poseur(b); });
+  act.forEach(function(g){
+    var a=Array.isArray(S.seance.assign[g])?S.seance.assign[g].slice():[], n=nbPoseG(g), i;
+    for(i=0;i<n;i++) if(!a[i]&&libres.length) a[i]=libres.shift();
+    for(i=0;i<a.length;i++) if(a[i]===undefined) a[i]='';
+    if(a.some(function(x){return x;})) S.seance.assign[g]=a;
+  });
+  return true;
+}
 function aResultats(c){
   return !!(c.depart.all||Object.keys(c.depart.g).length||Object.keys(c.arrivee).length||Object.keys(c.codes).some(function(g){ return Object.keys(c.codes[g]||{}).length; }));
 }
@@ -1404,7 +1430,7 @@ document.addEventListener('change',function(e){
   var t=e.target, k=t.getAttribute&&t.getAttribute('data-chg'); if(!k) return; if(S.modeEleve) return; var c=classe();
   switch(k){
     case 'setid': S.seance.setIds[parseInt(t.getAttribute('data-i'),10)]=t.value; sauver(); dessiner(); break;
-    case 'assign': var g=t.getAttribute('data-g'), ix=parseInt(t.getAttribute('data-i'),10)||0; if(t.value){ for(var x in S.seance.assign) if(Array.isArray(S.seance.assign[x])) S.seance.assign[x]=S.seance.assign[x].map(function(v){ return v===t.value?'':v; }); } if(!Array.isArray(S.seance.assign[g])) S.seance.assign[g]=[]; while(S.seance.assign[g].length<ix) S.seance.assign[g].push(''); S.seance.assign[g][ix]=t.value; sauver(); dessiner(); break;
+    case 'assign': var g=t.getAttribute('data-g'), ix=parseInt(t.getAttribute('data-i'),10)||0, ancienB=(Array.isArray(S.seance.assign[g])&&S.seance.assign[g][ix])||''; if(t.value){ for(var x in S.seance.assign) if(Array.isArray(S.seance.assign[x])) S.seance.assign[x]=S.seance.assign[x].map(function(v){ return v===t.value?'':v; }); } if(!Array.isArray(S.seance.assign[g])) S.seance.assign[g]=[]; while(S.seance.assign[g].length<ix) S.seance.assign[g].push(''); S.seance.assign[g][ix]=t.value; if(ancienB&&t.value&&ancienB!==t.value) transfererBalise(ancienB,t.value); sauver(); dessiner(); break;
     case 'fichiereleves': if(c&&t.files&&t.files[0]){ var fr=new FileReader(); fr.onload=function(){ var rs2=importerEleves(roster(c),decoderTexte(fr.result)); sauver(); dessiner(); toast(rs2.ajoutes+' ajouté(s)'+(rs2.majs?' · '+rs2.majs+' genre(s) corrigé(s)':'')+(rs2.doublons?' · '+rs2.doublons+' doublon(s)':'')); }; fr.readAsArrayBuffer(t.files[0]); } break;
     case 'fichiersauv': if(t.files&&t.files[0]){ var fs=new FileReader(); fs.onload=function(){ try{ var ob=JSON.parse(fs.result); if(!ob||!ob.classes||!ob.rosters||!etatValide(ob)) throw 1; confirmer('Restaurer cette sauvegarde ('+ob.classes.length+' classe(s), '+nbElevesTotal(ob)+' élève(s)) ? Les données actuelles seront remplacées.',function(){ try{ appliquerEtat(ob); toast('Sauvegarde restaurée'); }catch(er2){ avertir('Restauration impossible : rien n\'a été modifié.'); } },'Restaurer'); }catch(er){ avertir('Fichier de sauvegarde invalide ou endommagé : rien n\'a été modifié.'); } }; fs.readAsText(t.files[0]); try{ t.value=''; }catch(e){} } break;
     case 'eleveprs': if(c){ var rp=roster(c); if(t.checked) delete rp.absent[t.getAttribute('data-id')]; else rp.absent[t.getAttribute('data-id')]=1; sauver(); dessinerGarde(); } break;
