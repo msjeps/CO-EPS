@@ -178,7 +178,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.38';
+var APP_VER='2.39';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -872,6 +872,17 @@ function allAssignedOutside(l){ var ex=[]; for(var g in S.seance.assign){ balise
 var urlCarte={};
 function lieuDe(n){ for(var i=0;i<S.lieux.length;i++) if(S.lieux[i].n===n) return S.lieux[i]; return null; }
 function libParcours(n){ var l=lieuDe(n); return l?l.nom:'Parcours '+n; }
+var FORMATS_CARTE=['image/jpeg','image/png','image/webp','image/gif','image/bmp'];
+var TEXTE_FORMATS='JPEG (.jpg, .jpeg), PNG (.png), WebP (.webp), GIF (.gif) et BMP (.bmp)';
+function libCarte(n){ var l=lieuDe(n); return l?l.nom:'Parcours '+n+' (Exflora)'; }
+function sectionCartes(){
+  var sp=S.seance.parcours, h='<div class="section"><h2>Cartes</h2><p class="petit">Choisis la carte utilisée pour la séance (bouton <b>Activer</b>) ; elle s\'affiche dans l\'onglet Carte. Les 5 parcours d\'Exflora sont intégrés. Pour un autre lieu, ajoute une carte : elle reste sur cette tablette.</p>';
+  var l=[],i; for(i=1;i<=5;i++) l.push({n:i,nom:'Parcours '+i+' (Exflora)',fixe:true}); S.lieux.forEach(function(x){ l.push({n:x.n,nom:x.nom,fixe:false}); });
+  l.forEach(function(c){ h+='<div class="rangee"><div class="corps"><b>'+esc(c.nom)+'</b>'+(c.fixe?'':' <span class="petit">· ajoutée</span>')+'</div>'+(sp===c.n?'<span class="chip actif" style="margin:0 6px 0 0">✔ Active</span>':'<button class="chip" data-act="parcours" data-p="'+c.n+'" style="margin:0 6px 0 0">Activer</button>')+(c.fixe?'':'<button class="chip" data-act="renlieu" data-p="'+c.n+'" style="margin:0 6px 0 0">✏️</button><button class="chip" data-act="suplieu" data-p="'+c.n+'" style="margin:0;color:#b00020">🗑️</button>')+'</div>'; });
+  h+='<label class="bouton bouton-secondaire" for="nvLieu" style="display:block;text-align:center;cursor:pointer">➕ Ajouter une carte (nouveau lieu)</label><input type="file" id="nvLieu" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp" data-chg="fichierlieu" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-label="Choisir l\'image de la carte du nouveau lieu">';
+  h+='<p class="petit"><b>Formats acceptés (images uniquement) :</b> '+TEXTE_FORMATS+'. Les PDF et les photos HEIC (iPhone) ne sont pas acceptés : convertis-les d\'abord en JPEG ou PNG (ou fais une capture d\'écran).</p></div>';
+  return h;
+}
 function idbCartes(cb){ try{ var r=indexedDB.open('co_eps_cartes',1); r.onupgradeneeded=function(){ r.result.createObjectStore('cartes'); }; r.onsuccess=function(){ cb(r.result); }; r.onerror=function(){ cb(null); }; }catch(e){ cb(null); } }
 function idbCarte(mode,n,val,cb){ idbCartes(function(db){ if(!db){ cb(false,null); return; } try{ var tx=db.transaction('cartes',mode==='get'?'readonly':'readwrite'), st=tx.objectStore('cartes'), rq=mode==='put'?st.put(val,n):mode==='del'?st.delete(n):st.get(n); tx.oncomplete=function(){ db.close(); cb(true,rq.result); }; tx.onerror=tx.onabort=function(){ db.close(); cb(false,null); }; }catch(e){ cb(false,null); } }); }
 function chargerCarte(n){ if(urlCarte[n]!==undefined) return; urlCarte[n]=null;
@@ -881,10 +892,10 @@ function reduireImage(file,cb){ var u=URL.createObjectURL(file), im=new Image();
     try{ var cx=cv.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,cv.width,cv.height); cx.drawImage(im,0,0,cv.width,cv.height); cv.toBlob(function(b){ URL.revokeObjectURL(u); cb(b); },'image/jpeg',0.85); }catch(e){ URL.revokeObjectURL(u); cb(null); } };
   im.onerror=function(){ URL.revokeObjectURL(u); cb(null); }; im.src=u; }
 function ajouterLieu(file){
-  if(!/^image\//.test(file.type||'')){ avertir('Choisis une image (photo, capture d\'écran ou carte en JPEG / PNG). Un PDF doit d\'abord être converti en image.'); return; }
+  if(FORMATS_CARTE.indexOf(file.type||'')<0){ avertir('Format non accepté. Seules les images sont acceptées : '+TEXTE_FORMATS+'.\n\nUn PDF ou une photo HEIC doit d\'abord être converti en JPEG ou PNG.'); return; }
   attente('Préparation de la carte…');
   reduireImage(file,function(blob){
-    if(!blob){ avertir('Cette image n\'a pas pu être lue. Essaie une autre image (JPEG ou PNG).'); return; }
+    if(!blob){ avertir('Cette image n\'a pas pu être lue. Formats acceptés : '+TEXTE_FORMATS+'.'); return; }
     var n=5; S.lieux.forEach(function(l){ if(l.n>n) n=l.n; }); n++;
     if(n>99){ avertir('Nombre maximum de lieux atteint (supprime-en un).'); return; }
     idbCarte('put',n,blob,function(ok){
@@ -893,7 +904,7 @@ function ajouterLieu(file){
       saisir('Nom du lieu (ex. : Parc des Écoles) :',nom||'Nouveau lieu',function(v){
         v=String(v==null?'':v).replace(/\s+/g,' ').trim().slice(0,40)||('Lieu '+(n-5));
         S.lieux.push({n:n,nom:v}); try{ urlCarte[n]=URL.createObjectURL(blob); }catch(e){ urlCarte[n]=false; }
-        S.seance.parcours=n; uiSel=null; uiInfo=null; uiZoom=1; sauver(); dessiner(); toast('Carte « '+v+' » ajoutée. Place maintenant les balises dessus.');
+        S.seance.parcours=n; uiSel=null; uiInfo=null; uiZoom=1; sauver(); dessiner(); toast('Carte « '+v+' » ajoutée et activée. Place les balises dans l\'onglet Carte.');
       },'Enregistrer');
     });
   });
@@ -916,12 +927,7 @@ function carteImgHtml(sp){
 /* ============ VUE : CARTE ============ */
 function vueCarte(){
   var sp=S.seance.parcours;
-  var h='<div class="section section-pose"><h2>Carte - où sont les balises ?</h2><div class="chips">';
-  for(var i=1;i<=5;i++) h+='<button class="chip'+(sp===i?' actif':'')+'" data-act="parcours" data-p="'+i+'">Parcours '+i+'</button>';
-  S.lieux.forEach(function(l){ h+='<button class="chip'+(sp===l.n?' actif':'')+'" data-act="parcours" data-p="'+l.n+'">'+esc(l.nom)+'</button>'; });
-  h+='<label class="chip" style="border-style:dashed;cursor:pointer" for="nvLieu">➕ Nouveau lieu (ajouter une carte)</label><input type="file" id="nvLieu" accept="image/*" data-chg="fichierlieu" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-label="Choisir l\'image de la carte du nouveau lieu">';
-  if(lieuDe(sp)) h+='<button class="chip" data-act="renlieu">✏️ Renommer ce lieu</button><button class="chip" data-act="suplieu" style="color:#b00020">🗑️ Supprimer ce lieu</button>';
-  h+='</div>';
+  var h='<div class="section section-pose"><h2>Carte - où sont les balises ?</h2><p>Carte active : <b>'+esc(libCarte(sp))+'</b></p><p class="petit">Les cartes se chargent et s\'activent dans <b>Réglages › Cartes</b> (mot de passe prof).</p>';
   var ids=balisesAssignees();
   if(uiSel&&!estSpec(uiSel)&&ids.indexOf(uiSel)<0) uiSel=null;
   if(uiSel==='#arr'&&memeDA()) uiSel='#dep';
@@ -1253,6 +1259,7 @@ function vueReglages(){
   h+='<div class="section"><h2>Jeux de balises</h2><p class="petit">Les 10 couleurs × 8 balises du PDF sont intégrées et ne sont pas modifiables (balises plastifiées). Ajoute ici un jeu personnalisé (ex. 12 balises imprimées en 3D avec d\'autres codes).</p>';
   tousLesSets().forEach(function(s){ h+='<div class="rangee"><span class="puce" style="background:'+s.couleur+'"></span><div class="corps"><b>'+esc(s.nom)+'</b> <span class="petit">'+s.n+' balises'+(s.builtin?' · PDF':' · personnalisé')+'</span></div>'+(s.builtin?'':'<button class="chip" data-act="editset" data-id="'+esc(s.id)+'" style="margin:0 6px 0 0">Modifier</button><button class="chip" data-act="delset" data-id="'+esc(s.id)+'" style="margin:0">🗑️</button>')+'</div>'; });
   h+='<button class="bouton bouton-secondaire" data-act="newset">+ Nouveau jeu de balises</button></div>';
+  h+=sectionCartes();
   h+='<div class="section"><h2>Affichage</h2><div class="rangee"><div class="corps">Mode sombre</div><label class="switch"><input type="checkbox" data-chg="sombre"'+(S.sombre?' checked':'')+'><span class="slider"></span></label></div>'+
      '<div class="rangee"><div class="corps">Afficher le code attendu quand une saisie est fausse</div><label class="switch"><input type="checkbox" data-chg="attendu"'+(S.afficherAttendu?' checked':'')+'><span class="slider"></span></label></div>'+
      '<div class="rangee"><div class="corps">Élèves affichés par initiales (écran partagé ou projeté)<div class="petit">Ex. « DUPONT Léa » devient « D.L. ». L\'export CSV garde les noms complets ; modifier un nom demande le mot de passe.</div></div><label class="switch"><input type="checkbox" data-chg="initiales"'+(S.initiales?' checked':'')+'><span class="slider"></span></label></div></div>';
@@ -1379,7 +1386,7 @@ function aideHtml(){
   return h+'<p class="petit">Tout est enregistré automatiquement sur la tablette. Un guide professeur détaillé (PDF) est sur la page de l\'application du site outils-eps.fr.</p>'+
     '<h4>👥 Groupes</h4><p>Crée la classe (+ Classe), ajoute les élèves (saisie, liste collée ou fichier CSV), signale les absents, règle le nombre de groupes puis <b>Générer les groupes</b> (mixtes, sans répéter les séances précédentes). Chaque élève peut être déplacé à la main.</p>'+
     '<h4>📍 Pose</h4><p>Choisis le nombre de balises par groupe (1 à 3) et <b>Attribuer</b> : chaque groupe pose ses balises. Après la pose, « Contrôle des balises » : ✔️ en place, ⚠️ invalide (retirée pour tout le monde). <b>💡 Indice</b> : écris, modifie ou supprime l\'indice d\'une balise.</p>'+
-    '<h4>🗺️ Carte</h4><p>Choisis le parcours, ou ajoute un <b>nouveau lieu</b> avec « ➕ Nouveau lieu » (une image de la carte : photo, capture d\'écran ; elle reste sur cette tablette et se renomme ou se supprime avec les boutons du lieu), touche une balise de la liste, puis touche son emplacement sur la carte. Indique le n° de poste et, si tu veux, un indice. <b>Toucher une pastille</b> affiche ses infos dans le bandeau au-dessus de la carte. <b>Appui prolongé puis glisser</b> la déplace. Place aussi le <b>départ ▲</b> et l\'<b>arrivée ◎</b> (bouton « Départ = arrivée » s\'ils sont confondus). Une fois tout placé : <b>Générer les parcours</b> donne à chaque groupe un ordre de recherche différent.</p>'+
+    '<h4>🗺️ Carte</h4><p>La carte se choisit et se charge dans <b>Réglages › Cartes</b> (<b>Activer</b>, ou « ➕ Ajouter une carte » pour un nouveau lieu : images JPEG, PNG, WebP, GIF ou BMP uniquement, pas de PDF). Dans l\'onglet Carte, touche une balise de la liste, puis touche son emplacement sur la carte. Indique le n° de poste et, si tu veux, un indice. <b>Toucher une pastille</b> affiche ses infos dans le bandeau au-dessus de la carte. <b>Appui prolongé puis glisser</b> la déplace. Place aussi le <b>départ ▲</b> et l\'<b>arrivée ◎</b> (bouton « Départ = arrivée » s\'ils sont confondus). Une fois tout placé : <b>Générer les parcours</b> donne à chaque groupe un ordre de recherche différent.</p>'+
     '<h4>⏱️ Course</h4><p>Départ (tous ou groupe par groupe), <b>Arrivée</b> à chaque retour (Annuler pendant 6 s). Heure de RDV max : une pénalité par minute de retard s\'ajoute toute seule. Bouton <b>⋯</b> : pénalités, correction des heures, groupe absent.</p>'+
     '<h4>✅ Vérif.</h4><p>Choisis un groupe et tape la lettre relevée pour chaque balise (le <b>n° de poste</b> est affiché ; les balises sont dans l\'ordre du parcours du groupe). <b>💡 Révéler l\'indice</b> (avec confirmation) : la balise trouvée ne vaut alors que les points « avec indice ».</p>'+
     '<h4>🏆 Podium</h4><p>Classement aux <b>points</b>, puis au temps (course + pénalités). Export CSV ou copie vers Excel.</p>'+
@@ -1428,8 +1435,8 @@ document.addEventListener('click',function(e){
     case 'genordre': if(postesDoublons()){ avertir('Deux balises ont le même n° de poste ('+texteDoublons()+'). Corrige-le avant de générer les parcours.'); break; } var lanceOrdre=function(){ var res=genererOrdres(); if(res.manque){ avertir('Place d\'abord toutes les balises sur la carte : il en manque '+res.manque+'.'); return; } if(res.sansDA){ avertir('Place d\'abord le départ ▲ et l\'arrivée ◎ sur la carte (ou touche « Départ = arrivée » s\'ils sont au même endroit).'); return; } if(res.vide){ avertir('Il faut au moins 2 balises à chercher par groupe.'); return; } sauver(); var wy=window.pageYOffset; dessiner(); window.scrollTo(0,wy); toast('Parcours générés pour '+res.n+' groupe(s)'); }; if(aOrdre()) confirmer('Remplacer les parcours actuels par de nouveaux parcours ?',lanceOrdre,'Régénérer'); else lanceOrdre(); break;
     case 'effordre': confirmer('Effacer les parcours ? Chaque groupe cherchera dans l\'ordre de la liste.',function(){ if(S.seance.ordre) delete S.seance.ordre[S.seance.parcours]; S.seance.cherche={}; sauver(); var wy=window.pageYOffset; dessiner(); window.scrollTo(0,wy); },'Effacer',true); break;
     case 'etat': var e2=el.getAttribute('data-e'); S.seance.etat[b]=(S.seance.etat[b]===e2)?'':e2; sauver(); dessiner(); break;
-    case 'renlieu': var lr=lieuDe(S.seance.parcours); if(lr) saisir('Nouveau nom du lieu :',lr.nom,function(v){ v=String(v==null?'':v).replace(/\s+/g,' ').trim().slice(0,40); if(v){ lr.nom=v; sauver(); dessiner(); } },'Enregistrer'); break;
-    case 'suplieu': var ls=lieuDe(S.seance.parcours); if(ls) confirmer('Supprimer le lieu « '+ls.nom+' » ? La carte, les positions des balises, les postes, les indices et les parcours de ce lieu sont effacés. Les autres lieux ne changent pas.',function(){ supprimerLieu(ls.n); toast('Lieu supprimé'); },'Supprimer',true); break;
+    case 'renlieu': var lr=lieuDe(parseInt(el.getAttribute('data-p'),10)); if(lr) saisir('Nouveau nom du lieu :',lr.nom,function(v){ v=String(v==null?'':v).replace(/\s+/g,' ').trim().slice(0,40); if(v){ lr.nom=v; sauver(); dessiner(); } },'Enregistrer'); break;
+    case 'suplieu': var ls=lieuDe(parseInt(el.getAttribute('data-p'),10)); if(ls) confirmer('Supprimer le lieu « '+ls.nom+' » ? La carte, les positions des balises, les postes, les indices et les parcours de ce lieu sont effacés. Les autres lieux ne changent pas.',function(){ supprimerLieu(ls.n); toast('Lieu supprimé'); },'Supprimer',true); break;
     case 'parcours': S.seance.parcours=parseInt(el.getAttribute('data-p'),10); uiSel=null; uiInfo=null; sauver(); dessiner(); break;
     case 'selb': var cw0=$('carteWrap'), sx0=cw0?cw0.scrollLeft:0, sy0=cw0?cw0.scrollTop:0; uiSel=(uiSel===b?null:b); dessiner(); var cw1=$('carteWrap'); if(cw1){ cw1.scrollLeft=sx0; cw1.scrollTop=sy0; } break;
     case 'zoom': uiZoom=Math.max(1,Math.min(4,uiZoom+parseInt(el.getAttribute('data-d'),10))); dessiner(); break;
