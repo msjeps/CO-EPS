@@ -173,12 +173,12 @@ var GROUPES_DEFAUT=['A1','A2','A3','A4','B1','B2','B3','B4','C1','C2','C3','C4',
 function etatInitial(){
   return {
     v:1, groupes:GROUPES_DEFAUT.slice(),
-    sets:[], penSec:60, nbPose:1, nbChercher:0, modeEleve:null, indices:true, ptsBalise:1, ptsIndice:0.5, mdp:null, sombre:false, afficherAttendu:true, initiales:false, derniereSauv:0, rappelJusqua:0,
+    sets:[], lieux:[], penSec:60, nbPose:1, nbChercher:0, modeEleve:null, indices:true, ptsBalise:1, ptsIndice:0.5, mdp:null, sombre:false, afficherAttendu:true, initiales:false, derniereSauv:0, rappelJusqua:0,
     seance:{setIds:['Orange','Bleu'], assign:{}, parcours:1, pos:{}, etat:{}, poste:{}, desc:{}, ordre:{}, meme:{}, cherche:{}, nbPG:{}},
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.37';
+var APP_VER='2.38';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -214,10 +214,12 @@ function etatValide(o){
       for(i=0;i<o.sets.length;i++){ var st=o.sets[i];
         if(!estObj(st)||!RE_ID.test(st.id)||typeof st.nom!=='string'||!RE_COUL.test(st.couleur)||!estNb(st.n)||st.n<1||st.n>30) return false;
         if(!estObj(st.codes)) st.codes={}; } }
+    if(!Array.isArray(o.lieux)) o.lieux=[];
+    o.lieux=o.lieux.filter(function(l){ return estObj(l)&&estNb(l.n)&&l.n>=6&&l.n<=99&&Math.round(l.n)===l.n&&typeof l.nom==='string'; }).map(function(l){ return {n:l.n,nom:l.nom.slice(0,40)}; });
     if('seance' in o){ var se=o.seance; if(!estObj(se)) return false;
       if('setIds' in se){ if(!Array.isArray(se.setIds)||!toutesChaines(se.setIds)) return false; } else se.setIds=['Orange','Bleu'];
       ['assign','pos','etat','poste','desc','ordre','meme','cherche','nbPG'].forEach(function(f){ if(!estObj(se[f])) se[f]={}; });
-      if(!estNb(se.parcours)||se.parcours<1||se.parcours>5) se.parcours=1;
+      if(!estNb(se.parcours)||se.parcours<1||(se.parcours>5&&!o.lieux.some(function(l){return l.n===se.parcours;}))) se.parcours=1;
       for(k in se.nbPG){ var nq=se.nbPG[k]; if(!estNb(nq)||nq<1||nq>3) delete se.nbPG[k]; else se.nbPG[k]=Math.round(nq); }
       for(k in se.assign){ if(typeof se.assign[k]==='string') se.assign[k]=[se.assign[k]]; if(!Array.isArray(se.assign[k])||se.assign[k].length>3||!toutesChaines(se.assign[k])) return false; var lim=Math.max(o.nbPose,se.nbPG[k]||0); if(se.assign[k].length>lim) se.assign[k]=se.assign[k].slice(0,lim); }
       for(k in se.pos){ if(!estObj(se.pos[k])) return false; for(g in se.pos[k]){ var pp=se.pos[k][g]; if(!estObj(pp)||!estNb(pp.x)||!estNb(pp.y)) return false; } }
@@ -864,11 +866,61 @@ function vuePose(){
 }
 function allAssignedOutside(l){ var ex=[]; for(var g in S.seance.assign){ balisesDe(g).forEach(function(b){ if(l.indexOf(b)<0&&ex.indexOf(b)<0) ex.push(b); }); } return ex; }
 
+/* ============ CARTES PERSONNALISÉES (2.38) : nouveaux lieux ============
+   Les parcours 1 à 5 (Exflora) sont des fichiers de l'appli. Un nouveau lieu = un numéro >= 6 dans S.lieux ([{n,nom}]) ;
+   l'image (JPEG réduite à 2000 px) est gardée dans IndexedDB de la tablette (hors localStorage, trop petit), jamais envoyée ailleurs. */
+var urlCarte={};
+function lieuDe(n){ for(var i=0;i<S.lieux.length;i++) if(S.lieux[i].n===n) return S.lieux[i]; return null; }
+function libParcours(n){ var l=lieuDe(n); return l?l.nom:'Parcours '+n; }
+function idbCartes(cb){ try{ var r=indexedDB.open('co_eps_cartes',1); r.onupgradeneeded=function(){ r.result.createObjectStore('cartes'); }; r.onsuccess=function(){ cb(r.result); }; r.onerror=function(){ cb(null); }; }catch(e){ cb(null); } }
+function idbCarte(mode,n,val,cb){ idbCartes(function(db){ if(!db){ cb(false,null); return; } try{ var tx=db.transaction('cartes',mode==='get'?'readonly':'readwrite'), st=tx.objectStore('cartes'), rq=mode==='put'?st.put(val,n):mode==='del'?st.delete(n):st.get(n); tx.oncomplete=function(){ db.close(); cb(true,rq.result); }; tx.onerror=tx.onabort=function(){ db.close(); cb(false,null); }; }catch(e){ cb(false,null); } }); }
+function chargerCarte(n){ if(urlCarte[n]!==undefined) return; urlCarte[n]=null;
+  idbCarte('get',n,null,function(ok,b){ if(ok&&b){ try{ urlCarte[n]=URL.createObjectURL(b); }catch(e){ urlCarte[n]=false; } } else urlCarte[n]=false; if(S.onglet==='carte'&&S.seance.parcours===n) dessiner(); }); }
+function reduireImage(file,cb){ var u=URL.createObjectURL(file), im=new Image();
+  im.onload=function(){ var w=im.naturalWidth, h=im.naturalHeight, m=Math.max(w,h), k=m>2000?2000/m:1, cv=document.createElement('canvas'); cv.width=Math.round(w*k); cv.height=Math.round(h*k);
+    try{ var cx=cv.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,cv.width,cv.height); cx.drawImage(im,0,0,cv.width,cv.height); cv.toBlob(function(b){ URL.revokeObjectURL(u); cb(b); },'image/jpeg',0.85); }catch(e){ URL.revokeObjectURL(u); cb(null); } };
+  im.onerror=function(){ URL.revokeObjectURL(u); cb(null); }; im.src=u; }
+function ajouterLieu(file){
+  if(!/^image\//.test(file.type||'')){ avertir('Choisis une image (photo, capture d\'écran ou carte en JPEG / PNG). Un PDF doit d\'abord être converti en image.'); return; }
+  attente('Préparation de la carte…');
+  reduireImage(file,function(blob){
+    if(!blob){ avertir('Cette image n\'a pas pu être lue. Essaie une autre image (JPEG ou PNG).'); return; }
+    var n=5; S.lieux.forEach(function(l){ if(l.n>n) n=l.n; }); n++;
+    if(n>99){ avertir('Nombre maximum de lieux atteint (supprime-en un).'); return; }
+    idbCarte('put',n,blob,function(ok){
+      if(!ok){ avertir('Impossible d\'enregistrer la carte sur cette tablette (stockage refusé ou plein).'); return; }
+      var nom=String(file.name||'').replace(/\.[^.]+$/,'').replace(/[_\s]+/g,' ').trim().slice(0,40);
+      saisir('Nom du lieu (ex. : Parc des Écoles) :',nom||'Nouveau lieu',function(v){
+        v=String(v==null?'':v).replace(/\s+/g,' ').trim().slice(0,40)||('Lieu '+(n-5));
+        S.lieux.push({n:n,nom:v}); try{ urlCarte[n]=URL.createObjectURL(blob); }catch(e){ urlCarte[n]=false; }
+        S.seance.parcours=n; uiSel=null; uiInfo=null; uiZoom=1; sauver(); dessiner(); toast('Carte « '+v+' » ajoutée. Place maintenant les balises dessus.');
+      },'Enregistrer');
+    });
+  });
+}
+function supprimerLieu(n){
+  idbCarte('del',n,null,function(){});
+  if(urlCarte[n]){ try{ URL.revokeObjectURL(urlCarte[n]); }catch(e){} } delete urlCarte[n];
+  S.lieux=S.lieux.filter(function(l){ return l.n!==n; });
+  ['pos','poste','desc','ordre','meme'].forEach(function(f){ if(S.seance[f]) delete S.seance[f][n]; });
+  S.seance.cherche={}; if(S.seance.parcours===n) S.seance.parcours=1; uiSel=null; uiInfo=null; sauver(); dessiner();
+}
+
+function carteImgHtml(sp){
+  if(sp>5){ if(urlCarte[sp]===undefined) chargerCarte(sp);
+    if(urlCarte[sp]) return '<img id="carteImg" src="'+urlCarte[sp]+'" alt="Carte du lieu '+esc(libParcours(sp))+'">';
+    if(urlCarte[sp]===false) return '<p style="padding:20px;line-height:1.4">La carte de ce lieu est introuvable sur cette tablette (stockage vidé ?). Supprime ce lieu puis ajoute de nouveau l\'image.</p>';
+    return '<p style="padding:20px">Chargement de la carte…</p>'; }
+  return '<img id="carteImg" src="cartes/parcours'+sp+'.jpg" alt="Carte du parcours '+sp+'" onerror="this.parentNode.innerHTML=\'<p style=&quot;padding:20px;line-height:1.4&quot;>Carte du parcours '+sp+' introuvable.<br>Ajoute le fichier <b>cartes/parcours'+sp+'.jpg</b> dans le dossier de l\\\'appli.</p>\'">';
+}
 /* ============ VUE : CARTE ============ */
 function vueCarte(){
   var sp=S.seance.parcours;
   var h='<div class="section section-pose"><h2>Carte - où sont les balises ?</h2><div class="chips">';
   for(var i=1;i<=5;i++) h+='<button class="chip'+(sp===i?' actif':'')+'" data-act="parcours" data-p="'+i+'">Parcours '+i+'</button>';
+  S.lieux.forEach(function(l){ h+='<button class="chip'+(sp===l.n?' actif':'')+'" data-act="parcours" data-p="'+l.n+'">'+esc(l.nom)+'</button>'; });
+  h+='<label class="chip" style="border-style:dashed;cursor:pointer" for="nvLieu">➕ Nouveau lieu (ajouter une carte)</label><input type="file" id="nvLieu" accept="image/*" data-chg="fichierlieu" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-label="Choisir l\'image de la carte du nouveau lieu">';
+  if(lieuDe(sp)) h+='<button class="chip" data-act="renlieu">✏️ Renommer ce lieu</button><button class="chip" data-act="suplieu" style="color:#b00020">🗑️ Supprimer ce lieu</button>';
   h+='</div>';
   var ids=balisesAssignees();
   if(uiSel&&!estSpec(uiSel)&&ids.indexOf(uiSel)<0) uiSel=null;
@@ -882,7 +934,7 @@ function vueCarte(){
   h+='</div>'+(postesDoublons()?'<p style="color:#b00020;font-weight:700">⚠️ Même n° de poste pour deux balises ('+esc(texteDoublons())+'). Corrige-les avant de générer les parcours.</p>':'')+(uiSel&&!estSpec(uiSel)?'<div class="ligne" style="align-items:flex-end"><div style="min-width:200px"><label>N° du poste sur la carte pour '+esc(baliseLabel(uiSel))+'</label><select data-chg="poste"><option value="">- automatique -</option>'+postesOptions(uiSel)+'</select></div></div>'+(S.indices?'<label>Indice / description de la balise (140 caractères max.)</label><input type="text" maxlength="140" data-chg="desc" value="'+esc(descB(uiSel))+'" placeholder="Ex. : derrière le banc, sous le 3e platane">':''):'')+'<div class="ligne"><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="-1">− Zoom</button><button class="bouton bouton-clair bouton-petit" data-act="zoom" data-d="1">+ Zoom</button>'+
      '<button class="bouton bouton-clair bouton-petit" data-act="retirerpos">Retirer la position de la balise choisie</button></div>';
   h+='<div class="info-pastille" id="infoPastille">'+contenuInfo()+'</div>';
-  h+='<div class="carte-wrap" id="carteWrap"><div class="carte-inner" id="carteInner" style="width:'+(uiZoom*100)+'%"><img id="carteImg" src="cartes/parcours'+sp+'.jpg" alt="Carte du parcours '+sp+'" onerror="this.parentNode.innerHTML=\'<p style=&quot;padding:20px;line-height:1.4&quot;>Carte du parcours '+sp+' introuvable.<br>Ajoute le fichier <b>cartes/parcours'+sp+'.jpg</b> dans le dossier de l\\\'appli.</p>\'">';
+  h+='<div class="carte-wrap" id="carteWrap"><div class="carte-inner" id="carteInner" style="width:'+(uiZoom*100)+'%">'+carteImgHtml(sp)+'';
   ids.forEach(function(b){ var p=posB(b); if(!p) return; var s=getSet(parseB(b).setId); h+='<div class="marqueur'+(uiInfo===b?' sel':'')+'" role="img" aria-label="'+esc(baliseLabel(b))+', poste '+esc(posteB(b))+', posée par '+esc(poseur(b))+'" data-b="'+esc(b)+'" style="left:'+p.x+'%;top:'+p.y+'%;background:'+baliseCouleur(b)+';color:'+(s&&s.builtin&&TEXTE_SOMBRE[s.id]?'#222':'#fff')+'">'+esc(posteB(b))+'</div>'; });
   ['#dep','#arr'].forEach(function(k){ if(k==='#arr'&&memeDA()) return; var p=posB(k); if(!p) return; h+='<div class="marqueur marq-spec'+(uiInfo===k?' sel':'')+'" role="img" aria-label="'+esc(nomSpec(k))+'" data-b="'+k+'" style="left:'+p.x+'%;top:'+p.y+'%">'+svgSpec(k)+'</div>'; });
   h+='</div></div></div>';
@@ -1148,7 +1200,7 @@ function terminerSeance(garderPos){
   for(var rn in S.rosters){ var ro=S.rosters[rn]; if(Object.keys(ro.compo).some(function(k){return ro.compo[k].length;})){ ro.histo.push(JSON.parse(JSON.stringify(ro.compo))); } ro.compo={}; ro.absent={}; }
   var d=etatInitial(); d.rosters=S.rosters;
   d.classes=S.classes.map(function(k){ k.depart={all:null,g:{}}; k.arrivee={}; k.pen={}; k.codes={}; k.absents={}; k.indices={}; return k; });
-  d.cur=S.cur; d.sets=S.sets; d.groupes=S.groupes; d.penSec=S.penSec; d.mdp=S.mdp; d.sombre=S.sombre; d.afficherAttendu=S.afficherAttendu; d.initiales=S.initiales; d.nbPose=S.nbPose; d.nbChercher=S.nbChercher; d.indices=S.indices; d.ptsBalise=S.ptsBalise; d.ptsIndice=S.ptsIndice; d.derniereSauv=S.derniereSauv; d.rappelJusqua=S.rappelJusqua; d.onglet='pose';
+  d.cur=S.cur; d.sets=S.sets; d.lieux=S.lieux; d.groupes=S.groupes; d.penSec=S.penSec; d.mdp=S.mdp; d.sombre=S.sombre; d.afficherAttendu=S.afficherAttendu; d.initiales=S.initiales; d.nbPose=S.nbPose; d.nbChercher=S.nbChercher; d.indices=S.indices; d.ptsBalise=S.ptsBalise; d.ptsIndice=S.ptsIndice; d.derniereSauv=S.derniereSauv; d.rappelJusqua=S.rappelJusqua; d.onglet='pose';
   if(garderPos){ d.seance.setIds=old.setIds; d.seance.pos=old.pos; d.seance.poste=old.poste; d.seance.desc=old.desc; d.seance.meme=old.meme; d.seance.parcours=old.parcours; }
   S=d; completerJeux(); attribuerAuto(); uiVerifG=null; uiSel=null; csvSig=null; sauver(); dessiner();
   toastFin(garderPos?'Séance terminée, positions conservées':'Séance terminée, tout est remis à zéro');
@@ -1327,7 +1379,7 @@ function aideHtml(){
   return h+'<p class="petit">Tout est enregistré automatiquement sur la tablette. Un guide professeur détaillé (PDF) est sur la page de l\'application du site outils-eps.fr.</p>'+
     '<h4>👥 Groupes</h4><p>Crée la classe (+ Classe), ajoute les élèves (saisie, liste collée ou fichier CSV), signale les absents, règle le nombre de groupes puis <b>Générer les groupes</b> (mixtes, sans répéter les séances précédentes). Chaque élève peut être déplacé à la main.</p>'+
     '<h4>📍 Pose</h4><p>Choisis le nombre de balises par groupe (1 à 3) et <b>Attribuer</b> : chaque groupe pose ses balises. Après la pose, « Contrôle des balises » : ✔️ en place, ⚠️ invalide (retirée pour tout le monde). <b>💡 Indice</b> : écris, modifie ou supprime l\'indice d\'une balise.</p>'+
-    '<h4>🗺️ Carte</h4><p>Choisis le parcours, touche une balise de la liste, puis touche son emplacement sur la carte. Indique le n° de poste et, si tu veux, un indice. <b>Toucher une pastille</b> affiche ses infos dans le bandeau au-dessus de la carte. <b>Appui prolongé puis glisser</b> la déplace. Place aussi le <b>départ ▲</b> et l\'<b>arrivée ◎</b> (bouton « Départ = arrivée » s\'ils sont confondus). Une fois tout placé : <b>Générer les parcours</b> donne à chaque groupe un ordre de recherche différent.</p>'+
+    '<h4>🗺️ Carte</h4><p>Choisis le parcours, ou ajoute un <b>nouveau lieu</b> avec « ➕ Nouveau lieu » (une image de la carte : photo, capture d\'écran ; elle reste sur cette tablette et se renomme ou se supprime avec les boutons du lieu), touche une balise de la liste, puis touche son emplacement sur la carte. Indique le n° de poste et, si tu veux, un indice. <b>Toucher une pastille</b> affiche ses infos dans le bandeau au-dessus de la carte. <b>Appui prolongé puis glisser</b> la déplace. Place aussi le <b>départ ▲</b> et l\'<b>arrivée ◎</b> (bouton « Départ = arrivée » s\'ils sont confondus). Une fois tout placé : <b>Générer les parcours</b> donne à chaque groupe un ordre de recherche différent.</p>'+
     '<h4>⏱️ Course</h4><p>Départ (tous ou groupe par groupe), <b>Arrivée</b> à chaque retour (Annuler pendant 6 s). Heure de RDV max : une pénalité par minute de retard s\'ajoute toute seule. Bouton <b>⋯</b> : pénalités, correction des heures, groupe absent.</p>'+
     '<h4>✅ Vérif.</h4><p>Choisis un groupe et tape la lettre relevée pour chaque balise (le <b>n° de poste</b> est affiché ; les balises sont dans l\'ordre du parcours du groupe). <b>💡 Révéler l\'indice</b> (avec confirmation) : la balise trouvée ne vaut alors que les points « avec indice ».</p>'+
     '<h4>🏆 Podium</h4><p>Classement aux <b>points</b>, puis au temps (course + pénalités). Export CSV ou copie vers Excel.</p>'+
@@ -1376,6 +1428,8 @@ document.addEventListener('click',function(e){
     case 'genordre': if(postesDoublons()){ avertir('Deux balises ont le même n° de poste ('+texteDoublons()+'). Corrige-le avant de générer les parcours.'); break; } var lanceOrdre=function(){ var res=genererOrdres(); if(res.manque){ avertir('Place d\'abord toutes les balises sur la carte : il en manque '+res.manque+'.'); return; } if(res.sansDA){ avertir('Place d\'abord le départ ▲ et l\'arrivée ◎ sur la carte (ou touche « Départ = arrivée » s\'ils sont au même endroit).'); return; } if(res.vide){ avertir('Il faut au moins 2 balises à chercher par groupe.'); return; } sauver(); var wy=window.pageYOffset; dessiner(); window.scrollTo(0,wy); toast('Parcours générés pour '+res.n+' groupe(s)'); }; if(aOrdre()) confirmer('Remplacer les parcours actuels par de nouveaux parcours ?',lanceOrdre,'Régénérer'); else lanceOrdre(); break;
     case 'effordre': confirmer('Effacer les parcours ? Chaque groupe cherchera dans l\'ordre de la liste.',function(){ if(S.seance.ordre) delete S.seance.ordre[S.seance.parcours]; S.seance.cherche={}; sauver(); var wy=window.pageYOffset; dessiner(); window.scrollTo(0,wy); },'Effacer',true); break;
     case 'etat': var e2=el.getAttribute('data-e'); S.seance.etat[b]=(S.seance.etat[b]===e2)?'':e2; sauver(); dessiner(); break;
+    case 'renlieu': var lr=lieuDe(S.seance.parcours); if(lr) saisir('Nouveau nom du lieu :',lr.nom,function(v){ v=String(v==null?'':v).replace(/\s+/g,' ').trim().slice(0,40); if(v){ lr.nom=v; sauver(); dessiner(); } },'Enregistrer'); break;
+    case 'suplieu': var ls=lieuDe(S.seance.parcours); if(ls) confirmer('Supprimer le lieu « '+ls.nom+' » ? La carte, les positions des balises, les postes, les indices et les parcours de ce lieu sont effacés. Les autres lieux ne changent pas.',function(){ supprimerLieu(ls.n); toast('Lieu supprimé'); },'Supprimer',true); break;
     case 'parcours': S.seance.parcours=parseInt(el.getAttribute('data-p'),10); uiSel=null; uiInfo=null; sauver(); dessiner(); break;
     case 'selb': var cw0=$('carteWrap'), sx0=cw0?cw0.scrollLeft:0, sy0=cw0?cw0.scrollTop:0; uiSel=(uiSel===b?null:b); dessiner(); var cw1=$('carteWrap'); if(cw1){ cw1.scrollLeft=sx0; cw1.scrollTop=sy0; } break;
     case 'zoom': uiZoom=Math.max(1,Math.min(4,uiZoom+parseInt(el.getAttribute('data-d'),10))); dessiner(); break;
@@ -1431,6 +1485,7 @@ document.addEventListener('change',function(e){
   switch(k){
     case 'setid': S.seance.setIds[parseInt(t.getAttribute('data-i'),10)]=t.value; sauver(); dessiner(); break;
     case 'assign': var g=t.getAttribute('data-g'), ix=parseInt(t.getAttribute('data-i'),10)||0, ancienB=(Array.isArray(S.seance.assign[g])&&S.seance.assign[g][ix])||''; if(t.value){ for(var x in S.seance.assign) if(Array.isArray(S.seance.assign[x])) S.seance.assign[x]=S.seance.assign[x].map(function(v){ return v===t.value?'':v; }); } if(!Array.isArray(S.seance.assign[g])) S.seance.assign[g]=[]; while(S.seance.assign[g].length<ix) S.seance.assign[g].push(''); S.seance.assign[g][ix]=t.value; if(ancienB&&t.value&&ancienB!==t.value) transfererBalise(ancienB,t.value); sauver(); dessiner(); break;
+    case 'fichierlieu': if(t.files&&t.files[0]){ var fl=t.files[0]; t.value=''; ajouterLieu(fl); } break;
     case 'fichiereleves': if(c&&t.files&&t.files[0]){ var fr=new FileReader(); fr.onload=function(){ var rs2=importerEleves(roster(c),decoderTexte(fr.result)); sauver(); dessiner(); toast(rs2.ajoutes+' ajouté(s)'+(rs2.majs?' · '+rs2.majs+' genre(s) corrigé(s)':'')+(rs2.doublons?' · '+rs2.doublons+' doublon(s)':'')); }; fr.readAsArrayBuffer(t.files[0]); } break;
     case 'fichiersauv': if(t.files&&t.files[0]){ var fs=new FileReader(); fs.onload=function(){ try{ var ob=JSON.parse(fs.result); if(!ob||!ob.classes||!ob.rosters||!etatValide(ob)) throw 1; confirmer('Restaurer cette sauvegarde ('+ob.classes.length+' classe(s), '+nbElevesTotal(ob)+' élève(s)) ? Les données actuelles seront remplacées.',function(){ try{ appliquerEtat(ob); toast('Sauvegarde restaurée'); }catch(er2){ avertir('Restauration impossible : rien n\'a été modifié.'); } },'Restaurer'); }catch(er){ avertir('Fichier de sauvegarde invalide ou endommagé : rien n\'a été modifié.'); } }; fs.readAsText(t.files[0]); try{ t.value=''; }catch(e){} } break;
     case 'eleveprs': if(c){ var rp=roster(c); if(t.checked) delete rp.absent[t.getAttribute('data-id')]; else rp.absent[t.getAttribute('data-id')]=1; sauver(); dessinerGarde(); } break;
@@ -1507,6 +1562,7 @@ if('serviceWorker' in navigator && location.protocol!=='file:'){
 }
 
 if(S.classes.length&&!classe()) S.cur=S.classes[0].id;
+S.lieux.forEach(function(l){ chargerCarte(l.n); });
 if(!Object.keys(S.seance.assign).length) attribuerAuto();
 dessiner();
 </script>
