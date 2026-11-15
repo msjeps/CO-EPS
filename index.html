@@ -33,6 +33,14 @@ body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:var(--co
 .en-tete p{margin:2px 0 0;font-size:.85em;opacity:.85}
 .section{background:var(--couleur-blanc);border-radius:var(--rayon);padding:16px;margin-bottom:16px;box-shadow:var(--ombre-douce);border-left:5px solid var(--couleur-primaire)}
 .section h2{margin:0 0 10px;font-size:1.15em;display:flex;align-items:center}
+ details.section>summary{list-style:none;cursor:pointer;display:flex;align-items:center;min-height:44px}
+details.section>summary::-webkit-details-marker{display:none}
+details.section>summary h2{margin:0;flex:1}
+details.section>summary::after{content:'\25B8';font-size:1.3em;margin-left:8px}
+details.section[open]>summary::after{content:'\25BE'}
+details.section[open]>summary{margin-bottom:10px}
+details.rub-c>summary{background:var(--rc);color:var(--rt,#fff);border-radius:10px;padding:4px 12px}
+details.rub-c>summary h2::before{background:var(--rt,#fff)}
 .section h2::before{content:'';width:8px;height:26px;background:var(--couleur-primaire);border-radius:4px;margin-right:10px;flex-shrink:0}
 .section-pose{border-left-color:var(--couleur-pose)} .section-pose h2::before{background:var(--couleur-pose)}
 .section-course{border-left-color:var(--couleur-course)} .section-course h2::before{background:var(--couleur-course)}
@@ -205,7 +213,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.42';
+var APP_VER='2.45';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -905,11 +913,11 @@ var FORMATS_CARTE=['image/jpeg','image/png','image/webp','image/gif','image/bmp'
 var TEXTE_FORMATS='JPEG (.jpg, .jpeg), PNG (.png), WebP (.webp), GIF (.gif) et BMP (.bmp)';
 function libCarte(n){ var l=lieuDe(n); return l?l.nom:'Parcours '+n+' (Exflora)'; }
 function sectionCartes(){
-  var sp=S.seance.parcours, h='<div class="section"><h2>Cartes</h2><p class="petit">Choisis la carte utilisée pour la séance (bouton <b>Activer</b>) ; elle s\'affiche dans l\'onglet Carte. Les 5 parcours d\'Exflora sont intégrés. Pour un autre lieu, ajoute une carte : elle reste sur cette tablette.</p>';
+  var sp=S.seance.parcours, h='<p class="petit">Choisis la carte utilisée pour la séance (bouton <b>Activer</b>) ; elle s\'affiche dans l\'onglet Carte. Les 5 parcours d\'Exflora sont intégrés. Pour un autre lieu, ajoute une carte : elle reste sur cette tablette.</p>';
   var l=[],i; for(i=1;i<=5;i++) l.push({n:i,nom:'Parcours '+i+' (Exflora)',fixe:true}); S.lieux.forEach(function(x){ l.push({n:x.n,nom:x.nom,fixe:false}); });
   l.forEach(function(c){ h+='<div class="rangee"><div class="corps"><b>'+esc(c.nom)+'</b>'+(c.fixe?'':' <span class="petit">· ajoutée</span>')+'</div>'+(sp===c.n?'<span class="chip actif" style="margin:0 6px 0 0">✔ Active</span>':'<button class="chip" data-act="parcours" data-p="'+c.n+'" style="margin:0 6px 0 0">Activer</button>')+(c.fixe?'':'<button class="chip" data-act="renlieu" data-p="'+c.n+'" style="margin:0 6px 0 0">✏️</button><button class="chip" data-act="suplieu" data-p="'+c.n+'" style="margin:0;color:#b00020">🗑️</button>')+'</div>'; });
   h+='<label class="bouton bouton-secondaire" for="nvLieu" style="display:block;text-align:center;cursor:pointer">➕ Ajouter une carte (nouveau lieu)</label><input type="file" id="nvLieu" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp" data-chg="fichierlieu" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-label="Choisir l\'image de la carte du nouveau lieu">';
-  h+='<p class="petit"><b>Formats acceptés (images uniquement) :</b> '+TEXTE_FORMATS+'. Les PDF et les photos HEIC (iPhone) ne sont pas acceptés : convertis-les d\'abord en JPEG ou PNG (ou fais une capture d\'écran).</p></div>';
+  h+='<p class="petit"><b>Formats acceptés (images uniquement) :</b> '+TEXTE_FORMATS+'. Les PDF et les photos HEIC (iPhone) ne sont pas acceptés : convertis-les d\'abord en JPEG ou PNG (ou fais une capture d\'écran).</p>';
   return h;
 }
 function idbCartes(cb){ try{ var r=indexedDB.open('co_eps_cartes',1); r.onupgradeneeded=function(){ r.result.createObjectStore('cartes'); }; r.onsuccess=function(){ cb(r.result); }; r.onerror=function(){ cb(null); }; }catch(e){ cb(null); } }
@@ -1586,25 +1594,45 @@ function livrerPdf(nom,oct,partager){
 }
 
 /* ============ VUE : RÉGLAGES ============ */
+/* Réglages : rubriques dépliables (<details>), toutes repliées au départ ; l'état ouvert/fermé est gardé en mémoire (uiReg) car l'écran est redessiné à chaque changement */
+var uiReg={};
+var RUB_COUL={etab:'#9ccc65',aff:'#9ccc65',eleve:'#9ccc65',groupes:'#1565c0',cartes:'#1565c0',jeux:'#e65100',indices:'#e65100',points:'#e65100',pen:'#e65100',sauv:'#7b3fa0',resto:'#7b3fa0',nouvelle:'#d81b9a',mdp:'#c62828'};
+var RUB_TXT='#1b3a1b'; /* texte foncé sur le vert clair */
+function rub(id,titre,corps){ var co=RUB_COUL[id], sombre=(co==='#9ccc65'); return '<details class="section'+(co?' rub-c':'')+'" id="reg_'+id+'"'+(uiReg[id]?' open':'')+(co?' style="--rc:'+co+';'+(sombre?'--rt:'+RUB_TXT+';':'')+'border-left-color:'+co+'"':'')+'><summary><h2>'+titre+'</h2></summary>'+corps+'</details>'; }
 function vueReglages(){
-  var h='<button class="bouton bouton-clair" data-act="fermerreglages" style="margin:0 0 14px">🔒 Fermer les réglages</button>';
-  h+='<div class="section"><h2>Groupes</h2><label>Noms des groupes (séparés par des virgules)</label><input type="text" id="inGroupes" value="'+esc(S.groupes.join(', '))+'"><button class="bouton bouton-secondaire" data-act="majgroupes">Enregistrer les groupes</button><p class="petit">Les jeux de balises d\'origine (PDF) couvrent les groupes A1 à D4.</p></div>';
-  h+='<div class="section"><h2>Pénalité</h2><label>Durée d\'une pénalité (secondes)</label><div class="stepper-nombre"><button class="stepper-btn" data-act="pensec" data-d="-10" aria-label="Diminuer la pénalité">−</button><input type="number" readonly value="'+S.penSec+'"><button class="stepper-btn" data-act="pensec" data-d="10" aria-label="Augmenter la pénalité">+</button></div></div>';
-  h+='<div class="section"><h2>Établissement</h2><label>Nom imprimé sous chaque balise (PDF)</label><input type="text" id="inEtab" maxlength="60" value="'+esc(S.etab)+'" placeholder="Ex. Collège Mont Saint Jean"><button class="bouton bouton-secondaire" data-act="majetab">Enregistrer l\'établissement</button></div>';
-  h+='<div class="section"><h2>Jeux de balises</h2><p class="petit">Les 10 couleurs × 8 balises du PDF sont intégrées et ne sont pas modifiables (balises plastifiées). Ajoute ici un jeu personnalisé (ex. 12 balises imprimées en 3D avec d\'autres codes).</p>';
-  tousLesSets().forEach(function(s){ h+='<div class="rangee"><span class="puce" style="background:'+s.couleur+'"></span><div class="corps"><b>'+esc(s.nom)+'</b> <span class="petit">'+s.n+' balises'+(s.builtin?' · PDF':(s.theme&&THEMES[s.theme]?' · '+THEMES[s.theme].nom:' · personnalisé'))+'</span></div>'+(s.builtin?'':(s.theme?'<button class="chip" data-act="pdfset" data-id="'+esc(s.id)+'" style="margin:0 6px 0 0">📄 PDF</button>':'<button class="chip" data-act="editset" data-id="'+esc(s.id)+'" style="margin:0 6px 0 0">Modifier</button>')+'<button class="chip" data-act="delset" data-id="'+esc(s.id)+'" style="margin:0">🗑️</button>')+'</div>'; });
-  h+='<button class="bouton bouton-secondaire" data-act="newset">+ Nouveau jeu de balises</button><button class="bouton bouton-secondaire" data-act="newtheme">🌍 Nouveau jeu thématique (capitales…)</button></div>';
-  h+=sectionCartes();
-  h+='<div class="section"><h2>Affichage</h2><div class="rangee"><div class="corps">Mode sombre</div><label class="switch"><input type="checkbox" data-chg="sombre"'+(S.sombre?' checked':'')+'><span class="slider"></span></label></div>'+
+  var h='<button class="bouton bouton-clair" data-act="fermerreglages" style="margin:0 0 14px">🔒 Fermer les réglages</button>', c='';
+  /* 1. Établissement */
+  h+=rub('etab','Établissement','<label>Nom imprimé sous chaque balise (PDF)</label><input type="text" id="inEtab" maxlength="60" value="'+esc(S.etab)+'" placeholder="Ex. Collège Mont Saint Jean"><button class="bouton bouton-secondaire" data-act="majetab">Enregistrer l\'établissement</button>');
+  /* 2. Affichage */
+  h+=rub('aff','Affichage','<div class="rangee"><div class="corps">Mode sombre</div><label class="switch"><input type="checkbox" data-chg="sombre"'+(S.sombre?' checked':'')+'><span class="slider"></span></label></div>'+
      '<div class="rangee"><div class="corps">Afficher le code attendu quand une saisie est fausse</div><label class="switch"><input type="checkbox" data-chg="attendu"'+(S.afficherAttendu?' checked':'')+'><span class="slider"></span></label></div>'+
-     '<div class="rangee"><div class="corps">Élèves affichés par initiales (écran partagé ou projeté)<div class="petit">Ex. « DUPONT Léa » devient « D.L. ». L\'export CSV garde les noms complets ; modifier un nom demande le mot de passe.</div></div><label class="switch"><input type="checkbox" data-chg="initiales"'+(S.initiales?' checked':'')+'><span class="slider"></span></label></div></div>';
-  var cm=classe(); h+='<div class="section"><h2>Mode élève</h2><p>Pour confier la tablette à un élève dispensé : il ne voit que <b>Course</b> (départ, arrivée) et <b>Vérif.</b> (saisie des codes, indices) de <b>une seule classe</b>. Pas de Pose, Carte, Groupes, Podium ni Réglages, pas de pénalités ni de corrections.</p>'+(cm?'<button class="bouton bouton-secondaire" data-act="entreleve">🔒 Passer en mode élève (classe '+esc(cm.nom)+')</button>':'<p class="petit">Crée une classe d\'abord.</p>')+'</div>';
-  h+='<div class="section"><h2>Indices</h2><div class="rangee"><div class="corps">Indices sur les balises<div class="petit">Le groupe qui pose la balise peut écrire un indice (onglet Carte). Désactivé : les indices ne s\'affichent plus (ils restent enregistrés).</div></div><label class="switch"><input type="checkbox" data-chg="indices"'+(S.indices?' checked':'')+'><span class="slider"></span></label></div></div>';
-  h+='<div class="section"><h2>Points</h2><label>Points par balise trouvée</label><div class="stepper-nombre"><button class="stepper-btn" data-act="ptsb" data-d="-0.5" aria-label="Moins de points">−</button><input type="text" readonly value="'+fmtPts(S.ptsBalise)+'"><button class="stepper-btn" data-act="ptsb" data-d="0.5" aria-label="Plus de points">+</button></div>'+(S.indices?'<label>Points par balise trouvée avec indice</label><div class="stepper-nombre"><button class="stepper-btn" data-act="ptsi" data-d="-0.5" aria-label="Moins de points avec indice">−</button><input type="text" readonly value="'+fmtPts(S.ptsIndice)+'"><button class="stepper-btn" data-act="ptsi" data-d="0.5" aria-label="Plus de points avec indice">+</button></div>':'')+'<p class="petit">Le classement se fait aux points, puis au temps. Une balise non trouvée vaut 0, même si son indice a été révélé.</p></div>';
-  h+='<div class="section"><h2>Sauvegarde</h2><p class="petit">Dernière sauvegarde : <b>'+texteAge()+'</b>.</p><p class="petit">Sauvegarde toutes les données (classes, élèves, groupes, résultats, balises) dans un fichier (sans le mot de passe prof). Il contient les noms des élèves : garde-le sur ta tablette ou ton ordinateur, ne le partage pas.</p><button class="bouton bouton-secondaire" data-act="exportsauv">⬇️ Exporter une sauvegarde</button></div>';
-  h+='<div class="section" style="border-left-color:#1f6ea5"><h2>Restauration</h2><p>Recharge tes classes, élèves, groupes et jeux de balises depuis un fichier de sauvegarde (<b>CO_EPS_sauvegarde_….json</b>) : après un effacement des données, une réinstallation, ou pour copier la configuration d\'un appareil à un autre.</p><p class="petit">'+(EST_IOS?'Sur iPhone / iPad, choisis le fichier dans l\'app <b>Fichiers</b>. ':'')+'Tu verras le nombre de classes et d\'élèves avant de confirmer. <b>Les données actuelles de cet appareil seront remplacées</b> : exporte d\'abord une sauvegarde si elles sont récentes. Le mot de passe prof de cet appareil est conservé.</p><button class="bouton bouton-primaire" data-act="choisirsauv">⬆️ Restaurer depuis un fichier</button><input type="file" id="fichierSauv" class="cache" accept=".json,application/json" data-chg="fichiersauv">'+(localStorage.getItem(CLE+'_avant_maj')?'<button class="bouton bouton-clair" data-act="restaureravant">Restaurer l\'état d\'avant la dernière mise à jour</button>':'')+'</div>';
-  h+='<div class="section"><h2>Sécurité</h2><button class="bouton bouton-secondaire" data-act="chgmdp">Changer le mot de passe prof</button><button class="bouton bouton-clair" data-act="aide">Aide</button></div>';
-  h+='<div class="section" style="border-left-color:#FC466B"><h2>Nouvelle séance</h2><p class="petit">Efface les balises attribuées, les positions et tous les résultats (chronos, codes, pénalités). La composition actuelle des groupes est archivée dans l\'historique pour que les mêmes élèves ne soient plus regroupés. Les classes, listes d\'élèves, jeux de balises et réglages sont conservés.</p><button class="bouton bouton-danger" data-act="nouvelle">Nouvelle séance</button></div>';
+     '<div class="rangee"><div class="corps">Élèves affichés par initiales (écran partagé ou projeté)<div class="petit">Ex. « DUPONT Léa » devient « D.L. ». L\'export CSV garde les noms complets ; modifier un nom demande le mot de passe.</div></div><label class="switch"><input type="checkbox" data-chg="initiales"'+(S.initiales?' checked':'')+'><span class="slider"></span></label></div>');
+  /* 3. Mode élève */
+  var cm=classe();
+  h+=rub('eleve','Mode élève','<p>Pour confier la tablette à un élève dispensé : il ne voit que <b>Course</b> (départ, arrivée) et <b>Vérif.</b> (saisie des codes, indices) de <b>une seule classe</b>. Pas de Pose, Carte, Groupes, Podium ni Réglages, pas de pénalités ni de corrections.</p>'+(cm?'<button class="bouton bouton-secondaire" data-act="entreleve">🔒 Passer en mode élève (classe '+esc(cm.nom)+')</button>':'<p class="petit">Crée une classe d\'abord.</p>'));
+  /* 4. Groupes */
+  h+=rub('groupes','Groupes','<label>Noms des groupes (séparés par des virgules)</label><input type="text" id="inGroupes" value="'+esc(S.groupes.join(', '))+'"><button class="bouton bouton-secondaire" data-act="majgroupes">Enregistrer les groupes</button><p class="petit">Les jeux de balises d\'origine (PDF) couvrent les groupes A1 à D4.</p>');
+  /* 5. Cartes */
+  h+=rub('cartes','Cartes',sectionCartes());
+  /* 6. Jeux de balises */
+  c='<p class="petit">Les 10 couleurs × 8 balises du PDF sont intégrées et ne sont pas modifiables (balises plastifiées). Ajoute ici un jeu personnalisé (ex. 12 balises imprimées en 3D avec d\'autres codes) ou un jeu thématique (capitales, drapeaux) à imprimer en PDF.</p>';
+  tousLesSets().forEach(function(s){ c+='<div class="rangee"><span class="puce" style="background:'+s.couleur+'"></span><div class="corps"><b>'+esc(s.nom)+'</b> <span class="petit">'+s.n+' balises'+(s.builtin?' · PDF':(s.theme&&THEMES[s.theme]?' · '+THEMES[s.theme].nom:' · personnalisé'))+'</span></div>'+(s.builtin?'':(s.theme?'<button class="chip" data-act="pdfset" data-id="'+esc(s.id)+'" style="margin:0 6px 0 0">📄 PDF</button>':'<button class="chip" data-act="editset" data-id="'+esc(s.id)+'" style="margin:0 6px 0 0">Modifier</button>')+'<button class="chip" data-act="delset" data-id="'+esc(s.id)+'" style="margin:0">🗑️</button>')+'</div>'; });
+  c+='<button class="bouton bouton-secondaire" data-act="newset">+ Nouveau jeu de balises</button><button class="bouton bouton-secondaire" data-act="newtheme">🌍 Nouveau jeu thématique (capitales…)</button>';
+  h+=rub('jeux','Jeux de balises',c);
+  /* 7. Indices */
+  h+=rub('indices','Indices','<div class="rangee"><div class="corps">Indices sur les balises<div class="petit">Le groupe qui pose la balise peut écrire un indice (onglet Carte). Désactivé : les indices ne s\'affichent plus (ils restent enregistrés).</div></div><label class="switch"><input type="checkbox" data-chg="indices"'+(S.indices?' checked':'')+'><span class="slider"></span></label></div>');
+  /* 8. Points */
+  h+=rub('points','Points','<label>Points par balise trouvée</label><div class="stepper-nombre"><button class="stepper-btn" data-act="ptsb" data-d="-0.5" aria-label="Moins de points">−</button><input type="text" readonly value="'+fmtPts(S.ptsBalise)+'"><button class="stepper-btn" data-act="ptsb" data-d="0.5" aria-label="Plus de points">+</button></div>'+(S.indices?'<label>Points par balise trouvée avec indice</label><div class="stepper-nombre"><button class="stepper-btn" data-act="ptsi" data-d="-0.5" aria-label="Moins de points avec indice">−</button><input type="text" readonly value="'+fmtPts(S.ptsIndice)+'"><button class="stepper-btn" data-act="ptsi" data-d="0.5" aria-label="Plus de points avec indice">+</button></div>':'')+'<p class="petit">Le classement se fait aux points, puis au temps. Une balise non trouvée vaut 0, même si son indice a été révélé.</p>');
+  /* 9. Pénalités */
+  h+=rub('pen','Pénalités','<label>Durée d\'une pénalité (secondes)</label><div class="stepper-nombre"><button class="stepper-btn" data-act="pensec" data-d="-10" aria-label="Diminuer la pénalité">−</button><input type="number" readonly value="'+S.penSec+'"><button class="stepper-btn" data-act="pensec" data-d="10" aria-label="Augmenter la pénalité">+</button></div>');
+  /* 10. Sauvegarde */
+  h+=rub('sauv','Sauvegarde','<p class="petit">Dernière sauvegarde : <b>'+texteAge()+'</b>.</p><p class="petit">Sauvegarde toutes les données (classes, élèves, groupes, résultats, balises) dans un fichier (sans le mot de passe prof). Il contient les noms des élèves : garde-le sur ta tablette ou ton ordinateur, ne le partage pas.</p><button class="bouton bouton-secondaire" data-act="exportsauv">⬇️ Exporter une sauvegarde</button>');
+  /* 11. Restauration */
+  h+=rub('resto','Restauration','<p>Recharge tes classes, élèves, groupes et jeux de balises depuis un fichier de sauvegarde (<b>CO_EPS_sauvegarde_….json</b>) : après un effacement des données, une réinstallation, ou pour copier la configuration d\'un appareil à un autre.</p><p class="petit">'+(EST_IOS?'Sur iPhone / iPad, choisis le fichier dans l\'app <b>Fichiers</b>. ':'')+'Tu verras le nombre de classes et d\'élèves avant de confirmer. <b>Les données actuelles de cet appareil seront remplacées</b> : exporte d\'abord une sauvegarde si elles sont récentes. Le mot de passe prof de cet appareil est conservé.</p><button class="bouton bouton-primaire" data-act="choisirsauv">⬆️ Restaurer depuis un fichier</button><input type="file" id="fichierSauv" class="cache" accept=".json,application/json" data-chg="fichiersauv">'+(localStorage.getItem(CLE+'_avant_maj')?'<button class="bouton bouton-clair" data-act="restaureravant">Restaurer l\'état d\'avant la dernière mise à jour</button>':''));
+  /* 12. Nouvelle séance */
+  h+=rub('nouvelle','Nouvelle séance','<p class="petit">Efface les balises attribuées, les positions et tous les résultats (chronos, codes, pénalités). La composition actuelle des groupes est archivée dans l\'historique pour que les mêmes élèves ne soient plus regroupés. Les classes, listes d\'élèves, jeux de balises et réglages sont conservés.</p><button class="bouton bouton-danger" data-act="nouvelle">Nouvelle séance</button>');
+  /* 13. Mot de passe */
+  h+=rub('mdp','Changer le mot de passe','<button class="bouton bouton-secondaire" data-act="chgmdp">Changer le mot de passe prof</button>');
   return h;
 }
 function groupesAvecDonnees(noms){ return noms.some(function(g){
@@ -1858,6 +1886,8 @@ document.addEventListener('change',function(e){
     case 'initiales': S.initiales=t.checked; sauver(); dessiner(); break;
   }
 });
+/* Mémorise les rubriques des Réglages ouvertes (l'événement toggle ne remonte pas : écoute en capture) */
+document.addEventListener('toggle',function(e){ var t=e.target; if(t&&t.id&&t.id.indexOf('reg_')===0) uiReg[t.id.slice(4)]=!!t.open; },true);
 document.addEventListener('input',function(e){ var t=e.target; if(t.getAttribute&&t.getAttribute('data-in')) saisieCode(t); if(t.id==='rechRep') filtrerRep(t.value); });
 document.addEventListener('focusin',function(e){ var t=e.target; if(t.getAttribute&&t.getAttribute('data-in')&&t.select) t.select(); });
 
