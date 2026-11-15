@@ -161,6 +161,33 @@ body.mode-sombre .bandeau{background:#5a4318;color:#ffe2a8;border-color:#7a5b22}
 /* ============ DONNÉES : codes des 10 couleurs x 8 balises (source : 8 Balises.pdf, NE PAS MODIFIER) ============
    Chaîne de 16 lettres par balise, ordre : A1 B1 C1 D1 A2 B2 C2 D2 A3 ... D4  (groupe = colonne + ligne) */
 var BUILTIN = {"Rouge":{"1":"NUCSQTTRGVBGIGJU","2":"SQOCEESCVHHCUIJY","3":"KFJDIPCFCKOCYSZA","4":"RQOFDCJZTBUPASRU","5":"HCAPEBELPNWXSYWK","6":"IZYGYWYZNEOWNKKZ","7":"JYXUKZTSYQKYFPLA","8":"HOIVXWKUKXRNXBVE"},"Bleu":{"1":"BZWAGRDMMWCISKVZ","2":"FNRIIYTPDSJVTFOJ","3":"ZEBLVUXAVGIHFMEF","4":"MUVYKBTKSYPELXZC","5":"BHNPEZGBNMFOGVDD","6":"SSVRHOPACSMSUOGC","7":"RLXTXZXHORIMFMGD","8":"KWODWAEOQTYPBNLA"},"Vert":{"1":"VQJJGROLTLIWFAUT","2":"CZQFEPVOESGIOZYR","3":"JYVGVVWLDFKEJSHD","4":"VYYRKECBLSEAOVLA","5":"NTQYCMFKCNDERVDP","6":"TVHZOYKOVMDBIZVW","7":"YRGWGNSGGOSPLDRW","8":"DTAZTIXHPJPREHTS"},"Jaune":{"1":"ILZZULSIWSVOJMEZ","2":"KZVZBOBJQCXHYHMQ","3":"YFPVWCMQZAGYSQVK","4":"CMVOFJJUEMIUDLRV","5":"XPYEGGJUBQDIGJBP","6":"VNJBMGNKPNUKJFRB","7":"ZYVFIBZHYWJTHEAB","8":"XAJIPURQQASFLPHK"},"Orange":{"1":"QNHLEHCJWTLFDUWD","2":"NKTWJWDYQAAGJYUY","3":"NPSVZMBVVORVSMIX","4":"IESOKCLISSNUNNLI","5":"LHFRGLWZQIDOGEAD","6":"DNEPCKFVDGPSGSQE","7":"SBZXNPJXRQFAMGCU","8":"MGETTFHWBBTHRMWA"},"Violet":{"1":"NQTUKZACXZHKAALA","2":"DISIZWUHVCWEDMPT","3":"RDXGHZWYDRSPSRZF","4":"NSBBZODRXRYJPUOP","5":"REHJTMYLCGHYSBIE","6":"NWNVKDOVXEVOJYKQ","7":"FDGJMBLSFQSCIFTN","8":"YEMUXJIYJBIATFHH"},"Rose":{"1":"RFSXBIBUUKIQBHGN","2":"RYFDMUBSKQYBIVOG","3":"GUMUZEEFFMHSUPHN","4":"SZLRMKPLJWOOYJUM","5":"NYPFPEAADRVGSCIW","6":"EMBZUFJUBPDZHFUI","7":"ZMWRFQYGSIREKNAI","8":"BKRVXQTJGTIAZVKF"},"Marron":{"1":"SOIWHHSFPCIFGQFU","2":"NUIEOFNOGLKJQPGD","3":"PXWXITFHDMXCFMPG","4":"AWHMYVZMMVAXEAIH","5":"KSISOJGBCJBFLXWM","6":"DZHJMAUNWLXGNXJJ","7":"PKBGIHUPQXYYDIIH","8":"GIEIEYLTURJWMKUE"},"Cyan":{"1":"YDXCWCVYZODNVOKF","2":"MEHPHNIZPMHVDPYW","3":"NFVAZREFOBSNDZZW","4":"ROXHCJCUUAMTBEIW","5":"KINPDYWLFEQNSMXH","6":"BLQSJLVSKFGDDLWJ","7":"JRVZZIKUBVVNHEQH","8":"YNHEUIEYTTMPSYSN"},"Magenta":{"1":"FOGIERKNTLGRNJCA","2":"OTHQYDVZENDXDZDW","3":"AJQMLDVYVUJYJWPZ","4":"UDSALEHSFXNVXWGO","5":"WYBKLHPJAEAFJGPD","6":"TAPIEAAFLEIGJRYP","7":"UJVYBKQZHGTZKGZF","8":"HFQEPIXDOGLEFZKT"}};
+/* ============ THÈMES DE BALISES (2.40) ============
+   Jeu thématique : l'INDICE est imprimé sur la balise (ex. une capitale), l'élève retrouve la RÉPONSE (le pays) dans une liste.
+   set = {id,nom,couleur,n,codes:{n:{A1:'FRA',...}},theme:'pays',reps:['FRA',...]} : le « code » d'un groupe est l'identifiant de la réponse.
+   Éléments : [id, réponse, capitale (vide = pas de capitale en indice), thèmes] ; les drapeaux sont dans FLAGS. Thèmes : E Europe, G grands pays, T pays touristiques, F Coupe du monde de football, J Jeux olympiques. */
+var PAYS=[
+['FRA','France','Paris','ETFJ'],['DEU','Allemagne','Berlin','EFJ'],['ESP','Espagne','Madrid','ETFJ'],['ITA','Italie','Rome','ETFJ'],
+['PRT','Portugal','Lisbonne','ETF'],['GBR','Royaume-Uni','Londres','ETJ'],['IRL','Irlande','Dublin','ET'],['BEL','Belgique','Bruxelles','EFJ'],
+['NLD','Pays-Bas','Amsterdam','EFJ'],['CHE','Suisse','Berne','ETFJ'],['AUT','Autriche','Vienne','ETJ'],['GRC','Grèce','Athènes','ETJ'],
+['SWE','Suède','Stockholm','EFJ'],['NOR','Norvège','Oslo','ETJ'],['DNK','Danemark','Copenhague','EF'],['FIN','Finlande','Helsinki','EJ'],
+['ISL','Islande','','ET'],['POL','Pologne','Varsovie','EF'],['CZE','République tchèque','Prague','ET'],['HUN','Hongrie','Budapest','EF'],
+['ROU','Roumanie','Bucarest','EF'],['HRV','Croatie','','ETF'],['SRB','Serbie','Belgrade','EF'],['UKR','Ukraine','Kiev','EF'],
+['RUS','Russie','Moscou','EGFJ'],['TUR','Turquie','Ankara','GTF'],['CAN','Canada','Ottawa','GTFJ'],['USA','États-Unis','Washington D.C.','GTFJ'],
+['MEX','Mexique','Mexico','GTFJ'],['BRA','Brésil','Brasília','GTFJ'],['ARG','Argentine','Buenos Aires','GTF'],['CHN','Chine','Pékin','GTJ'],
+['IND','Inde','New Delhi','GT'],['AUS','Australie','Canberra','GTFJ'],['DZA','Algérie','Alger','GF'],['EGY','Égypte','Le Caire','GTF'],
+['MAR','Maroc','Rabat','TF'],['TUN','Tunisie','Tunis','TF'],['SEN','Sénégal','Dakar','TF'],
+['JPN','Japon','Tokyo','GTFJ'],['KOR','Corée du Sud','Séoul','FJ'],
+['QAT','Qatar','Doha','F'],['IRN','Iran','Téhéran','GF'],['COL','Colombie','Bogotá','TF'],
+['CHL','Chili','Santiago','TF'],['PER','Pérou','Lima','TF'],
+['CRI','Costa Rica','San José','TF'],['THA','Thaïlande','Bangkok','T'],['VNM','Vietnam','Hanoï','T'],
+['IDN','Indonésie','Jakarta','GT'],['ARE','Émirats arabes unis','Abou Dabi','T'],['CUB','Cuba','La Havane','T'],['DOM','République dominicaine','Saint-Domingue','T'],
+['MDG','Madagascar','Antananarivo','T'],['KEN','Kenya','Nairobi','T'],['MUS','Maurice','Port-Louis','T'],['JAM','Jamaïque','Kingston','T'],
+['JOR','Jordanie','Amman','T'],['MDV','Maldives','Malé','T'],['NZL','Nouvelle-Zélande','Wellington','T'],['PAK','Pakistan','Islamabad','G']
+];
+var THEMES={pays:{nom:'Pays (capitales)',nomDrap:'Drapeaux',consigne:['Lis la case de ton groupe :','de quel pays est-ce la capitale ?'],consigneDrap:['Lis la case de ton groupe :','de quel pays est-ce le drapeau ?'],question:'Quel est ce pays (capitale ou drapeau) ?',
+  filtres:[['E','Europe'],['G','Grands pays'],['T','Pays touristiques'],['F','Coupe du monde de football'],['J','Jeux olympiques']],items:PAYS}};
+/* Les 16 cases d'une balise, ligne par ligne : A1 B1 C1 D1 A2 ... D4 */
+var CASES16=[]; ['1','2','3','4'].forEach(function(r){ ['A','B','C','D'].forEach(function(l){ CASES16.push(l+r); }); });
 var COULEURS = {Rouge:'#e53935',Bleu:'#1e66d0',Vert:'#2e9e4f',Jaune:'#f2c200',Orange:'#f57c00',Violet:'#7b3fa0',Rose:'#f48fb1',Marron:'#8d5a3b',Cyan:'#00bcd4',Magenta:'#d81b9a'};
 var TEXTE_SOMBRE = {Jaune:1,Rose:1,Cyan:1,Orange:1,Vert:1};
 var PENALITES = [['sep','Élève séparé de son groupe'],['ind','Indications données aux autres groupes'],['dep','Balise déplacée'],['rdv','Heure de RDV dépassée']];
@@ -173,12 +200,12 @@ var GROUPES_DEFAUT=['A1','A2','A3','A4','B1','B2','B3','B4','C1','C2','C3','C4',
 function etatInitial(){
   return {
     v:1, groupes:GROUPES_DEFAUT.slice(),
-    sets:[], lieux:[], penSec:60, nbPose:1, nbChercher:0, modeEleve:null, indices:true, ptsBalise:1, ptsIndice:0.5, mdp:null, sombre:false, afficherAttendu:true, initiales:false, derniereSauv:0, rappelJusqua:0,
+    sets:[], lieux:[], penSec:60, nbPose:1, nbChercher:0, etab:'', modeEleve:null, indices:true, ptsBalise:1, ptsIndice:0.5, mdp:null, sombre:false, afficherAttendu:true, initiales:false, derniereSauv:0, rappelJusqua:0,
     seance:{setIds:['Orange','Bleu'], assign:{}, parcours:1, pos:{}, etat:{}, poste:{}, desc:{}, ordre:{}, meme:{}, cherche:{}, nbPG:{}},
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.39';
+var APP_VER='2.42';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -202,6 +229,7 @@ function etatValide(o){
     if(o.cur!==null && typeof o.cur!=='string') o.cur=null;
     if(typeof o.initiales!=='boolean') o.initiales=false;
     if(typeof o.indices!=='boolean') o.indices=true;
+    o.etab=(typeof o.etab==='string')?o.etab.slice(0,60):'';
     if(typeof o.modeEleve!=='string') o.modeEleve=null;
     if(!estNb(o.nbPose)||o.nbPose<1||o.nbPose>3) o.nbPose=1; else o.nbPose=Math.round(o.nbPose);
     if(!estNb(o.nbChercher)||o.nbChercher<0||o.nbChercher>200) o.nbChercher=0; else o.nbChercher=Math.round(o.nbChercher);
@@ -213,7 +241,8 @@ function etatValide(o){
     if('sets' in o){ if(!Array.isArray(o.sets)) return false;
       for(i=0;i<o.sets.length;i++){ var st=o.sets[i];
         if(!estObj(st)||!RE_ID.test(st.id)||typeof st.nom!=='string'||!RE_COUL.test(st.couleur)||!estNb(st.n)||st.n<1||st.n>30) return false;
-        if(!estObj(st.codes)) st.codes={}; } }
+        if(!estObj(st.codes)) st.codes={};
+        if(st.theme!==undefined){ if(typeof st.theme!=='string'||!THEMES[st.theme]||!Array.isArray(st.reps)){ delete st.theme; delete st.reps; } else{ st.reps=st.reps.filter(function(x){ return typeof x==='string'&&/^[A-Z]{3}$/.test(x); }); st.drap=Array.isArray(st.drap)?st.drap.filter(function(x){ return estNb(x)&&x>=1&&x<=30; }):[]; } } } }
     if(!Array.isArray(o.lieux)) o.lieux=[];
     o.lieux=o.lieux.filter(function(l){ return estObj(l)&&estNb(l.n)&&l.n>=6&&l.n<=99&&Math.round(l.n)===l.n&&typeof l.nom==='string'; }).map(function(l){ return {n:l.n,nom:l.nom.slice(0,40)}; });
     if('seance' in o){ var se=o.seance; if(!estObj(se)) return false;
@@ -763,7 +792,7 @@ function ajouterEleve(r,nom,sexe){ nom=(nom||'').trim(); if(!nom) return; r.elev
 var ONGLETS=[['groupes','👥','Groupes'],['pose','📍','Pose'],['carte','🗺️','Carte'],['course','⏱️','Course'],['verif','✅','Vérif.'],['classement','🏆','Podium'],['reglages','⚙️','Réglages']];
 var deverrouille=false, uiVerifG=null, uiSel=null, uiInfo=null, uiZoom=1, uiCsvDetail=true;
 var ONGLETS_ELEVE=['course','verif'];
-var ACTES_ELEVE=['nav','vg','indice','depart','departall','arrivee','annulerarr','dlgoui','dlgnon','fermer','okmdp','resetmdp','recharger','sortireleve','aide'];
+var ACTES_ELEVE=['nav','vg','indice','depart','departall','arrivee','annulerarr','dlgoui','dlgnon','fermer','okmdp','resetmdp','recharger','sortireleve','aide','choixrep','validrep'];
 function allerA(o){
   if(S.modeEleve && ONGLETS_ELEVE.indexOf(o)<0) o='course';
   if(o==='reglages' && !deverrouille){ demanderMdp(function(){ deverrouille=true; allerA('reglages'); }); return; }
@@ -1111,12 +1140,12 @@ function vueVerif(){
     h+='<div class="section section-verif"><h2>Groupe '+esc(g)+'</h2>'+(nomsGroupe(c,g)?'<p class="petit">'+esc(nomsGroupe(c,g))+'</p>':'')+'<p>Balise'+(balisesDe(g).length>1?'s':'')+' posée'+(balisesDe(g).length>1?'s':'')+' par ce groupe : <b>'+esc(balisesDe(g).length?balisesDe(g).map(baliseLabel).join(', '):'-')+'</b> (non cherchée'+(balisesDe(g).length>1?'s':'')+')</p>';
     h+='<p>Score : <b id="vscore">'+fmtPts(v.pts)+' / '+fmtPts(v.max)+' pt'+(v.max>1?'s':'')+'</b></p>';
     ordreG(g).forEach(function(b){
-      var inv=invalide(b), att=codeAttendu(b,g), val=cd[b]||'';
+      var inv=invalide(b), att=codeAttendu(b,g), val=cd[b]||'', thm=setTheme(b);
       var res=inv?'':(val===''?'':(val===att?'<span class="res ok">✓</span>':'<span class="res ko">✗</span>'));
-      h+='<div class="rangee" data-b="'+esc(b)+'">'+tagPoste(b)+'<div class="corps">'+(posteB(b)?'<b>Poste '+esc(posteB(b))+'</b> <span class="petit">· '+esc(baliseLabel(b))+'</span>':'<b>'+esc(baliseLabel(b))+'</b>')+(inv?' <span class="tag tag-ko">invalide - non comptée</span>':'')+(indiceUtilise(c,g,b)?' <span class="tag tag-att">indice utilisé</span>':'')+'<div class="petit" data-att="'+esc(b)+'">'+(S.afficherAttendu&&val!==''&&val!==att&&!inv?'attendu : <b>'+esc(att||'?')+'</b>':'')+'</div>'+(S.indices&&!inv&&descB(b)?(indiceUtilise(c,g,b)?'<div class="petit">💡 '+esc(descB(b))+'</div>':'<button class="chip" style="margin:4px 0 0" data-act="indice" data-g="'+esc(g)+'" data-b="'+esc(b)+'">💡 Révéler l\'indice</button>'):'')+'</div>'+
-        '<input class="saisie" type="text" maxlength="1" inputmode="text" autocapitalize="characters" autocomplete="off" data-in="'+esc(b)+'" value="'+esc(val)+'"'+(inv?' disabled':'')+'><div class="res-zone" style="width:34px;text-align:center">'+res+'</div></div>';
+      h+='<div class="rangee" data-b="'+esc(b)+'">'+tagPoste(b)+'<div class="corps">'+(posteB(b)?'<b>Poste '+esc(posteB(b))+'</b> <span class="petit">· '+esc(baliseLabel(b))+'</span>':'<b>'+esc(baliseLabel(b))+'</b>')+(inv?' <span class="tag tag-ko">invalide - non comptée</span>':'')+(indiceUtilise(c,g,b)?' <span class="tag tag-att">indice utilisé</span>':'')+'<div class="petit" data-att="'+esc(b)+'">'+(S.afficherAttendu&&val!==''&&val!==att&&!inv?'attendu : <b>'+esc(affCode(b,att)||'?')+'</b>':'')+'</div>'+(S.indices&&!inv&&descB(b)?(indiceUtilise(c,g,b)?'<div class="petit">💡 '+esc(descB(b))+'</div>':'<button class="chip" style="margin:4px 0 0" data-act="indice" data-g="'+esc(g)+'" data-b="'+esc(b)+'">💡 Révéler l\'indice</button>'):'')+'</div>'+
+        (thm?'<button class="chip" data-act="choixrep" data-b="'+esc(b)+'" style="margin:0;min-width:130px"'+(inv?' disabled':'')+'>'+(val?esc(libRep(thm,val)):'Choisir…')+'</button>':'<input class="saisie" type="text" maxlength="1" inputmode="text" autocapitalize="characters" autocomplete="off" data-in="'+esc(b)+'" value="'+esc(val)+'"'+(inv?' disabled':'')+'>')+'<div class="res-zone" style="width:34px;text-align:center">'+res+'</div></div>';
     });
-    h+='<p class="petit">Tape la lettre relevée par le groupe (vide = non trouvée). Passage automatique à la balise suivante.</p></div>';
+    h+='<p class="petit">Tape la lettre relevée par le groupe (vide = non trouvée). Passage automatique à la balise suivante. Pour un jeu thématique (capitales…), touche « Choisir… » puis la réponse dans la liste.</p></div>';
   }
   return h;
 }
@@ -1170,7 +1199,7 @@ function construireCsv(c,sep){
       if(balisesDe(r.g).indexOf(b)>=0){ l.push('(posée)'); return; }
       if(aChercher(r.g).indexOf(b)<0){ l.push('non demandée'); return; }
       if(invalide(b)){ l.push('invalide'); return; }
-      var v=(c.codes[r.g]||{})[b]||''; l.push(v===''?'non trouvée':(v===codeAttendu(b,r.g)?(indiceUtilise(c,r.g,b)?'OK (indice)':'OK'):'faux ('+v+')'));
+      var v=(c.codes[r.g]||{})[b]||''; l.push(v===''?'non trouvée':(v===codeAttendu(b,r.g)?(indiceUtilise(c,r.g,b)?'OK (indice)':'OK'):'faux ('+affCode(b,v)+')'));
     });
     lignes.push(l);
   });
@@ -1206,7 +1235,7 @@ function terminerSeance(garderPos){
   for(var rn in S.rosters){ var ro=S.rosters[rn]; if(Object.keys(ro.compo).some(function(k){return ro.compo[k].length;})){ ro.histo.push(JSON.parse(JSON.stringify(ro.compo))); } ro.compo={}; ro.absent={}; }
   var d=etatInitial(); d.rosters=S.rosters;
   d.classes=S.classes.map(function(k){ k.depart={all:null,g:{}}; k.arrivee={}; k.pen={}; k.codes={}; k.absents={}; k.indices={}; return k; });
-  d.cur=S.cur; d.sets=S.sets; d.lieux=S.lieux; d.groupes=S.groupes; d.penSec=S.penSec; d.mdp=S.mdp; d.sombre=S.sombre; d.afficherAttendu=S.afficherAttendu; d.initiales=S.initiales; d.nbPose=S.nbPose; d.nbChercher=S.nbChercher; d.indices=S.indices; d.ptsBalise=S.ptsBalise; d.ptsIndice=S.ptsIndice; d.derniereSauv=S.derniereSauv; d.rappelJusqua=S.rappelJusqua; d.onglet='pose';
+  d.cur=S.cur; d.sets=S.sets; d.lieux=S.lieux; d.groupes=S.groupes; d.penSec=S.penSec; d.mdp=S.mdp; d.sombre=S.sombre; d.afficherAttendu=S.afficherAttendu; d.initiales=S.initiales; d.nbPose=S.nbPose; d.etab=S.etab; d.nbChercher=S.nbChercher; d.indices=S.indices; d.ptsBalise=S.ptsBalise; d.ptsIndice=S.ptsIndice; d.derniereSauv=S.derniereSauv; d.rappelJusqua=S.rappelJusqua; d.onglet='pose';
   if(garderPos){ d.seance.setIds=old.setIds; d.seance.pos=old.pos; d.seance.poste=old.poste; d.seance.desc=old.desc; d.seance.meme=old.meme; d.seance.parcours=old.parcours; }
   S=d; completerJeux(); attribuerAuto(); uiVerifG=null; uiSel=null; csvSig=null; sauver(); dessiner();
   toastFin(garderPos?'Séance terminée, positions conservées':'Séance terminée, tout est remis à zéro');
@@ -1251,14 +1280,320 @@ function copierCsv(){
   if(ok) csvSig=sigResultats(); toast(ok?'Copié : colle dans Excel / Sheets':'Copie impossible');
 }
 
+/* ============ JEUX THÉMATIQUES (2.40) : génération, réponse par liste, PDF ============ */
+/* Largeurs de la police Helvetica (millièmes d'em) pour les codes 32 à 255 : sert à centrer et ajuster le texte du PDF */
+var LARG_N=[278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584,761,556,761,222,556,333,1000,556,556,333,1000,667,333,1000,761,611,761,761,222,222,333,333,350,556,1000,333,1000,500,333,944,761,500,667,278,333,556,556,556,556,260,556,333,737,370,556,584,333,737,333,400,584,333,333,333,556,537,278,333,333,365,556,834,834,834,611,667,667,667,667,667,667,1000,722,667,667,667,667,278,278,278,278,722,722,778,778,778,778,778,584,778,722,722,722,722,667,667,611,556,556,556,556,556,556,889,500,556,556,556,556,278,278,278,278,556,556,556,556,556,556,556,584,611,556,556,556,556,500,556,500], LARG_B=[278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584,761,556,761,278,556,500,1000,556,556,333,1000,667,333,1000,761,611,761,761,278,278,500,500,350,556,1000,333,1000,556,333,944,761,500,667,278,333,556,556,556,556,280,556,333,737,370,556,584,333,737,333,400,584,333,333,333,611,556,278,333,333,365,556,834,834,834,611,722,722,722,722,722,722,1000,722,667,667,667,667,278,278,278,278,722,722,778,778,778,778,778,584,778,722,722,722,722,667,667,611,556,556,556,556,556,556,889,556,556,556,556,556,278,278,278,278,611,611,611,611,611,611,611,584,611,611,611,611,611,556,611,556];
+function sansAcc(s){ s=String(s).toLowerCase(); try{ s=s.normalize('NFD').replace(/[̀-ͯ]/g,''); }catch(e){} return s; }
+function itemTheme(th,id){ var T=THEMES[th]; if(!T) return null; for(var i=0;i<T.items.length;i++) if(T.items[i][0]===id) return T.items[i]; return null; }
+function setTheme(b){ var s=getSet(parseB(b).setId); return (s&&s.theme&&THEMES[s.theme])?s:null; }
+function libRep(s,id){ var it=itemTheme(s.theme,id); return it?it[1]:id; }
+function affCode(b,code){ var s=setTheme(b); return (s&&code)?libRep(s,code):code; }
+function poolTheme(th,tags){
+  var r=[]; THEMES[th].items.forEach(function(it){ for(var i=0;i<tags.length;i++) if(it[3].indexOf(tags[i])>=0){ r.push(it); return; } });
+  return r;
+}
+/* Apparie les 16 cases à 16 réponses différentes (chemins augmentants) : allow[k] = réponses permises pour la case k */
+function melange(a){ a=a.slice(); for(var x=a.length-1;x>0;x--){ var y=Math.floor(Math.random()*(x+1)), z=a[x]; a[x]=a[y]; a[y]=z; } return a; }
+function apparier(allow){
+  var mate={}, perm=[], ordre=[], k, i, it;
+  for(k=0;k<16;k++){ perm.push(melange(allow[k])); ordre.push(k); }
+  ordre=melange(ordre);
+  function essai(c,vu){ var a=perm[c], x, id; for(x=0;x<a.length;x++){ id=a[x]; if(vu[id]) continue; vu[id]=1; if(mate[id]===undefined||essai(mate[id],vu)){ mate[id]=c; return true; } } return false; }
+  for(i=0;i<16;i++) if(!essai(ordre[i],{})) return null;
+  var res=[]; for(it in mate) res[mate[it]]=it;
+  return res;
+}
+/* Réponses possibles : 'cap' = celles qui ont une capitale, 'drap' = celles dont on sait dessiner le drapeau */
+function itemsAvec(th,tags,quoi){ return poolTheme(th,tags).filter(function(it){ return quoi==='drap'?!!FLAGS[it[0]]:!!it[2]; }); }
+/* Balises à drapeaux réparties dans le jeu (ex. 8 balises, 2 drapeaux : balises 3 et 6) */
+function positionsDrap(n,f){ var r=[], i; for(i=0;i<f;i++) r.push(Math.floor((i+1)*n/(f+1))+1); return r; }
+/* Contrôle : dans une balise, jamais 2 fois la même réponse ; pour une même case (donc un même groupe), jamais 2 fois la même réponse sur toutes les balises */
+function jeuValide(s){
+  var b, k, vu, parCase={};
+  for(b=1;b<=s.n;b++){ vu={};
+    for(k=0;k<16;k++){ var id=s.codes[b]&&s.codes[b][CASES16[k]]; if(!id||vu[id]) return false; vu[id]=1;
+      if(!parCase[CASES16[k]]) parCase[CASES16[k]]={}; if(parCase[CASES16[k]][id]) return false; parCase[CASES16[k]][id]=1; } }
+  return true;
+}
+function genererJeuTheme(th,nom,couleur,n,tags,nbDrap){
+  var A=itemsAvec(th,tags,'cap').map(function(it){ return it[0]; }), F=itemsAvec(th,tags,'drap').map(function(it){ return it[0]; });
+  var drap=(nbDrap>0&&F.length>=16)?positionsDrap(n,Math.min(nbDrap,n)):[];
+  if(A.length<16&&drap.length<n) return null;
+  var essais, b, k, codes, used, allow, res, pool, ok, reps=A.slice();
+  F.forEach(function(id){ if(reps.indexOf(id)<0) reps.push(id); });
+  function permis(k){ return pool.filter(function(id){ return !used[k][id]; }); }
+  for(essais=0;essais<300;essais++){
+    codes={}; used=[]; ok=true; for(k=0;k<16;k++) used.push({});
+    for(b=1;b<=n;b++){
+      pool=drap.indexOf(b)>=0?F:A; allow=[]; for(k=0;k<16;k++) allow.push(permis(k));
+      res=apparier(allow); if(!res){ ok=false; break; }
+      codes[b]={}; for(k=0;k<16;k++){ codes[b][CASES16[k]]=res[k]; used[k][res[k]]=1; }
+    }
+    if(ok){ var s={id:'s'+Date.now(),nom:nom,couleur:couleur,n:n,codes:codes,theme:th,reps:reps,drap:drap}; if(jeuValide(s)) return s; }
+  }
+  return null;
+}
+
+/* ---- Nouveau jeu thématique (Réglages) ---- */
+var thSel={}, thN=8, thD=2;
+function thTags(){ return Object.keys(thSel).filter(function(k){ return thSel[k]; }); }
+/* Nombre de balises à drapeaux réellement possible : 0 si moins de 16 pays ont un drapeau dans les thèmes cochés */
+function thDeff(){ var t=thTags(); return (t.length&&itemsAvec('pays',t,'drap').length>=16)?Math.min(thD,thN):0; }
+function majCompteTheme(){
+  var t=thTags(), nc=t.length?itemsAvec('pays',t,'cap').length:0, nf=t.length?itemsAvec('pays',t,'drap').length:0, el=$('thNb'), iD=$('tD'); if(iD) iD.value=thDeff();
+  if(!el) return;
+  el.innerHTML=(nc>=16?'<b>'+nc+'</b> capitales possibles':'<span style="color:#c62828"><b>'+nc+'</b> capitales seulement : il en faut au moins 16. Coche un autre thème.</span>')+
+    ' · '+(nf>=16?'<b>'+nf+'</b> drapeaux possibles':'drapeaux indisponibles ('+nf+' pays, il en faut 16)')+'.';
+}
+function modaleTheme(){
+  var T=THEMES.pays; thSel={E:true}; thN=8; thD=2;
+  var h='<div class="modale-header"><h3>Nouveau jeu thématique</h3><button class="btn-fermer" data-act="fermer">&times;</button></div>';
+  h+='<p class="petit">Chaque balise porte 16 indices différents (un par case A1 à D4) : une <b>capitale</b>, ou un <b>drapeau</b> sur quelques balises. Les élèves retrouvent le <b>pays</b> dans une liste. Un même groupe ne tombe jamais deux fois sur le même pays. Tu imprimes ensuite les balises depuis un PDF.</p>';
+  h+='<label>Nom du jeu</label><input type="text" id="tNom" value="Capitales" maxlength="30">';
+  h+='<div class="grille g2"><div><label>Couleur</label><input type="color" id="tCoul" value="#1e66d0" style="width:100%;height:44px"></div><div><label>Nombre de balises</label><div class="stepper-nombre"><button class="stepper-btn" data-act="thn" data-d="-1" aria-label="Moins de balises">−</button><input type="number" id="tN" value="'+thN+'" readonly><button class="stepper-btn" data-act="thn" data-d="1" aria-label="Plus de balises">+</button></div></div></div>';
+  h+='<label>Dont balises avec un drapeau à la place de la capitale</label><div class="stepper-nombre"><button class="stepper-btn" data-act="thd" data-d="-1" aria-label="Moins de balises à drapeaux">−</button><input type="number" id="tD" value="'+thD+'" readonly><button class="stepper-btn" data-act="thd" data-d="1" aria-label="Plus de balises à drapeaux">+</button></div>';
+  h+='<label>Quels pays ? (on peut en cocher plusieurs)</label><div class="chips">'+T.filtres.map(function(f){ return '<button class="chip'+(thSel[f[0]]?' actif':'')+'" data-act="thfiltre" data-f="'+f[0]+'">'+esc(f[1])+'</button>'; }).join('')+'</div><p class="petit" id="thNb"></p>';
+  var hors=S.groupes.filter(function(g){ return CASES16.indexOf(g)<0; });
+  if(hors.length) h+='<p class="petit" style="color:#c62828">Attention : les groupes '+esc(hors.join(', '))+' n\'ont pas de case sur ces balises (cases A1 à D4 seulement).</p>';
+  h+='<button class="bouton bouton-primaire" data-act="savetheme">Créer le jeu et préparer le PDF</button>';
+  ouvrirModale(h); majCompteTheme();
+}
+
+/* ---- Réponse d'un groupe : choix dans une liste avec recherche (Vérif.) ---- */
+var repB=null;
+function modaleRep(b){
+  var s=setTheme(b), c=classe(); if(!s||!c||!uiVerifG) return; repB=b;
+  var cur=(c.codes[uiVerifG]||{})[b]||'';
+  var items=(s.reps||[]).map(function(id){ return [id,libRep(s,id)]; }).sort(function(x,y){ var a=sansAcc(x[1]), z=sansAcc(y[1]); return a<z?-1:a>z?1:0; });
+  var h='<div class="modale-header"><h3>Groupe '+esc(uiVerifG)+' · '+esc(baliseLabel(b))+'</h3><button class="btn-fermer" data-act="fermer">&times;</button></div>';
+  h+='<p class="petit">'+esc(THEMES[s.theme].question)+' Tape les premières lettres, puis touche la réponse.</p>';
+  h+='<input type="text" id="rechRep" placeholder="Rechercher…" autocomplete="off" autocapitalize="none" style="margin-bottom:8px"><div class="chips" id="listeRep">'+
+     items.map(function(it){ return '<button class="chip'+(it[0]===cur?' actif':'')+'" data-act="validrep" data-v="'+esc(it[0])+'" data-n="'+esc(sansAcc(it[1]))+'">'+esc(it[1])+'</button>'; }).join('')+'</div>';
+  h+='<button class="bouton bouton-clair" data-act="validrep" data-v="">Non trouvée (effacer la réponse)</button>';
+  ouvrirModale(h); var rr=$('rechRep'); if(rr) rr.focus();
+}
+function filtrerRep(q){
+  q=sansAcc(q.trim()); var bs=document.querySelectorAll('#listeRep [data-n]');
+  for(var i=0;i<bs.length;i++) bs[i].style.display=(!q||(' '+bs[i].getAttribute('data-n').replace(/-/g,' ')).indexOf(' '+q)>=0)?'':'none';
+}
+
+/* ---- PDF des balises : écrit à la main (texte et rectangles, police Helvetica standard), donc 100 % hors ligne et léger ---- */
+var PDF_H=842;
+function codeWin(ch){ var c=ch.charCodeAt(0); if(c>=32&&c<=255) return c; var m={338:140,339:156,8217:146,8216:145,8220:147,8221:148,8211:150,8212:151,8230:133,8364:128}; return m[c]||63; }
+function largTxt(t,gras,s){ var T=gras?LARG_B:LARG_N, w=0; for(var i=0;i<t.length;i++){ w+=(T[codeWin(t.charAt(i))-32]||556); } return w*s/1000; }
+function pdfEsc(t){
+  var r='', i, c; for(i=0;i<t.length;i++){ c=codeWin(t.charAt(i));
+    if(c===40||c===41||c===92) r+='\\'+String.fromCharCode(c); else if(c<32||c>126) r+='\\'+('00'+c.toString(8)).slice(-3); else r+=String.fromCharCode(c); }
+  return r;
+}
+function pdfCoul(hex){ var n=parseInt(hex.slice(1),16); return ((n>>16&255)/255).toFixed(3)+' '+((n>>8&255)/255).toFixed(3)+' '+((n&255)/255).toFixed(3); }
+function pdfTeinte(hex,k){
+  var n=parseInt(hex.slice(1),16); function m(x){ return Math.round(x+(255-x)*k); }
+  return '#'+[m(n>>16&255),m(n>>8&255),m(n&255)].map(function(x){ return ('0'+x.toString(16)).slice(-2); }).join('');
+}
+function pdfLumi(hex){ var n=parseInt(hex.slice(1),16); return (0.299*(n>>16&255)+0.587*(n>>8&255)+0.114*(n&255))/255; }
+/* y = distance depuis le haut de la page */
+function pRect(P,x,y,w,h,fill,stroke,lw){
+  var s=''; if(fill) s+=pdfCoul(fill)+' rg '; if(stroke) s+=pdfCoul(stroke)+' RG '+(lw||1)+' w ';
+  P.push(s+x.toFixed(2)+' '+(PDF_H-y-h).toFixed(2)+' '+w.toFixed(2)+' '+h.toFixed(2)+' re '+(fill&&stroke?'B':fill?'f':'S'));
+}
+function pTexte(P,t,x,y,gras,s,col){ P.push('BT '+pdfCoul(col||'#000000')+' rg /'+(gras?'F2':'F1')+' '+s.toFixed(1)+' Tf '+x.toFixed(2)+' '+(PDF_H-y).toFixed(2)+' Td ('+pdfEsc(t)+') Tj ET'); }
+function pTexteC(P,t,cx,y,gras,s,col){ pTexte(P,t,cx-largTxt(t,gras,s)/2,y,gras,s,col); }
+/* Taille de police la plus grande qui tient dans wMax ; sinon coupe en deux lignes au meilleur espace ou tiret */
+function ajusterTxt(t,gras,wMax,sMax,sMin){
+  var s, s1=0, s2=0, i, ch, a, b, w, best=null, bw=1e9;
+  for(s=sMax;s>=sMin;s--) if(largTxt(t,gras,s)<=wMax){ s1=s; break; }
+  if(s1>=sMax*0.7) return {l:[t],s:s1};
+  for(i=1;i<t.length-1;i++){ ch=t.charAt(i);
+    if(ch===' '){ a=t.slice(0,i); b=t.slice(i+1); } else if(ch==='-'){ a=t.slice(0,i+1); b=t.slice(i+1); } else continue;
+    w=Math.max(largTxt(a,gras,10),largTxt(b,gras,10)); if(w<bw){ bw=w; best=[a,b]; } }
+  if(best) for(s=sMax;s>=sMin;s--) if(Math.max(largTxt(best[0],gras,s),largTxt(best[1],gras,s))<=wMax){ s2=s; break; }
+  if(best&&s2>s1) return {l:best,s:s2};
+  if(s1) return {l:[t],s:s1};
+  if(best) return {l:best,s:Math.max(4,Math.floor(10*wMax/Math.max(largTxt(best[0],gras,1),largTxt(best[1],gras,1)))/10)};
+  return {l:[t],s:Math.max(4,Math.floor(10*wMax/largTxt(t,gras,1))/10)};
+}
+/* Écrit les lignes de rep centrées autour de cy */
+function pBloc(P,rep,cx,cy,gras,col){
+  var n=rep.l.length, lh=rep.s*1.15, y0=cy-(n-1)*lh/2+rep.s*0.35, i;
+  for(i=0;i<n;i++) pTexteC(P,rep.l[i],cx,y0+i*lh,gras,rep.s,col);
+}
+/* Drapeaux faciles à reconnaître, dessinés en vectoriel dans un cadre de 300 x 200 : r = rectangle [x,y,l,h,couleur], c = disque [cx,cy,r,couleur],
+   s = étoile pleine [cx,cy,R,couleur], t = pentagramme tracé [cx,cy,R,couleur,épaisseur], p = polygone [[x,y,...],couleur], l = ligne [x1,y1,x2,y2,épaisseur,couleur] */
+var FLAGS=(function(){
+  var W='#ffffff', F={}, i, row, c, n;
+  function V3(a,b,d){ return [['r',0,0,100,200,a],['r',100,0,100,200,b],['r',200,0,100,200,d]]; }
+  function H3(a,b,d){ return [['r',0,0,300,67,a],['r',0,67,300,66,b],['r',0,133,300,67,d]]; }
+  function NC(fond,c1,l1,c2,l2){ var o=[['r',0,0,300,200,fond],['r',105-l1/2,0,l1,200,c1],['r',0,100-l1/2,300,l1,c1]]; if(c2){ o.push(['r',105-l2/2,0,l2,200,c2],['r',0,100-l2/2,300,l2,c2]); } return o; }
+  F.FRA=V3('#0055A4',W,'#EF4135'); F.ITA=V3('#009246',W,'#CE2B37'); F.IRL=V3('#169B62',W,'#FF883E'); F.BEL=V3('#000000','#FAE042','#ED2939');
+  F.DEU=H3('#000000','#DD0000','#FFCE00'); F.NLD=H3('#AE1C28',W,'#21468B'); F.RUS=H3(W,'#0039A6','#D52B1E'); F.AUT=H3('#ED2939',W,'#ED2939');
+  F.POL=[['r',0,0,300,100,W],['r',0,100,300,100,'#DC143C']]; F.UKR=[['r',0,0,300,100,'#0057B7'],['r',0,100,300,100,'#FFD700']];
+  F.ESP=[['r',0,0,300,50,'#AA151B'],['r',0,50,300,100,'#F1BF00'],['r',0,150,300,50,'#AA151B']];
+  F.PRT=[['r',0,0,120,200,'#006600'],['r',120,0,180,200,'#FF0000'],['c',120,100,36,'#FFE000'],['c',120,100,24,'#FF0000'],['c',120,100,11,W]];
+  F.SWE=NC('#006AA7','#FECC00',40); F.NOR=NC('#BA0C2F',W,50,'#00205B',26); F.DNK=NC('#C8102E',W,32); F.FIN=NC(W,'#003580',40); F.ISL=NC('#02529C',W,50,'#DC1E35',26);
+  F.CHE=[['r',0,0,300,200,'#D52B1E'],['r',130,45,40,110,W],['r',95,80,110,40,W]];
+  n=[]; for(i=0;i<9;i++) n.push(['r',0,i*200/9,300,200/9+0.5,i%2?W:'#0D5EAF']); n.push(['r',0,0,111,111,'#0D5EAF'],['r',44,0,22,111,W],['r',0,44,111,22,W]); F.GRC=n;
+  F.GBR=[['r',0,0,300,200,'#012169'],['l',0,0,300,200,40,W],['l',0,200,300,0,40,W],['l',0,0,300,200,14,'#C8102E'],['l',0,200,300,0,14,'#C8102E'],['r',120,0,60,200,W],['r',0,70,300,60,W],['r',132,0,36,200,'#C8102E'],['r',0,82,300,36,'#C8102E']];
+  n=[['r',0,0,300,67,'#FF0000'],['r',0,67,300,66,W],['r',0,133,300,67,'#171796'],['r',122,58,56,70,'#FF0000']];
+  for(row=0;row<5;row++) for(c=0;c<5;c++) if((row+c)%2) n.push(['r',124+c*10.4,60+row*13.2,10.4,13.2,W]); F.HRV=n;
+  F.JPN=[['r',0,0,300,200,W],['c',150,100,60,'#BC002D']];
+  F.CHN=[['r',0,0,300,200,'#DE2910'],['s',52,52,32,'#FFDE00'],['s',102,22,11,'#FFDE00'],['s',122,47,11,'#FFDE00'],['s',122,77,11,'#FFDE00'],['s',102,101,11,'#FFDE00']];
+  F.IND=H3('#FF9933',W,'#138808').concat([['c',150,100,24,'#000080'],['c',150,100,20,W],['c',150,100,4,'#000080']]);
+  n=[]; for(i=0;i<13;i++) n.push(['r',0,i*200/13,300,200/13+0.5,i%2?W:'#B22234']); n.push(['r',0,0,120,200*7/13,'#3C3B6E']);
+  for(row=0;row<9;row++) for(c=0;c<(row%2?5:6);c++) n.push(['s',row%2?(c+1)*20:(c+0.5)*20,(row+0.8)*11.5,4.6,W]); F.USA=n;
+  var feuille=[[0,-60],[9,-40],[21,-46],[17,-20],[36,-28],[32,-6],[52,-2],[38,14],[42,26],[20,22],[4,30],[4,58]], pf=feuille.slice(), fl=[];
+  for(i=feuille.length-1;i>=1;i--) pf.push([-feuille[i][0],feuille[i][1]]);
+  pf.forEach(function(p){ fl.push(150+p[0]*0.95,98+p[1]*0.95); });
+  F.CAN=[['r',0,0,75,200,'#D80621'],['r',75,0,150,200,W],['r',225,0,75,200,'#D80621'],['p',fl,'#D80621']];
+  F.BRA=[['r',0,0,300,200,'#009C3B'],['p',[150,18,278,100,150,182,22,100],'#FFDF00'],['c',150,100,44,'#002776']];
+  F.ARG=[['r',0,0,300,200,W],['r',0,0,300,67,'#74ACDF'],['r',0,133,300,67,'#74ACDF'],['c',150,100,17,'#F6B40E']];
+  F.MEX=V3('#006847',W,'#CE1126').concat([['c',150,100,24,'#8C5A2B'],['c',150,100,14,'#3B7D3B']]);
+  F.COL=[['r',0,0,300,100,'#FCD116'],['r',0,100,300,50,'#003893'],['r',0,150,300,50,'#CE1126']];
+  n=[]; for(i=0;i<5;i++) n.push(['r',0,i*40,300,40,i%2?W:'#002A8F']); n.push(['p',[0,0,0,200,175,100],'#CF142B'],['s',60,100,34,W]); F.CUB=n;
+  F.MAR=[['r',0,0,300,200,'#C1272D'],['t',150,100,55,'#006233',7]];
+  F.TUN=[['r',0,0,300,200,'#E70013'],['c',150,100,58,W],['c',150,100,44,'#E70013'],['c',162,100,36,W],['s',160,100,22,'#E70013']];
+  F.TUR=[['r',0,0,300,200,'#E30A17'],['c',108,100,52,W],['c',124,100,42,'#E30A17'],['s',158,100,24,W]];
+  F.SEN=V3('#00853F','#FDEF42','#E31B23').concat([['s',150,100,34,'#00853F']]);
+  F.VNM=[['r',0,0,300,200,'#DA251D'],['s',150,100,62,'#FFFF00']];
+  F.THA=[['r',0,0,300,34,'#A51931'],['r',0,34,300,33,W],['r',0,67,300,66,'#2D2A4A'],['r',0,133,300,33,W],['r',0,166,300,34,'#A51931']];
+  F.JAM=[['r',0,0,300,200,'#000000'],['p',[0,0,300,0,150,100],'#009B3A'],['p',[0,200,300,200,150,100],'#009B3A'],['l',0,0,300,200,34,'#FED100'],['l',0,200,300,0,34,'#FED100']];
+  return F;
+})();
+/* Dessine un drapeau : coin haut gauche (x,y), largeur w (hauteur = 2/3 de w) */
+function pDrapeau(P,id,x,y,w){
+  var ops=FLAGS[id]; if(!ops) return;
+  var sc=w/300, h=w*2/3, i, j, o, pts, cx, cy, r, k;
+  function X(a){ return (x+a*sc).toFixed(2); }
+  function Y(b){ return (PDF_H-(y+b*sc)).toFixed(2); }
+  function chemin(pt){ var s='', q; for(q=0;q<pt.length;q+=2) s+=X(pt[q])+' '+Y(pt[q+1])+(q?' l ':' m '); return s; }
+  function etoile(cx2,cy2,R,pente){ var a=[], q, ang, ray; for(q=0;q<10;q++){ ang=(-90+36*q)*Math.PI/180; ray=(q%2)?R*0.382:R; a.push(cx2+ray*Math.cos(ang),cy2+ray*Math.sin(ang)); } return a; }
+  P.push('q '+x.toFixed(2)+' '+(PDF_H-y-h).toFixed(2)+' '+w.toFixed(2)+' '+h.toFixed(2)+' re W n');
+  for(i=0;i<ops.length;i++){ o=ops[i];
+    if(o[0]==='r') P.push(pdfCoul(o[5])+' rg '+X(o[1])+' '+Y(o[2]+o[4])+' '+(o[3]*sc).toFixed(2)+' '+(o[4]*sc).toFixed(2)+' re f');
+    else if(o[0]==='c'){ cx=o[1]; cy=o[2]; r=o[3]; k=r*0.5523;
+      P.push(pdfCoul(o[4])+' rg '+X(cx+r)+' '+Y(cy)+' m '+X(cx+r)+' '+Y(cy-k)+' '+X(cx+k)+' '+Y(cy-r)+' '+X(cx)+' '+Y(cy-r)+' c '+X(cx-k)+' '+Y(cy-r)+' '+X(cx-r)+' '+Y(cy-k)+' '+X(cx-r)+' '+Y(cy)+' c '+
+        X(cx-r)+' '+Y(cy+k)+' '+X(cx-k)+' '+Y(cy+r)+' '+X(cx)+' '+Y(cy+r)+' c '+X(cx+k)+' '+Y(cy+r)+' '+X(cx+r)+' '+Y(cy+k)+' '+X(cx+r)+' '+Y(cy)+' c h f'); }
+    else if(o[0]==='s') P.push(pdfCoul(o[4])+' rg '+chemin(etoile(o[1],o[2],o[3]))+'h f');
+    else if(o[0]==='p') P.push(pdfCoul(o[2])+' rg '+chemin(o[1])+'h f');
+    else if(o[0]==='l') P.push(pdfCoul(o[6])+' RG '+(o[5]*sc).toFixed(2)+' w '+X(o[1])+' '+Y(o[2])+' m '+X(o[3])+' '+Y(o[4])+' l S');
+    else if(o[0]==='t'){ pts=[]; [0,2,4,1,3].forEach(function(q){ var ang=(-90+72*q)*Math.PI/180; pts.push(o[1]+o[3]*Math.cos(ang),o[2]+o[3]*Math.sin(ang)); });
+      P.push(pdfCoul(o[4])+' RG '+(o[5]*sc).toFixed(2)+' w '+chemin(pts)+'h S'); }
+  }
+  P.push('Q'); pRect(P,x,y,w,h,null,'#888888',0.8);
+}
+function tailleFit(t,gras,wMax,sMax){ var s=sMax; while(s>8&&largTxt(t,gras,s)>wMax) s--; return s; }
+function pCoupe(P,x1,y1,x2,y2){ P.push('0.5 0.5 0.5 RG 0.6 w [4 3] 0 d '+x1.toFixed(2)+' '+(PDF_H-y1).toFixed(2)+' m '+x2.toFixed(2)+' '+(PDF_H-y2).toFixed(2)+' l S [] 0 d'); }
+/* Une balise dans un bloc bw x bh dont le coin haut gauche est (ox,oy) : 4 blocs par feuille A4, petits pour que les balises restent discrètes */
+function blocBalise(P,s,nb,ox,oy,bw,bh,etab){
+  var T=THEMES[s.theme], dr=(s.drap||[]).indexOf(nb)>=0, clair=pdfLumi(s.couleur)>0.62, ct=clair?'#222222':'#ffffff', cons=dr?T.consigneDrap:T.consigne, nomT=dr?T.nomDrap:T.nom;
+  var hh=44, cy=oy+hh+6, chb=44, gy=cy+chb+6, pied=etab?14:2, cw=bw/4, ch=(oy+bh-pied-gy)/4, fw=cw-14, k, g, id, it, rep, x, y, s1, s2, se, txtN=nb+' / '+s.n;
+  pRect(P,ox,oy,bw,hh,s.couleur);
+  pTexte(P,'BALISE '+nb,ox+8,oy+27,true,22,ct);
+  pTexte(P,s.nom,ox+8,oy+39,false,8,ct);
+  pTexte(P,nomT,ox+bw-8-largTxt(nomT,true,8),oy+17,true,8,ct);
+  pTexte(P,txtN,ox+bw-8-largTxt(txtN,false,8),oy+39,false,8,ct);
+  pRect(P,ox,cy,bw,chb,'#ffffff',s.couleur,1.5);
+  s1=tailleFit(cons[0],true,bw-14,12); s2=tailleFit(cons[1],true,bw-14,16);
+  pTexteC(P,cons[0],ox+bw/2,cy+17,true,s1,'#333333'); pTexteC(P,cons[1],ox+bw/2,cy+36,true,s2,'#111111');
+  for(k=0;k<16;k++){
+    x=ox+(k%4)*cw; y=gy+Math.floor(k/4)*ch; g=CASES16[k]; id=s.codes[nb]&&s.codes[nb][g]; it=itemTheme(s.theme,id);
+    pRect(P,x,y,cw,ch,pdfTeinte(s.couleur,0.88),s.couleur,1.2);
+    pTexte(P,g,x+4,y+10,true,8,'#222222');
+    if(dr) pDrapeau(P,id,x+(cw-fw)/2,y+ch/2-fw/3+6,fw);
+    else { rep=ajusterTxt(it&&it[2]?it[2]:'?',true,cw-8,15,6); pBloc(P,rep,x+cw/2,y+ch/2+5,true,'#111111'); }
+  }
+  if(etab){ se=7; while(se>4&&largTxt(etab,false,se)>bw-10) se-=0.5; pTexteC(P,etab,ox+bw/2,oy+bh-4,false,se,'#777777'); }
+}
+/* Une feuille A4 = 4 balises (2 x 2) séparées par des traits de coupe */
+function pageBalises(s,debut,fin,etab){
+  var P=[], M=20, G=12, bw=(595-2*M-G)/2, bh=(PDF_H-2*M-G)/2, b, j;
+  for(b=debut,j=0;b<=fin;b++,j++) blocBalise(P,s,b,M+(j%2)*(bw+G),M+Math.floor(j/2)*(bh+G),bw,bh,etab);
+  pCoupe(P,297.5,6,297.5,PDF_H-6); pCoupe(P,6,PDF_H/2,589,PDF_H/2);
+  return P.join('\n');
+}
+/* Corrigé enseignant : 4 balises par feuille, réponse en gras et indice dessous (capitale ou drapeau) */
+function pageCorrige(s,debut,fin){
+  var P=[], W=595, M=30, T=THEMES[s.theme], bw=(W-2*M-16)/2, bh=(PDF_H-74-40-14)/2, cw=bw/4, ch=(bh-22)/4, j, b, bx, by, k, x, y, g, id, it, rep, dr;
+  pTexte(P,'CORRIGÉ POUR L\'ENSEIGNANT : à ne pas plastifier ni donner aux élèves',M,M+14,true,13,'#b71c1c');
+  pTexte(P,s.nom+' · '+T.nom,M,M+30,false,10,'#555555');
+  for(b=debut,j=0;b<=fin;b++,j++){
+    dr=(s.drap||[]).indexOf(b)>=0;
+    bx=M+(j%2)*(bw+16); by=74+Math.floor(j/2)*(bh+14);
+    pRect(P,bx,by,bw,22,s.couleur); pTexte(P,'Balise '+b+(dr?' (drapeaux)':''),bx+8,by+16,true,13,pdfLumi(s.couleur)>0.62?'#222222':'#ffffff');
+    for(k=0;k<16;k++){
+      x=bx+(k%4)*cw; y=by+22+Math.floor(k/4)*ch; g=CASES16[k]; id=s.codes[b]&&s.codes[b][g]; it=itemTheme(s.theme,id);
+      pRect(P,x,y,cw,ch,pdfTeinte(s.couleur,0.9),s.couleur,1);
+      pTexte(P,g,x+3,y+9,true,7,'#555555');
+      rep=ajusterTxt(it?it[1]:'?',true,cw-6,10,5); pBloc(P,rep,x+cw/2,y+ch*(dr?0.32:0.42),true,'#111111');
+      if(dr) pDrapeau(P,id,x+10,y+ch*0.52,cw-20);
+      else { rep=ajusterTxt(it&&it[2]?it[2]:'?',false,cw-6,8,5); pBloc(P,rep,x+cw/2,y+ch*0.76,false,'#444444'); }
+    }
+  }
+  return P.join('\n');
+}
+function assemblerPdf(pages){
+  var objs=[null], n=pages.length, i, kids=[];
+  for(i=0;i<n;i++) kids.push((5+2*i)+' 0 R');
+  objs.push('<< /Type /Catalog /Pages 2 0 R >>');
+  objs.push('<< /Type /Pages /Kids ['+kids.join(' ')+'] /Count '+n+' >>');
+  objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+  objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+  for(i=0;i<n;i++){
+    objs.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents '+(6+2*i)+' 0 R >>');
+    objs.push('<< /Length '+pages[i].length+' >>\nstream\n'+pages[i]+'\nendstream');
+  }
+  var out='%PDF-1.4\n%\xE2\xE3\xCF\xD3\n', off=[0], xr;
+  for(i=1;i<objs.length;i++){ off[i]=out.length; out+=i+' 0 obj\n'+objs[i]+'\nendobj\n'; }
+  xr=out.length; out+='xref\n0 '+objs.length+'\n0000000000 65535 f \n';
+  for(i=1;i<objs.length;i++) out+=('0000000000'+off[i]).slice(-10)+' 00000 n \n';
+  out+='trailer\n<< /Size '+objs.length+' /Root 1 0 R >>\nstartxref\n'+xr+'\n%%EOF\n';
+  var u=new Uint8Array(out.length); for(i=0;i<out.length;i++) u[i]=out.charCodeAt(i)&255;
+  return u;
+}
+function construirePdf(s,avecCorrige,etab){
+  var pages=[], b;
+  for(b=1;b<=s.n;b+=4) pages.push(pageBalises(s,b,Math.min(s.n,b+3),etab||''));
+  if(avecCorrige) for(b=1;b<=s.n;b+=4) pages.push(pageCorrige(s,b,Math.min(s.n,b+3)));
+  return assemblerPdf(pages);
+}
+function nomPdf(s){ return 'CO_EPS_balises_'+(s.nom.replace(/[^A-Za-z0-9À-ÿ_-]/g,'')||'jeu')+'_'+aujourdhui()+'.pdf'; }
+function modalePdf(id){
+  var s=getSet(id); if(!s) return;
+  var h='<div class="modale-header"><h3>PDF des balises</h3><button class="btn-fermer" data-act="fermer">&times;</button></div>';
+  h+='<p><b>'+esc(s.nom)+'</b> · '+s.n+' balises : <b>4 balises par feuille A4</b> ('+Math.ceil(s.n/4)+' feuille'+(s.n>4?'s':'')+'), à imprimer <b>en couleur</b>, découper suivant les pointillés, puis plastifier.</p><p class="petit">'+(S.etab?'Établissement imprimé sous chaque balise : <b>'+esc(S.etab)+'</b>.':'Aucun nom d\'établissement : tu peux l\'ajouter dans Réglages › Établissement, il s\'imprimera sous chaque balise.')+'</p>';
+  h+='<div class="rangee"><div class="corps">Ajouter le corrigé (pages pour l\'enseignante)<div class="petit">À la fin du PDF : tous les pays et leurs capitales, case par case. Ne pas plastifier.</div></div><label class="switch"><input type="checkbox" id="pdfCorrige" checked><span class="slider"></span></label></div>';
+  h+='<button class="bouton bouton-primaire" data-act="pdfpartage" data-id="'+esc(id)+'">📤 Enregistrer dans Drive / Partager</button><button class="bouton bouton-secondaire" data-act="pdftelech" data-id="'+esc(id)+'">⬇️ Télécharger le PDF</button>';
+  h+='<p class="petit">« Enregistrer dans Drive / Partager » ouvre la feuille de partage de la tablette : choisis Drive, puis imprime en couleur depuis l\'ordinateur ou l\'imprimante de ton choix. Le PDF ne change pas : tu peux le regénérer à tout moment depuis les Réglages.</p>';
+  ouvrirModale(h);
+}
+function livrerPdf(nom,oct,partager){
+  var blob=new Blob([oct],{type:'application/pdf'});
+  if(partager&&navigator.share&&navigator.canShare&&window.File){
+    try{
+      var f=new File([blob],nom,{type:'application/pdf'});
+      if(navigator.canShare({files:[f]})){
+        navigator.share({files:[f],title:nom}).then(function(){ toast('PDF partagé'); },function(err){
+          if(err&&err.name==='AbortError') return;
+          telechargerBlob(nom,blob); toast('Partage impossible : PDF enregistré dans Téléchargements',3500);
+        });
+        return;
+      }
+    }catch(e){}
+    telechargerBlob(nom,blob); toast('Partage non disponible ici : PDF enregistré dans Téléchargements',3500); return;
+  }
+  telechargerBlob(nom,blob);
+  toast(EST_IOS?'PDF ouvert : touche Partager puis « Enregistrer dans Fichiers »':'PDF enregistré dans Téléchargements',3500);
+}
+
 /* ============ VUE : RÉGLAGES ============ */
 function vueReglages(){
   var h='<button class="bouton bouton-clair" data-act="fermerreglages" style="margin:0 0 14px">🔒 Fermer les réglages</button>';
   h+='<div class="section"><h2>Groupes</h2><label>Noms des groupes (séparés par des virgules)</label><input type="text" id="inGroupes" value="'+esc(S.groupes.join(', '))+'"><button class="bouton bouton-secondaire" data-act="majgroupes">Enregistrer les groupes</button><p class="petit">Les jeux de balises d\'origine (PDF) couvrent les groupes A1 à D4.</p></div>';
   h+='<div class="section"><h2>Pénalité</h2><label>Durée d\'une pénalité (secondes)</label><div class="stepper-nombre"><button class="stepper-btn" data-act="pensec" data-d="-10" aria-label="Diminuer la pénalité">−</button><input type="number" readonly value="'+S.penSec+'"><button class="stepper-btn" data-act="pensec" data-d="10" aria-label="Augmenter la pénalité">+</button></div></div>';
+  h+='<div class="section"><h2>Établissement</h2><label>Nom imprimé sous chaque balise (PDF)</label><input type="text" id="inEtab" maxlength="60" value="'+esc(S.etab)+'" placeholder="Ex. Collège Mont Saint Jean"><button class="bouton bouton-secondaire" data-act="majetab">Enregistrer l\'établissement</button></div>';
   h+='<div class="section"><h2>Jeux de balises</h2><p class="petit">Les 10 couleurs × 8 balises du PDF sont intégrées et ne sont pas modifiables (balises plastifiées). Ajoute ici un jeu personnalisé (ex. 12 balises imprimées en 3D avec d\'autres codes).</p>';
-  tousLesSets().forEach(function(s){ h+='<div class="rangee"><span class="puce" style="background:'+s.couleur+'"></span><div class="corps"><b>'+esc(s.nom)+'</b> <span class="petit">'+s.n+' balises'+(s.builtin?' · PDF':' · personnalisé')+'</span></div>'+(s.builtin?'':'<button class="chip" data-act="editset" data-id="'+esc(s.id)+'" style="margin:0 6px 0 0">Modifier</button><button class="chip" data-act="delset" data-id="'+esc(s.id)+'" style="margin:0">🗑️</button>')+'</div>'; });
-  h+='<button class="bouton bouton-secondaire" data-act="newset">+ Nouveau jeu de balises</button></div>';
+  tousLesSets().forEach(function(s){ h+='<div class="rangee"><span class="puce" style="background:'+s.couleur+'"></span><div class="corps"><b>'+esc(s.nom)+'</b> <span class="petit">'+s.n+' balises'+(s.builtin?' · PDF':(s.theme&&THEMES[s.theme]?' · '+THEMES[s.theme].nom:' · personnalisé'))+'</span></div>'+(s.builtin?'':(s.theme?'<button class="chip" data-act="pdfset" data-id="'+esc(s.id)+'" style="margin:0 6px 0 0">📄 PDF</button>':'<button class="chip" data-act="editset" data-id="'+esc(s.id)+'" style="margin:0 6px 0 0">Modifier</button>')+'<button class="chip" data-act="delset" data-id="'+esc(s.id)+'" style="margin:0">🗑️</button>')+'</div>'; });
+  h+='<button class="bouton bouton-secondaire" data-act="newset">+ Nouveau jeu de balises</button><button class="bouton bouton-secondaire" data-act="newtheme">🌍 Nouveau jeu thématique (capitales…)</button></div>';
   h+=sectionCartes();
   h+='<div class="section"><h2>Affichage</h2><div class="rangee"><div class="corps">Mode sombre</div><label class="switch"><input type="checkbox" data-chg="sombre"'+(S.sombre?' checked':'')+'><span class="slider"></span></label></div>'+
      '<div class="rangee"><div class="corps">Afficher le code attendu quand une saisie est fausse</div><label class="switch"><input type="checkbox" data-chg="attendu"'+(S.afficherAttendu?' checked':'')+'><span class="slider"></span></label></div>'+
@@ -1390,7 +1725,7 @@ function aideHtml(){
     '<h4>⏱️ Course</h4><p>Départ (tous ou groupe par groupe), <b>Arrivée</b> à chaque retour (Annuler pendant 6 s). Heure de RDV max : une pénalité par minute de retard s\'ajoute toute seule. Bouton <b>⋯</b> : pénalités, correction des heures, groupe absent.</p>'+
     '<h4>✅ Vérif.</h4><p>Choisis un groupe et tape la lettre relevée pour chaque balise (le <b>n° de poste</b> est affiché ; les balises sont dans l\'ordre du parcours du groupe). <b>💡 Révéler l\'indice</b> (avec confirmation) : la balise trouvée ne vaut alors que les points « avec indice ».</p>'+
     '<h4>🏆 Podium</h4><p>Classement aux <b>points</b>, puis au temps (course + pénalités). Export CSV ou copie vers Excel.</p>'+
-    '<h4>⚙️ Réglages (mot de passe)</h4><p>Mot de passe, <b>mode élève</b> (confier la tablette à un élève dispensé : Course et Vérif. d\'une seule classe), indices, points par balise, durée des pénalités, jeux de balises, sauvegarde et restauration, <b>Nouvelle séance</b>.</p>'+
+    '<h4>⚙️ Réglages (mot de passe)</h4><p>Mot de passe, <b>mode élève</b> (confier la tablette à un élève dispensé : Course et Vérif. d\'une seule classe), indices, points par balise, durée des pénalités, jeux de balises (dont les <b>jeux thématiques</b> : capitales d\'un thème au choix, avec un PDF des balises à imprimer en couleur), sauvegarde et restauration, <b>Nouvelle séance</b>.</p>'+
     '<h4>En cas de souci</h4><p>Ne vide jamais les données du site dans Chrome (tu perdrais classes et élèves). Si un bandeau propose une nouvelle version, touche « Recharger ». Pense à exporter une sauvegarde de temps en temps (Réglages).</p>';
 }
 /* ============ ACTIONS (clics) ============ */
@@ -1467,6 +1802,19 @@ document.addEventListener('click',function(e){
       if(msgs.length) confirmer(msgs.join('\n\n')+'\n\nEnregistrer quand même ?',enreg,'Enregistrer'); else enreg(); } break;
     case 'pensec': S.penSec=Math.max(0,S.penSec+parseInt(el.getAttribute('data-d'),10)); sauver(); dessiner(); break;
     case 'newset': modaleSet(''); break;
+    case 'majetab': S.etab=$('inEtab').value.trim().slice(0,60); sauver(); toast('Établissement enregistré'); break;
+    case 'newtheme': modaleTheme(); break;
+    case 'thn': thN=Math.max(1,Math.min(10,thN+parseInt(el.getAttribute('data-d'),10))); $('tN').value=thN; majCompteTheme(); break;
+    case 'thd': thD=Math.max(0,Math.min(thN,thD+parseInt(el.getAttribute('data-d'),10))); majCompteTheme(); break;
+    case 'thfiltre': var thF=el.getAttribute('data-f'); thSel[thF]=!thSel[thF]; if(thSel[thF]) el.classList.add('actif'); else el.classList.remove('actif'); majCompteTheme(); break;
+    case 'savetheme': var thNom=$('tNom').value.trim(); if(!thNom){ avertir('Donne un nom au jeu.'); break; }
+      var thT=thTags(), thS=thT.length?genererJeuTheme('pays',thNom,$('tCoul').value,thN,thT,thDeff()):null;
+      if(!thS||!RE_COUL.test(thS.couleur)){ avertir('Impossible de créer '+thN+' balises avec ces thèmes : il faut au moins 16 pays différents, et plus de pays que de balises. Coche un autre thème ou réduis le nombre de balises.'); break; }
+      S.sets.push(thS); sauver(); dessiner(); modalePdf(thS.id); break;
+    case 'pdfset': modalePdf(el.getAttribute('data-id')); break;
+    case 'pdfpartage': case 'pdftelech': var pdfS=getSet(el.getAttribute('data-id')); if(pdfS){ var pdfO=null; try{ pdfO=construirePdf(pdfS,$('pdfCorrige')?$('pdfCorrige').checked:true,S.etab); }catch(errP){ avertir('Création du PDF impossible : '+errP.message); } if(pdfO) livrerPdf(nomPdf(pdfS),pdfO,a==='pdfpartage'); } break;
+    case 'choixrep': modaleRep(b); break;
+    case 'validrep': if(c&&uiVerifG&&repB){ var vrep=el.getAttribute('data-v'); if(!c.codes[uiVerifG]) c.codes[uiVerifG]={}; if(vrep==='') delete c.codes[uiVerifG][repB]; else c.codes[uiVerifG][repB]=vrep; sauver(); } repB=null; fermerModale(); dessinerGarde(); break;
     case 'editset': modaleSet(el.getAttribute('data-id')); break;
     case 'delset': var sid=el.getAttribute('data-id'); confirmer('Supprimer ce jeu de balises ?',function(){ S.sets=S.sets.filter(function(s){return s.id!==sid;}); S.seance.setIds=S.seance.setIds.map(function(x){return x===sid?'':x;}); sauver(); dessiner(); },'Supprimer',true); break;
     case 'setn': var inN=$('sN'), cur=lireGrille(), nn=Math.max(1,Math.min(30,parseInt(inN.value,10)+parseInt(el.getAttribute('data-d'),10))); inN.value=nn; $('sGrille').innerHTML=grilleCodes({codes:cur},nn); break;
@@ -1510,7 +1858,7 @@ document.addEventListener('change',function(e){
     case 'initiales': S.initiales=t.checked; sauver(); dessiner(); break;
   }
 });
-document.addEventListener('input',function(e){ var t=e.target; if(t.getAttribute&&t.getAttribute('data-in')) saisieCode(t); });
+document.addEventListener('input',function(e){ var t=e.target; if(t.getAttribute&&t.getAttribute('data-in')) saisieCode(t); if(t.id==='rechRep') filtrerRep(t.value); });
 document.addEventListener('focusin',function(e){ var t=e.target; if(t.getAttribute&&t.getAttribute('data-in')&&t.select) t.select(); });
 
 /* ============ CHRONO LIVE, SAUVEGARDE, VEILLE ============ */
