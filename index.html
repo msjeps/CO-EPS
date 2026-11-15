@@ -179,7 +179,7 @@ var PAYS=[
 ['NLD','Pays-Bas','Amsterdam','EFJ'],['CHE','Suisse','Berne','ETFJ'],['AUT','Autriche','Vienne','ETJ'],['GRC','Grèce','Athènes','ETJ'],
 ['SWE','Suède','Stockholm','EFJ'],['NOR','Norvège','Oslo','ETJ'],['DNK','Danemark','Copenhague','EF'],['FIN','Finlande','Helsinki','EJ'],
 ['ISL','Islande','','ET'],['POL','Pologne','Varsovie','EF'],['CZE','République tchèque','Prague','ET'],['HUN','Hongrie','Budapest','EF'],
-['ROU','Roumanie','Bucarest','EF'],['HRV','Croatie','','ETF'],['SRB','Serbie','Belgrade','EF'],['UKR','Ukraine','Kiev','EF'],
+['DEA','Deauville','Festival du cinéma américain','F',['Festival du cinéma américain','Les planches et la plage']],
 ['RUS','Russie','Moscou','EGFJ'],['TUR','Turquie','Ankara','GTF'],['CAN','Canada','Ottawa','GTFJ'],['USA','États-Unis','Washington D.C.','GTFJ'],
 ['MEX','Mexique','Mexico','GTFJ'],['BRA','Brésil','Brasília','GTFJ'],['ARG','Argentine','Buenos Aires','GTF'],['CHN','Chine','Pékin','GTJ'],
 ['IND','Inde','New Delhi','GT'],['AUS','Australie','Canberra','GTFJ'],['DZA','Algérie','Alger','GF'],['EGY','Égypte','Le Caire','GTF'],
@@ -209,10 +209,88 @@ var SPORTS=[
 ['DIS','Lancer du disque','Sorte de soucoupe volante','T'],['TRP','Triple saut','3e bond dans le sable','T'],['GRY','Gymnastique rythmique','Ruban, cerceau, ballon','T'],['SYN','Natation synchronisée','Ballet aquatique','T'],
 ['MRT','Lancer du marteau','Boulet au bout d\'un câble','T']
 ];
+/* Villes (2.48) : [id, ville, premier indice, filtres (C célèbres, F France, E Europe, M monde), tous les indices] ; l'indice imprimé est tiré au hasard parmi ceux de la ville (s.ind) */
+var VILLES_RAW=[
+['PAR','Paris','Arc de Triomphe','CF',['Arc de Triomphe','Tour Eiffel','Champs-Élysées','Le Louvre']],
+['MRS','Marseille','La Canebière','CF',['La Canebière','Bouillabaisse','Stade Vélodrome']],
+['NCE','Nice','Promenade des Anglais','CF',['Promenade des Anglais','Carnaval, côte d\'Azur']],
+['CAN','Cannes','Palais des festivals','CF',['Palais des festivals','Festival du film : montée des marches']],
+['LYO','Lyon','Fête des Lumières','CF',['Fête des Lumières','Ville des frères Lumière']],
+['BOD','Bordeaux','Capitale du vin','CF',['Capitale du vin','Place de la Bourse et miroir d\'eau']],
+['TLS','Toulouse','Airbus, la ville rose','CF',['Airbus, la ville rose']],
+['STR','Strasbourg','Parlement européen','CF',['Parlement européen','Capitale de l\'Alsace']],
+['LMS','Le Mans','Course automobile de 24 heures','CF',['Course automobile de 24 heures']],
+['AVI','Avignon','Sur le pont d\'... on y danse','CF',['Sur le pont d\'... on y danse','Palais des Papes']],
+['ROU','Rouen','Jeanne d\'Arc y a été condamnée et brûlée','CF',['Jeanne d\'Arc y a été condamnée et brûlée','Cathédrale peinte par Monet']],
+['BIA','Biarritz','Spots de surf du Pays basque','CF',['Spots de surf du Pays basque']],
+['LRD','Lourdes','La ville des miracles','CF',['La ville des miracles','Pèlerinage et grotte de la Vierge']],
+['REI','Reims','Cathédrale du sacre des rois','F',['Cathédrale du sacre des rois','Capitale du champagne']],
+['CHA','Chamonix','Au pied du Mont Blanc','F',['Au pied du Mont Blanc','Premiers JO d\'hiver (1924)']],
+['MEN','Menton','Fête du citron','F',['Fête du citron']],
+['STT','Saint-Tropez','Plage de Pampelonne','F',['Plage de Pampelonne','Les films du gendarme']],
+['NTE','Nantes','Machines de l\'île et éléphant géant','CF',['Machines de l\'île et éléphant géant','Château des ducs de Bretagne']],
+['SML','Saint-Malo','Cité corsaire et grandes marées','CF',['Cité corsaire et grandes marées','Remparts face à la mer']],
+['VSL','Versailles','Galerie des Glaces','CF',['Galerie des Glaces','Château du Roi-Soleil']],
+['DIJ','Dijon','La moutarde','F',['La moutarde','Capitale de la Bourgogne']],
+['ORL','Orléans','Délivrée par Jeanne d\'Arc en 1429','F',['Délivrée par Jeanne d\'Arc en 1429']],
+['CAL','Calais','Port face à l\'Angleterre','F',['Port face à l\'Angleterre','Tunnel sous la Manche']],
+['LIL','Lille','Grande braderie','F',['Grande braderie','Capitale des Flandres']],
+['AJA','Ajaccio','Ville natale de Napoléon','F',['Ville natale de Napoléon']],
+['STE','Saint-Étienne','Son club de football s\'appelle « les Verts »','F',['Son club de football s\'appelle « les Verts »']],
+['MLV','Marne-la-Vallée','Célèbre pour son parc Disneyland Paris','CF',['Célèbre pour son parc Disneyland Paris']],
+['LON','Londres','Big Ben','CE',['Big Ben','Tower Bridge','Buckingham Palace','London Eye']],
+['ROM','Rome','Le Colisée','CE',['Le Colisée','Fontaine de Trevi','Le Vatican']],
+['MAD','Madrid','Ville du Real','CE',['Ville du Real','Stade Santiago-Bernabéu']],
+['BCN','Barcelone','Sagrada Família','CE',['Sagrada Família','Ville du Barça','Parc Güell']],
+['BER','Berlin','Son mur a séparé la ville en deux','CE',['Son mur a séparé la ville en deux','Porte de Brandebourg']],
+['AMS','Amsterdam','Tulipes, canaux, vélos','CE',['Tulipes, canaux, vélos','Maison d\'Anne Frank']],
+['BRU','Bruxelles','Manneken-Pis','CE',['Manneken-Pis','Atomium','Gaufres']],
+['MCO','Monaco','Grand Prix de Formule 1 dans une principauté','CE',['Grand Prix de Formule 1 dans une principauté','Casino de Monte-Carlo']],
+['BAY','Bayonne','Fêtes du Pays basque : béret et foulard rouge','CF',['Fêtes du Pays basque : béret et foulard rouge']],
+['ATH','Athènes','Le Parthénon','CE',['Le Parthénon','Berceau des Jeux olympiques modernes']],
+['VEN','Venise','Gondoles et canaux','CE',['Gondoles et canaux','Carnaval et masques','Place Saint-Marc']],
+['PIS','Pise','Sa tour est penchée','CE',['Sa tour est penchée']],
+['VIE','Vienne','Valses et palais de Schönbrunn','E',['Valses et palais de Schönbrunn','Concert du Nouvel An']],
+['MOW','Moscou','Place Rouge et Kremlin','CE',['Place Rouge et Kremlin','Cathédrale Basile-le-Bienheureux']],
+['EDI','Édimbourg','Cornemuses et kilts','E',['Cornemuses et kilts','Capitale de l\'Écosse']],
+['MIL','Milan','Capitale de la mode','E',['Capitale de la mode','Stade San Siro']],
+['LIV','Liverpool','Ville des Beatles','E',['Ville des Beatles','Stade d\'Anfield']],
+['MUC','Munich','Oktoberfest, fête de la bière','E',['Oktoberfest, fête de la bière','Stade Allianz Arena']],
+['CPH','Copenhague','La Petite Sirène','E',['La Petite Sirène','Capitale du Danemark']],
+['NAP','Naples','Berceau de la pizza','E',['Berceau de la pizza','Au pied du Vésuve']],
+['DUB','Dublin','Guinness et trèfle','E',['Guinness et trèfle','Capitale de l\'Irlande']],
+['MAN','Manchester','Stade d\'Old Trafford','E',['Stade d\'Old Trafford']],
+['LIS','Lisbonne','Tramway jaune','E',['Tramway jaune','Tour de Belém']],
+['NYC','New York','Statue de la Liberté','CM',['Statue de la Liberté','Central Park','Empire State Building','Times Square']],
+['LAX','Los Angeles','Hollywood','CM',['Hollywood','Les Lakers']],
+['WAS','Washington','La Maison-Blanche','CM',['La Maison-Blanche','Capitale des États-Unis']],
+['DXB','Dubaï','Plus haut gratte-ciel du monde','CM',['Plus haut gratte-ciel du monde','Île artificielle en forme de palmier']],
+['PEK','Pékin','La Cité interdite','CM',['La Cité interdite','Jeux olympiques de 2008']],
+['TYO','Tokyo','Mangas et sumos','CM',['Mangas et sumos','Carrefour de Shibuya','Capitale du Japon']],
+['RIO','Rio de Janeiro','Christ Rédempteur','CM',['Christ Rédempteur','Carnaval et plage de Copacabana']],
+['SYD','Sydney','Opéra aux toits en voiles','CM',['Opéra aux toits en voiles','Harbour Bridge']],
+['CAI','Le Caire','Pyramides de Gizeh','CM',['Pyramides de Gizeh','Le Sphinx et le Nil']],
+['AGR','Agra','Le Taj Mahal','M',['Le Taj Mahal']],
+['LAS','Las Vegas','Casinos dans le désert','M',['Casinos dans le désert','Ville du jeu']],
+['SFO','San Francisco','Pont Golden Gate','M',['Pont Golden Gate','Prison d\'Alcatraz']],
+['RAK','Marrakech','Place Jemaa el-Fna','M',['Place Jemaa el-Fna','La ville rose du Maroc']],
+['DKR','Dakar','Arrivée du rallye Paris-...','M',['Arrivée du rallye Paris-...','Capitale du Sénégal']],
+['BUE','Buenos Aires','Berceau du tango','M',['Berceau du tango','Boca Juniors']],
+['HAV','La Havane','Vieilles voitures américaines','M',['Vieilles voitures américaines','Capitale de Cuba']],
+['MTL','Montréal','Grande ville francophone du Canada','M',['Grande ville francophone du Canada','Hockey sur glace']],
+['DOH','Doha','Coupe du monde de football 2022','M',['Coupe du monde de football 2022']],
+['YYZ','Toronto','Tour CN','M',['Tour CN','Ville des Raptors']],
+['BOM','Mumbai','Bollywood','M',['Bollywood','Porte de l\'Inde']],
+['SEL','Séoul','K-pop et Samsung','M',['K-pop et Samsung','Capitale de la Corée du Sud']]
+];
+var VILLES=VILLES_RAW;
 var THEMES={pays:{titre:'Pays (capitales, drapeaux)',nomDefaut:'Capitales',unite:'pays',quels:'Quels pays ?',drapeaux:true,filtreDef:'E',nom:'Pays (capitales)',nomDrap:'Drapeaux',consigne:['Lis la case de ton groupe :','de quel pays est-ce la capitale ?'],consigneDrap:['Lis la case de ton groupe :','de quel pays est-ce le drapeau ?'],question:'Quel est ce pays (capitale ou drapeau) ?',
   filtres:[['E','Europe'],['G','Grands pays'],['T','Pays touristiques'],['F','Coupe du monde de football'],['J','Jeux olympiques']],items:PAYS},
   sport:{titre:'Sports (indices)',nomDefaut:'Sports',unite:'sports',quels:'Quels sports ?',drapeaux:false,filtreDef:'C',nom:'Sports (indices)',nomDrap:'',consigne:['Lis la case de ton groupe :','de quel sport s\'agit-il ?'],consigneDrap:['',''],question:'De quel sport s\'agit-il ?',
-  filtres:[['M','Matériel et terrain'],['R','Règles et vocabulaire'],['T','Techniques et gestes'],['C','Sports du collège']],items:SPORTS}};
+  filtres:[['M','Matériel et terrain'],['R','Règles et vocabulaire'],['T','Techniques et gestes'],['C','Sports du collège']],items:SPORTS},
+  ville:{titre:'Villes (monuments, célébrités)',nomDefaut:'Villes',unite:'villes',quels:'Quelles villes ?',drapeaux:false,kinds:true,filtreDef:'C',nom:'Villes du monde',nomDrap:'',consigne:['Lis la case de ton groupe :','de quelle ville s\'agit-il ?'],consigneDrap:['',''],question:'De quelle ville s\'agit-il ?',
+  aide:'Chaque balise porte 16 indices différents (un par case A1 à D4) : un <b>monument</b>, un <b>événement</b> ou une <b>célébrité</b> d\'une ville (ex. « Tulipes et canaux » pour Amsterdam). Les élèves retrouvent la <b>ville</b> dans une liste. Un même groupe ne tombe jamais deux fois sur la même ville. Tu imprimes ensuite les balises depuis un PDF.',
+  filtres:[['C','Les plus célèbres'],['F','Villes de France'],['E','Villes d\'Europe'],['M','Reste du monde']],items:VILLES}};
 /* Les 16 cases d'une balise, ligne par ligne : A1 B1 C1 D1 A2 ... D4 */
 var CASES16=[]; ['1','2','3','4'].forEach(function(r){ ['A','B','C','D'].forEach(function(l){ CASES16.push(l+r); }); });
 var COULEURS = {Rouge:'#e53935',Bleu:'#1e66d0',Vert:'#2e9e4f',Jaune:'#f2c200',Orange:'#f57c00',Violet:'#7b3fa0',Rose:'#f48fb1',Marron:'#8d5a3b',Cyan:'#00bcd4',Magenta:'#d81b9a'};
@@ -232,7 +310,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.47';
+var APP_VER='2.48';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -269,7 +347,7 @@ function etatValide(o){
       for(i=0;i<o.sets.length;i++){ var st=o.sets[i];
         if(!estObj(st)||!RE_ID.test(st.id)||typeof st.nom!=='string'||!RE_COUL.test(st.couleur)||!estNb(st.n)||st.n<1||st.n>30) return false;
         if(!estObj(st.codes)) st.codes={};
-        if(st.theme!==undefined){ if(typeof st.theme!=='string'||!THEMES[st.theme]||!Array.isArray(st.reps)){ delete st.theme; delete st.reps; } else{ st.reps=st.reps.filter(function(x){ return typeof x==='string'&&/^[A-Z]{3}$/.test(x); }); st.drap=Array.isArray(st.drap)?st.drap.filter(function(x){ return estNb(x)&&x>=1&&x<=30; }):[]; } } } }
+        if(st.theme!==undefined){ if(typeof st.theme!=='string'||!THEMES[st.theme]||!Array.isArray(st.reps)){ delete st.theme; delete st.reps; } else{ st.reps=st.reps.filter(function(x){ return typeof x==='string'&&/^[A-Z]{3}$/.test(x); }); if(estObj(st.ind)){ var ni={}; Object.keys(st.ind).forEach(function(k){ if(/^[A-Z]{3}$/.test(k)&&typeof st.ind[k]==='string') ni[k]=st.ind[k].slice(0,80); }); st.ind=ni; } else delete st.ind; st.drap=Array.isArray(st.drap)?st.drap.filter(function(x){ return estNb(x)&&x>=1&&x<=30; }):[]; } } } }
     if(!Array.isArray(o.lieux)) o.lieux=[];
     o.lieux=o.lieux.filter(function(l){ return estObj(l)&&estNb(l.n)&&l.n>=6&&l.n<=99&&Math.round(l.n)===l.n&&typeof l.nom==='string'; }).map(function(l){ return {n:l.n,nom:l.nom.slice(0,40)}; });
     if('seance' in o){ var se=o.seance; if(!estObj(se)) return false;
@@ -1315,6 +1393,9 @@ function itemTheme(th,id){ var T=THEMES[th]; if(!T) return null; for(var i=0;i<T
 function setTheme(b){ var s=getSet(parseB(b).setId); return (s&&s.theme&&THEMES[s.theme])?s:null; }
 function libRep(s,id){ var it=itemTheme(s.theme,id); return it?it[1]:id; }
 function affCode(b,code){ var s=setTheme(b); return (s&&code)?libRep(s,code):code; }
+/* Indice imprimé pour une réponse : celui tiré au hasard à la création du jeu (s.ind), sinon l'indice par défaut */
+function indiceDe(s,id){ if(s.ind&&typeof s.ind[id]==='string'&&s.ind[id]) return s.ind[id]; var it=itemTheme(s.theme,id); return it&&it[2]?it[2]:''; }
+function tirerIndices(th,ids,tags){ var r={}; ids.forEach(function(id){ var it=itemTheme(th,id); if(it&&it[4]&&it[4].length) r[id]=it[4][Math.floor(Math.random()*it[4].length)]; }); return r; }
 function poolTheme(th,tags){
   var r=[]; THEMES[th].items.forEach(function(it){ for(var i=0;i<tags.length;i++) if(it[3].indexOf(tags[i])>=0){ r.push(it); return; } });
   return r;
@@ -1356,7 +1437,7 @@ function genererJeuTheme(th,nom,couleur,n,tags,nbDrap){
       res=apparier(allow); if(!res){ ok=false; break; }
       codes[b]={}; for(k=0;k<16;k++){ codes[b][CASES16[k]]=res[k]; used[k][res[k]]=1; }
     }
-    if(ok){ var s={id:'s'+Date.now(),nom:nom,couleur:couleur,n:n,codes:codes,theme:th,reps:reps,drap:drap}; if(jeuValide(s)) return s; }
+    if(ok){ var s={id:'s'+Date.now(),nom:nom,couleur:couleur,n:n,codes:codes,theme:th,reps:reps,drap:drap}; if(THEMES[th].kinds) s.ind=tirerIndices(th,reps,tags); if(jeuValide(s)) return s; }
   }
   return null;
 }
@@ -1374,11 +1455,11 @@ function majCompteTheme(){
     (T.drapeaux?' · '+(nf>=16?'<b>'+nf+'</b> drapeaux possibles':'drapeaux indisponibles ('+nf+' pays, il en faut 16)')+'.':'.');
 }
 function modaleTheme(th){
-  thTheme=(th&&THEMES[th])?th:'pays'; var T=THEMES[thTheme]; thSel={}; thSel[T.filtreDef]=true; thN=8; thD=2;
+  thTheme=(th&&THEMES[th])?th:'pays'; var T=THEMES[thTheme]; thSel={}; T.filtreDef.split('').forEach(function(f){ thSel[f]=true; }); thN=8; thD=2;
   var h='<div class="modale-header"><h3>Nouveau jeu thématique</h3><button class="btn-fermer" data-act="fermer">&times;</button></div>';
   h+='<label>Thème du jeu</label><div class="chips">'+Object.keys(THEMES).map(function(k){ return '<button class="chip'+(k===thTheme?' actif':'')+'" data-act="ththeme" data-t="'+k+'">'+esc(THEMES[k].titre)+'</button>'; }).join('')+'</div>';
   h+=T.drapeaux?'<p class="petit">Chaque balise porte 16 indices différents (un par case A1 à D4) : une <b>capitale</b>, ou un <b>drapeau</b> sur quelques balises. Les élèves retrouvent le <b>pays</b> dans une liste. Un même groupe ne tombe jamais deux fois sur le même pays. Tu imprimes ensuite les balises depuis un PDF.</p>'
-   :'<p class="petit">Chaque balise porte 16 indices différents (un par case A1 à D4) : du <b>matériel</b>, une <b>règle</b> ou une <b>technique</b>. Les élèves retrouvent le <b>sport</b> dans une liste. Un même groupe ne tombe jamais deux fois sur le même sport. Tu imprimes ensuite les balises depuis un PDF.</p>';
+   :T.aide?'<p class="petit">'+T.aide+'</p>':'<p class="petit">Chaque balise porte 16 indices différents (un par case A1 à D4) : du <b>matériel</b>, une <b>règle</b> ou une <b>technique</b>. Les élèves retrouvent le <b>sport</b> dans une liste. Un même groupe ne tombe jamais deux fois sur le même sport. Tu imprimes ensuite les balises depuis un PDF.</p>';
   h+='<label>Nom du jeu</label><input type="text" id="tNom" value="'+esc(T.nomDefaut)+'" maxlength="30">';
   h+='<div class="grille g2"><div><label>Couleur</label><input type="color" id="tCoul" value="#1e66d0" style="width:100%;height:44px"></div><div><label>Nombre de balises</label><div class="stepper-nombre"><button class="stepper-btn" data-act="thn" data-d="-1" aria-label="Moins de balises">−</button><input type="number" id="tN" value="'+thN+'" readonly><button class="stepper-btn" data-act="thn" data-d="1" aria-label="Plus de balises">+</button></div></div></div>';
   if(T.drapeaux) h+='<label>Dont balises avec un drapeau à la place de la capitale</label><div class="stepper-nombre"><button class="stepper-btn" data-act="thd" data-d="-1" aria-label="Moins de balises à drapeaux">−</button><input type="number" id="tD" value="'+thD+'" readonly><button class="stepper-btn" data-act="thd" data-d="1" aria-label="Plus de balises à drapeaux">+</button></div>';
@@ -1539,9 +1620,9 @@ function tailleCommune(s){
   if(!s.theme) return t;
   for(b=1;b<=s.n;b++){ if((s.drap||[]).indexOf(b)>=0) continue;
     for(k=0;k<16;k++){ id=s.codes[b]&&s.codes[b][CASES16[k]]; it=itemTheme(s.theme,id); if(!it) continue;
-      z=tailleTxt(it[2]||'?',true,(595-40-12)/8-8,14,6,4); if(z<t.ind) t.ind=z;
+      z=tailleTxt(indiceDe(s,id)||'?',true,(595-40-12)/8-8,14,6,4); if(z<t.ind) t.ind=z;
       z=tailleTxt(it[1],true,(595-60-16)/8-6,10,5,3); if(z<t.rep) t.rep=z;
-      z=tailleTxt(it[2]||'?',false,(595-60-16)/8-6,8,5,4); if(z<t.cl) t.cl=z; } }
+      z=tailleTxt(indiceDe(s,id)||'?',false,(595-60-16)/8-6,8,5,4); if(z<t.cl) t.cl=z; } }
   return t;
 }
 /* Jeu personnalisé (sans thème) : une grille 4 x 4, un grand code par case, comme sur les balises d'origine */
@@ -1576,7 +1657,7 @@ function blocBalise(P,s,nb,ox,oy,bw,bh,etab){
     pRect(P,x,y,cw,ch,pdfTeinte(s.couleur,0.88),s.couleur,1.2);
     pTexte(P,g,x+4,y+10,true,8,'#222222');
     if(dr) pDrapeau(P,id,x+(cw-fw)/2,y+ch/2-fw/3+6,fw);
-    else { rep=lignesTxt(it&&it[2]?it[2]:'?',true,cw-8,PDFT.ind); pBloc(P,rep,x+cw/2,y+ch/2+5,true,'#111111'); }
+    else { rep=lignesTxt(indiceDe(s,id)||'?',true,cw-8,PDFT.ind); pBloc(P,rep,x+cw/2,y+ch/2+5,true,'#111111'); }
   }
   if(etab){ se=7; while(se>4&&largTxt(etab,false,se)>bw-10) se-=0.5; pTexteC(P,etab,ox+bw/2,oy+bh-4,false,se,'#777777'); }
 }
@@ -1602,7 +1683,7 @@ function pageCorrige(s,debut,fin){
       pTexte(P,g,x+3,y+9,true,7,'#555555');
       rep=lignesTxt(it?it[1]:'?',true,cw-6,PDFT.rep); pBloc(P,rep,x+cw/2,y+ch*(dr?0.32:0.42),true,'#111111');
       if(dr) pDrapeau(P,id,x+10,y+ch*0.52,cw-20);
-      else { rep=lignesTxt(it&&it[2]?it[2]:'?',false,cw-6,PDFT.cl); pBloc(P,rep,x+cw/2,y+ch*0.76,false,'#444444'); }
+      else { rep=lignesTxt(indiceDe(s,id)||'?',false,cw-6,PDFT.cl); pBloc(P,rep,x+cw/2,y+ch*0.76,false,'#444444'); }
     }
   }
   return P.join('\n');
@@ -1637,7 +1718,7 @@ function modalePdf(id){
   var s=getSet(id); if(!s) return;
   var h='<div class="modale-header"><h3>PDF des balises</h3><button class="btn-fermer" data-act="fermer">&times;</button></div>';
   h+='<p><b>'+esc(s.nom)+'</b> · '+s.n+' balises : <b>4 balises par feuille A4</b> ('+Math.ceil(s.n/4)+' feuille'+(s.n>4?'s':'')+'), à imprimer <b>en couleur</b>, découper suivant les pointillés, puis plastifier.</p><p class="petit">'+(S.etab?'Établissement imprimé sous chaque balise : <b>'+esc(S.etab)+'</b>.':'Aucun nom d\'établissement : tu peux l\'ajouter dans Réglages › Établissement, il s\'imprimera sous chaque balise.')+'</p>';
-  if(s.theme) h+='<div class="rangee"><div class="corps">Ajouter le corrigé (pages pour l\'enseignante)<div class="petit">À la fin du PDF : tous les pays et leurs capitales, case par case. Ne pas plastifier.</div></div><label class="switch"><input type="checkbox" id="pdfCorrige" checked><span class="slider"></span></label></div>';
+  if(s.theme) h+='<div class="rangee"><div class="corps">Ajouter le corrigé (pages pour l\'enseignante)<div class="petit">À la fin du PDF : toutes les réponses et leurs indices, case par case. Ne pas plastifier.</div></div><label class="switch"><input type="checkbox" id="pdfCorrige" checked><span class="slider"></span></label></div>';
   h+='<button class="bouton bouton-primaire" data-act="pdfpartage" data-id="'+esc(id)+'">📤 Enregistrer dans Drive / Partager</button><button class="bouton bouton-secondaire" data-act="pdftelech" data-id="'+esc(id)+'">⬇️ Télécharger le PDF</button>';
   h+='<p class="petit">« Enregistrer dans Drive / Partager » ouvre la feuille de partage de la tablette : choisis Drive, puis imprime en couleur depuis l\'ordinateur ou l\'imprimante de ton choix. Le PDF ne change pas : tu peux le regénérer à tout moment depuis les Réglages.</p>';
   ouvrirModale(h);
@@ -1685,7 +1766,7 @@ function vueReglages(){
   /* 6. Jeux de balises */
   c='<p class="petit">Les 10 couleurs × 8 balises du PDF sont intégrées et ne sont pas modifiables (balises plastifiées). Ajoute ici un jeu personnalisé (ex. 12 balises imprimées en 3D avec d\'autres codes) ou un jeu thématique (capitales, drapeaux) à imprimer en PDF.</p>';
   tousLesSets().forEach(function(s){ c+='<div class="rangee"><span class="puce" style="background:'+s.couleur+'"></span><div class="corps"><b>'+esc(s.nom)+'</b> <span class="petit">'+s.n+' balises'+(s.builtin?' · PDF':(s.theme&&THEMES[s.theme]?' · '+THEMES[s.theme].nom:' · personnalisé'))+'</span></div>'+(s.builtin?'':'<button class="chip" data-act="pdfset" data-id="'+esc(s.id)+'" style="margin:0 6px 0 0">📄 PDF</button>'+(s.theme?'':'<button class="chip" data-act="editset" data-id="'+esc(s.id)+'" style="margin:0 6px 0 0">Modifier</button>')+'<button class="chip" data-act="delset" data-id="'+esc(s.id)+'" style="margin:0">🗑️</button>')+'</div>'; });
-  c+='<button class="bouton bouton-secondaire" data-act="newset">+ Nouveau jeu de balises</button><button class="bouton bouton-secondaire" data-act="newtheme">🌍 Nouveau jeu thématique (capitales, sports…)</button>';
+  c+='<button class="bouton bouton-secondaire" data-act="newset">+ Nouveau jeu de balises</button><button class="bouton bouton-secondaire" data-act="newtheme">🌍 Nouveau jeu thématique (capitales, sports, départements…)</button>';
   h+=rub('jeux','Jeux de balises',c);
   /* 7. Indices */
   h+=rub('indices','Indices','<div class="rangee"><div class="corps">Indices sur les balises<div class="petit">Le groupe qui pose la balise peut écrire un indice (onglet Carte). Désactivé : les indices ne s\'affichent plus (ils restent enregistrés).</div></div><label class="switch"><input type="checkbox" data-chg="indices"'+(S.indices?' checked':'')+'><span class="slider"></span></label></div>');
