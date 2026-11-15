@@ -192,8 +192,27 @@ var PAYS=[
 ['MDG','Madagascar','Antananarivo','T'],['KEN','Kenya','Nairobi','T'],['MUS','Maurice','Port-Louis','T'],['JAM','Jamaïque','Kingston','T'],
 ['JOR','Jordanie','Amman','T'],['MDV','Maldives','Malé','T'],['NZL','Nouvelle-Zélande','Wellington','T'],['PAK','Pakistan','Islamabad','G']
 ];
-var THEMES={pays:{nom:'Pays (capitales)',nomDrap:'Drapeaux',consigne:['Lis la case de ton groupe :','de quel pays est-ce la capitale ?'],consigneDrap:['Lis la case de ton groupe :','de quel pays est-ce le drapeau ?'],question:'Quel est ce pays (capitale ou drapeau) ?',
-  filtres:[['E','Europe'],['G','Grands pays'],['T','Pays touristiques'],['F','Coupe du monde de football'],['J','Jeux olympiques']],items:PAYS}};
+var SPORTS=[
+['BAD','Badminton','Le volant','MC'],['TTE','Tennis de table','Table et balle blanche','MCR'],['TEN','Tennis','Roland-Garros','R'],['SQU','Squash','Murs et raquette','M'],
+['GOL','Golf','Birdie et green','R'],['ESC','Escrime','Fleuret, épée, sabre','M'],['ARC','Tir à l\'arc','Arc et flèches','M'],['HAL','Haltérophilie','Arraché, épaulé-jeté','T'],
+['PET','Pétanque','Le cochonnet','M'],['BOW','Bowling','Quilles et boule','M'],['CUR','Curling','Pierre et balai','M'],['SKA','Skateboard','Planche à roulettes','M'],
+['ULT','Ultimate','Le frisbee','MC'],['VOL','Volley-ball','Manchette et passe haute','RC'],['BSK','Basket-ball','Reprise de dribble','RC'],['HBL','Handball','Zone des 6 mètres','RC'],
+['FOO','Football','Hors-jeu, corner','RC'],['RUG','Rugby','Mêlée, en-avant','RC'],['BAS','Baseball','Batte, home run','R'],['HOC','Hockey sur gazon','Crosse, balle, gazon','M'],
+['HOG','Hockey sur glace','Pénalité de 2 minutes','R'],['BOX','Boxe','Gants, ring, K.-O.','R'],['JUD','Judo','Ippon, kimono','RC'],['MAR','Marathon','42,195 km','R'],
+['TRI','Triathlon','Nager, pédaler, courir','R'],['BIA','Biathlon','Ski de fond et carabine','R'],['CYC','Cyclisme','Maillot jaune','R'],['ORI','Course d\'orientation','Carte et boussole','MC'],
+['SKI','Ski alpin','Descente, slalom, géant','M'],['SNO','Snowboard','Planche sur la neige','M'],['SUR','Surf','Vagues et planche','M'],['VOI','Voile','Foc et grand-voile','M'],
+['CAN','Canoë-kayak','La pagaie','M'],['AVI','Aviron','Rames et coque effilée','M'],['NAT','Natation','Crawl, brasse, papillon','TC'],['WAT','Water-polo','Ballon, bonnet, bassin','M'],
+['PLO','Plongeon','Plongeoir et tremplin','M'],['PAT','Patinage artistique','Pirouettes sur glace','T'],['GYM','Gymnastique','Poutre, anneaux, barres','TC'],['TRA','Trampoline','Toile élastique','M'],
+['ACR','Acrosport','Pyramide humaine','TC'],['DAN','Danse','Chorégraphie','TC'],['CLI','Escalade','Prises, baudrier, corde','MC'],['EQU','Équitation','Selle et étriers','M'],
+['SPR','Sprint','Starting-blocks','TC'],['REL','Relais','Passage du témoin','TC'],['HAI','Course de haies','Barrières à franchir','TC'],['HAU','Saut en hauteur','Passer la barre sur le dos','TC'],
+['LON','Saut en longueur','Planche d\'appel et sable','TC'],['PER','Saut à la perche','Longue tige souple','M'],['JAV','Lancer du javelot','Lance et course d\'élan','TC'],['POI','Lancer du poids','Boule en métal lancée depuis le cou','TC'],
+['DIS','Lancer du disque','Sorte de soucoupe volante','T'],['TRP','Triple saut','3e bond dans le sable','T'],['GRY','Gymnastique rythmique','Ruban, cerceau, ballon','T'],['SYN','Natation synchronisée','Ballet aquatique','T'],
+['MRT','Lancer du marteau','Boulet au bout d\'un câble','T']
+];
+var THEMES={pays:{titre:'Pays (capitales, drapeaux)',nomDefaut:'Capitales',unite:'pays',quels:'Quels pays ?',drapeaux:true,filtreDef:'E',nom:'Pays (capitales)',nomDrap:'Drapeaux',consigne:['Lis la case de ton groupe :','de quel pays est-ce la capitale ?'],consigneDrap:['Lis la case de ton groupe :','de quel pays est-ce le drapeau ?'],question:'Quel est ce pays (capitale ou drapeau) ?',
+  filtres:[['E','Europe'],['G','Grands pays'],['T','Pays touristiques'],['F','Coupe du monde de football'],['J','Jeux olympiques']],items:PAYS},
+  sport:{titre:'Sports (indices)',nomDefaut:'Sports',unite:'sports',quels:'Quels sports ?',drapeaux:false,filtreDef:'C',nom:'Sports (indices)',nomDrap:'',consigne:['Lis la case de ton groupe :','de quel sport s\'agit-il ?'],consigneDrap:['',''],question:'De quel sport s\'agit-il ?',
+  filtres:[['M','Matériel et terrain'],['R','Règles et vocabulaire'],['T','Techniques et gestes'],['C','Sports du collège']],items:SPORTS}};
 /* Les 16 cases d'une balise, ligne par ligne : A1 B1 C1 D1 A2 ... D4 */
 var CASES16=[]; ['1','2','3','4'].forEach(function(r){ ['A','B','C','D'].forEach(function(l){ CASES16.push(l+r); }); });
 var COULEURS = {Rouge:'#e53935',Bleu:'#1e66d0',Vert:'#2e9e4f',Jaune:'#f2c200',Orange:'#f57c00',Violet:'#7b3fa0',Rose:'#f48fb1',Marron:'#8d5a3b',Cyan:'#00bcd4',Magenta:'#d81b9a'};
@@ -213,7 +232,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.45';
+var APP_VER='2.46';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -1343,24 +1362,27 @@ function genererJeuTheme(th,nom,couleur,n,tags,nbDrap){
 }
 
 /* ---- Nouveau jeu thématique (Réglages) ---- */
-var thSel={}, thN=8, thD=2;
+var thSel={}, thN=8, thD=2, thTheme='pays';
 function thTags(){ return Object.keys(thSel).filter(function(k){ return thSel[k]; }); }
 /* Nombre de balises à drapeaux réellement possible : 0 si moins de 16 pays ont un drapeau dans les thèmes cochés */
-function thDeff(){ var t=thTags(); return (t.length&&itemsAvec('pays',t,'drap').length>=16)?Math.min(thD,thN):0; }
+function thDeff(){ var t=thTags(); return (THEMES[thTheme].drapeaux&&t.length&&itemsAvec(thTheme,t,'drap').length>=16)?Math.min(thD,thN):0; }
 function majCompteTheme(){
-  var t=thTags(), nc=t.length?itemsAvec('pays',t,'cap').length:0, nf=t.length?itemsAvec('pays',t,'drap').length:0, el=$('thNb'), iD=$('tD'); if(iD) iD.value=thDeff();
+  var T=THEMES[thTheme], t=thTags(), nc=t.length?itemsAvec(thTheme,t,'cap').length:0, nf=(T.drapeaux&&t.length)?itemsAvec(thTheme,t,'drap').length:0, el=$('thNb'), iD=$('tD'); if(iD) iD.value=thDeff();
   if(!el) return;
-  el.innerHTML=(nc>=16?'<b>'+nc+'</b> capitales possibles':'<span style="color:#c62828"><b>'+nc+'</b> capitales seulement : il en faut au moins 16. Coche un autre thème.</span>')+
-    ' · '+(nf>=16?'<b>'+nf+'</b> drapeaux possibles':'drapeaux indisponibles ('+nf+' pays, il en faut 16)')+'.';
+  var nom=T.drapeaux?'capitales':'indices';
+  el.innerHTML=(nc>=16?'<b>'+nc+'</b> '+nom+' possibles':'<span style="color:#c62828"><b>'+nc+'</b> '+nom+' seulement : il en faut au moins 16. Coche un autre thème.</span>')+
+    (T.drapeaux?' · '+(nf>=16?'<b>'+nf+'</b> drapeaux possibles':'drapeaux indisponibles ('+nf+' pays, il en faut 16)')+'.':'.');
 }
-function modaleTheme(){
-  var T=THEMES.pays; thSel={E:true}; thN=8; thD=2;
+function modaleTheme(th){
+  thTheme=(th&&THEMES[th])?th:'pays'; var T=THEMES[thTheme]; thSel={}; thSel[T.filtreDef]=true; thN=8; thD=2;
   var h='<div class="modale-header"><h3>Nouveau jeu thématique</h3><button class="btn-fermer" data-act="fermer">&times;</button></div>';
-  h+='<p class="petit">Chaque balise porte 16 indices différents (un par case A1 à D4) : une <b>capitale</b>, ou un <b>drapeau</b> sur quelques balises. Les élèves retrouvent le <b>pays</b> dans une liste. Un même groupe ne tombe jamais deux fois sur le même pays. Tu imprimes ensuite les balises depuis un PDF.</p>';
-  h+='<label>Nom du jeu</label><input type="text" id="tNom" value="Capitales" maxlength="30">';
+  h+='<label>Thème du jeu</label><div class="chips">'+Object.keys(THEMES).map(function(k){ return '<button class="chip'+(k===thTheme?' actif':'')+'" data-act="ththeme" data-t="'+k+'">'+esc(THEMES[k].titre)+'</button>'; }).join('')+'</div>';
+  h+=T.drapeaux?'<p class="petit">Chaque balise porte 16 indices différents (un par case A1 à D4) : une <b>capitale</b>, ou un <b>drapeau</b> sur quelques balises. Les élèves retrouvent le <b>pays</b> dans une liste. Un même groupe ne tombe jamais deux fois sur le même pays. Tu imprimes ensuite les balises depuis un PDF.</p>'
+   :'<p class="petit">Chaque balise porte 16 indices différents (un par case A1 à D4) : du <b>matériel</b>, une <b>règle</b> ou une <b>technique</b>. Les élèves retrouvent le <b>sport</b> dans une liste. Un même groupe ne tombe jamais deux fois sur le même sport. Tu imprimes ensuite les balises depuis un PDF.</p>';
+  h+='<label>Nom du jeu</label><input type="text" id="tNom" value="'+esc(T.nomDefaut)+'" maxlength="30">';
   h+='<div class="grille g2"><div><label>Couleur</label><input type="color" id="tCoul" value="#1e66d0" style="width:100%;height:44px"></div><div><label>Nombre de balises</label><div class="stepper-nombre"><button class="stepper-btn" data-act="thn" data-d="-1" aria-label="Moins de balises">−</button><input type="number" id="tN" value="'+thN+'" readonly><button class="stepper-btn" data-act="thn" data-d="1" aria-label="Plus de balises">+</button></div></div></div>';
-  h+='<label>Dont balises avec un drapeau à la place de la capitale</label><div class="stepper-nombre"><button class="stepper-btn" data-act="thd" data-d="-1" aria-label="Moins de balises à drapeaux">−</button><input type="number" id="tD" value="'+thD+'" readonly><button class="stepper-btn" data-act="thd" data-d="1" aria-label="Plus de balises à drapeaux">+</button></div>';
-  h+='<label>Quels pays ? (on peut en cocher plusieurs)</label><div class="chips">'+T.filtres.map(function(f){ return '<button class="chip'+(thSel[f[0]]?' actif':'')+'" data-act="thfiltre" data-f="'+f[0]+'">'+esc(f[1])+'</button>'; }).join('')+'</div><p class="petit" id="thNb"></p>';
+  if(T.drapeaux) h+='<label>Dont balises avec un drapeau à la place de la capitale</label><div class="stepper-nombre"><button class="stepper-btn" data-act="thd" data-d="-1" aria-label="Moins de balises à drapeaux">−</button><input type="number" id="tD" value="'+thD+'" readonly><button class="stepper-btn" data-act="thd" data-d="1" aria-label="Plus de balises à drapeaux">+</button></div>';
+  h+='<label>'+esc(T.quels)+' (on peut en cocher plusieurs)</label><div class="chips">'+T.filtres.map(function(f){ return '<button class="chip'+(thSel[f[0]]?' actif':'')+'" data-act="thfiltre" data-f="'+f[0]+'">'+esc(f[1])+'</button>'; }).join('')+'</div><p class="petit" id="thNb"></p>';
   var hors=S.groupes.filter(function(g){ return CASES16.indexOf(g)<0; });
   if(hors.length) h+='<p class="petit" style="color:#c62828">Attention : les groupes '+esc(hors.join(', '))+' n\'ont pas de case sur ces balises (cases A1 à D4 seulement).</p>';
   h+='<button class="bouton bouton-primaire" data-act="savetheme">Créer le jeu et préparer le PDF</button>';
@@ -1492,6 +1514,35 @@ function pDrapeau(P,id,x,y,w){
 function tailleFit(t,gras,wMax,sMax){ var s=sMax; while(s>8&&largTxt(t,gras,s)>wMax) s--; return s; }
 function pCoupe(P,x1,y1,x2,y2){ P.push('0.5 0.5 0.5 RG 0.6 w [4 3] 0 d '+x1.toFixed(2)+' '+(PDF_H-y1).toFixed(2)+' m '+x2.toFixed(2)+' '+(PDF_H-y2).toFixed(2)+' l S [] 0 d'); }
 /* Une balise dans un bloc bw x bh dont le coin haut gauche est (ox,oy) : 4 blocs par feuille A4, petits pour que les balises restent discrètes */
+/* Taille de police commune : la plus petite taille nécessaire sur tout le jeu, pour que toutes les cases aient la même écriture */
+var PDFT={ind:14,rep:10,cl:8};
+/* Coupe un texte en lignes (aux espaces et après un tiret) de largeur wMax à la taille sz ; null si un mot est trop large */
+function coupeMots(t,gras,wMax,sz){
+  var tok=t.split(' '), mots=[], k, lignes=[], cur='', essai;
+  tok.forEach(function(m,ix){ var parts=m.replace(/-/g,'-\u0001').split('\u0001').filter(function(x){ return x!==''; }), q; for(q=0;q<parts.length;q++) mots.push({t:parts[q],sp:(q===0&&ix>0)}); });
+  for(k=0;k<mots.length;k++){
+    if(largTxt(mots[k].t,gras,sz)>wMax) return null;
+    essai=cur+(cur&&mots[k].sp?' ':'')+mots[k].t;
+    if(!cur||largTxt(essai,gras,sz)<=wMax) cur=essai; else { lignes.push(cur); cur=mots[k].t; }
+  }
+  if(cur) lignes.push(cur);
+  return lignes;
+}
+/* Plus grande taille (sMax à sMin, pas de 0,5) pour laquelle le texte tient en nL lignes */
+function tailleTxt(t,gras,wMax,sMax,sMin,nL){
+  var sz, l; for(sz=sMax;sz>=sMin;sz-=0.5){ l=coupeMots(t,gras,wMax,sz); if(l&&l.length<=nL) return sz; } return sMin;
+}
+function lignesTxt(t,gras,wMax,sz){ var l=coupeMots(t,gras,wMax,sz); return {l:l||[t],s:sz}; }
+/* Taille de police commune : la plus petite nécessaire sur tout le jeu, pour que toutes les cases aient la même écriture */
+function tailleCommune(s){
+  var t={ind:14,rep:10,cl:8}, b, k, id, it, z;
+  for(b=1;b<=s.n;b++){ if((s.drap||[]).indexOf(b)>=0) continue;
+    for(k=0;k<16;k++){ id=s.codes[b]&&s.codes[b][CASES16[k]]; it=itemTheme(s.theme,id); if(!it) continue;
+      z=tailleTxt(it[2]||'?',true,(595-40-12)/8-8,14,6,4); if(z<t.ind) t.ind=z;
+      z=tailleTxt(it[1],true,(595-60-16)/8-6,10,5,3); if(z<t.rep) t.rep=z;
+      z=tailleTxt(it[2]||'?',false,(595-60-16)/8-6,8,5,4); if(z<t.cl) t.cl=z; } }
+  return t;
+}
 function blocBalise(P,s,nb,ox,oy,bw,bh,etab){
   var T=THEMES[s.theme], dr=(s.drap||[]).indexOf(nb)>=0, clair=pdfLumi(s.couleur)>0.62, ct=clair?'#222222':'#ffffff', cons=dr?T.consigneDrap:T.consigne, nomT=dr?T.nomDrap:T.nom;
   var hh=44, cy=oy+hh+6, chb=44, gy=cy+chb+6, pied=etab?14:2, cw=bw/4, ch=(oy+bh-pied-gy)/4, fw=cw-14, k, g, id, it, rep, x, y, s1, s2, se, txtN=nb+' / '+s.n;
@@ -1508,7 +1559,7 @@ function blocBalise(P,s,nb,ox,oy,bw,bh,etab){
     pRect(P,x,y,cw,ch,pdfTeinte(s.couleur,0.88),s.couleur,1.2);
     pTexte(P,g,x+4,y+10,true,8,'#222222');
     if(dr) pDrapeau(P,id,x+(cw-fw)/2,y+ch/2-fw/3+6,fw);
-    else { rep=ajusterTxt(it&&it[2]?it[2]:'?',true,cw-8,15,6); pBloc(P,rep,x+cw/2,y+ch/2+5,true,'#111111'); }
+    else { rep=lignesTxt(it&&it[2]?it[2]:'?',true,cw-8,PDFT.ind); pBloc(P,rep,x+cw/2,y+ch/2+5,true,'#111111'); }
   }
   if(etab){ se=7; while(se>4&&largTxt(etab,false,se)>bw-10) se-=0.5; pTexteC(P,etab,ox+bw/2,oy+bh-4,false,se,'#777777'); }
 }
@@ -1532,9 +1583,9 @@ function pageCorrige(s,debut,fin){
       x=bx+(k%4)*cw; y=by+22+Math.floor(k/4)*ch; g=CASES16[k]; id=s.codes[b]&&s.codes[b][g]; it=itemTheme(s.theme,id);
       pRect(P,x,y,cw,ch,pdfTeinte(s.couleur,0.9),s.couleur,1);
       pTexte(P,g,x+3,y+9,true,7,'#555555');
-      rep=ajusterTxt(it?it[1]:'?',true,cw-6,10,5); pBloc(P,rep,x+cw/2,y+ch*(dr?0.32:0.42),true,'#111111');
+      rep=lignesTxt(it?it[1]:'?',true,cw-6,PDFT.rep); pBloc(P,rep,x+cw/2,y+ch*(dr?0.32:0.42),true,'#111111');
       if(dr) pDrapeau(P,id,x+10,y+ch*0.52,cw-20);
-      else { rep=ajusterTxt(it&&it[2]?it[2]:'?',false,cw-6,8,5); pBloc(P,rep,x+cw/2,y+ch*0.76,false,'#444444'); }
+      else { rep=lignesTxt(it&&it[2]?it[2]:'?',false,cw-6,PDFT.cl); pBloc(P,rep,x+cw/2,y+ch*0.76,false,'#444444'); }
     }
   }
   return P.join('\n');
@@ -1559,7 +1610,7 @@ function assemblerPdf(pages){
   return u;
 }
 function construirePdf(s,avecCorrige,etab){
-  var pages=[], b;
+  var pages=[], b; PDFT=tailleCommune(s);
   for(b=1;b<=s.n;b+=4) pages.push(pageBalises(s,b,Math.min(s.n,b+3),etab||''));
   if(avecCorrige) for(b=1;b<=s.n;b+=4) pages.push(pageCorrige(s,b,Math.min(s.n,b+3)));
   return assemblerPdf(pages);
@@ -1617,7 +1668,7 @@ function vueReglages(){
   /* 6. Jeux de balises */
   c='<p class="petit">Les 10 couleurs × 8 balises du PDF sont intégrées et ne sont pas modifiables (balises plastifiées). Ajoute ici un jeu personnalisé (ex. 12 balises imprimées en 3D avec d\'autres codes) ou un jeu thématique (capitales, drapeaux) à imprimer en PDF.</p>';
   tousLesSets().forEach(function(s){ c+='<div class="rangee"><span class="puce" style="background:'+s.couleur+'"></span><div class="corps"><b>'+esc(s.nom)+'</b> <span class="petit">'+s.n+' balises'+(s.builtin?' · PDF':(s.theme&&THEMES[s.theme]?' · '+THEMES[s.theme].nom:' · personnalisé'))+'</span></div>'+(s.builtin?'':(s.theme?'<button class="chip" data-act="pdfset" data-id="'+esc(s.id)+'" style="margin:0 6px 0 0">📄 PDF</button>':'<button class="chip" data-act="editset" data-id="'+esc(s.id)+'" style="margin:0 6px 0 0">Modifier</button>')+'<button class="chip" data-act="delset" data-id="'+esc(s.id)+'" style="margin:0">🗑️</button>')+'</div>'; });
-  c+='<button class="bouton bouton-secondaire" data-act="newset">+ Nouveau jeu de balises</button><button class="bouton bouton-secondaire" data-act="newtheme">🌍 Nouveau jeu thématique (capitales…)</button>';
+  c+='<button class="bouton bouton-secondaire" data-act="newset">+ Nouveau jeu de balises</button><button class="bouton bouton-secondaire" data-act="newtheme">🌍 Nouveau jeu thématique (capitales, sports…)</button>';
   h+=rub('jeux','Jeux de balises',c);
   /* 7. Indices */
   h+=rub('indices','Indices','<div class="rangee"><div class="corps">Indices sur les balises<div class="petit">Le groupe qui pose la balise peut écrire un indice (onglet Carte). Désactivé : les indices ne s\'affichent plus (ils restent enregistrés).</div></div><label class="switch"><input type="checkbox" data-chg="indices"'+(S.indices?' checked':'')+'><span class="slider"></span></label></div>');
@@ -1832,12 +1883,13 @@ document.addEventListener('click',function(e){
     case 'newset': modaleSet(''); break;
     case 'majetab': S.etab=$('inEtab').value.trim().slice(0,60); sauver(); toast('Établissement enregistré'); break;
     case 'newtheme': modaleTheme(); break;
+    case 'ththeme': modaleTheme(el.getAttribute('data-t')); break;
     case 'thn': thN=Math.max(1,Math.min(10,thN+parseInt(el.getAttribute('data-d'),10))); $('tN').value=thN; majCompteTheme(); break;
     case 'thd': thD=Math.max(0,Math.min(thN,thD+parseInt(el.getAttribute('data-d'),10))); majCompteTheme(); break;
     case 'thfiltre': var thF=el.getAttribute('data-f'); thSel[thF]=!thSel[thF]; if(thSel[thF]) el.classList.add('actif'); else el.classList.remove('actif'); majCompteTheme(); break;
     case 'savetheme': var thNom=$('tNom').value.trim(); if(!thNom){ avertir('Donne un nom au jeu.'); break; }
-      var thT=thTags(), thS=thT.length?genererJeuTheme('pays',thNom,$('tCoul').value,thN,thT,thDeff()):null;
-      if(!thS||!RE_COUL.test(thS.couleur)){ avertir('Impossible de créer '+thN+' balises avec ces thèmes : il faut au moins 16 pays différents, et plus de pays que de balises. Coche un autre thème ou réduis le nombre de balises.'); break; }
+      var thT=thTags(), thS=thT.length?genererJeuTheme(thTheme,thNom,$('tCoul').value,thN,thT,thDeff()):null;
+      if(!thS||!RE_COUL.test(thS.couleur)){ avertir('Impossible de créer '+thN+' balises avec ces thèmes : il faut au moins 16 '+THEMES[thTheme].unite+' différents, et plus que de balises. Coche un autre thème ou réduis le nombre de balises.'); break; }
       S.sets.push(thS); sauver(); dessiner(); modalePdf(thS.id); break;
     case 'pdfset': modalePdf(el.getAttribute('data-id')); break;
     case 'pdfpartage': case 'pdftelech': var pdfS=getSet(el.getAttribute('data-id')); if(pdfS){ var pdfO=null; try{ pdfO=construirePdf(pdfS,$('pdfCorrige')?$('pdfCorrige').checked:true,S.etab); }catch(errP){ avertir('Création du PDF impossible : '+errP.message); } if(pdfO) livrerPdf(nomPdf(pdfS),pdfO,a==='pdfpartage'); } break;
