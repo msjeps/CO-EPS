@@ -232,7 +232,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.46';
+var APP_VER='2.47';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -1536,6 +1536,7 @@ function lignesTxt(t,gras,wMax,sz){ var l=coupeMots(t,gras,wMax,sz); return {l:l
 /* Taille de police commune : la plus petite nécessaire sur tout le jeu, pour que toutes les cases aient la même écriture */
 function tailleCommune(s){
   var t={ind:14,rep:10,cl:8}, b, k, id, it, z;
+  if(!s.theme) return t;
   for(b=1;b<=s.n;b++){ if((s.drap||[]).indexOf(b)>=0) continue;
     for(k=0;k<16;k++){ id=s.codes[b]&&s.codes[b][CASES16[k]]; it=itemTheme(s.theme,id); if(!it) continue;
       z=tailleTxt(it[2]||'?',true,(595-40-12)/8-8,14,6,4); if(z<t.ind) t.ind=z;
@@ -1543,7 +1544,23 @@ function tailleCommune(s){
       z=tailleTxt(it[2]||'?',false,(595-60-16)/8-6,8,5,4); if(z<t.cl) t.cl=z; } }
   return t;
 }
+/* Jeu personnalisé (sans thème) : une grille 4 x 4, un grand code par case, comme sur les balises d'origine */
+function blocBaliseSimple(P,s,nb,ox,oy,bw,bh,etab){
+  var clair=pdfLumi(s.couleur)>0.62, ct=clair?'#222222':'#ffffff', hh=44, gy=oy+hh+6, pied=etab?14:2, cw=bw/4, ch=(oy+bh-pied-gy)/4, k, x, y, g, v, se, txtN=nb+' / '+s.n, sz=Math.min(40,Math.floor(ch*0.7));
+  pRect(P,ox,oy,bw,hh,s.couleur);
+  pTexte(P,'BALISE '+nb,ox+8,oy+27,true,22,ct);
+  pTexte(P,s.nom,ox+8,oy+39,false,8,ct);
+  pTexte(P,txtN,ox+bw-8-largTxt(txtN,false,8),oy+39,false,8,ct);
+  for(k=0;k<16;k++){
+    x=ox+(k%4)*cw; y=gy+Math.floor(k/4)*ch; g=CASES16[k]; v=(s.codes[nb]&&s.codes[nb][g])||'';
+    pRect(P,x,y,cw,ch,pdfTeinte(s.couleur,0.88),s.couleur,1.2);
+    pTexte(P,g,x+4,y+10,true,8,'#222222');
+    pTexteC(P,v,x+cw/2,y+ch/2+sz*0.36+3,true,sz,'#111111');
+  }
+  if(etab){ se=7; while(se>4&&largTxt(etab,false,se)>bw-10) se-=0.5; pTexteC(P,etab,ox+bw/2,oy+bh-4,false,se,'#777777'); }
+}
 function blocBalise(P,s,nb,ox,oy,bw,bh,etab){
+  if(!s.theme) return blocBaliseSimple(P,s,nb,ox,oy,bw,bh,etab);
   var T=THEMES[s.theme], dr=(s.drap||[]).indexOf(nb)>=0, clair=pdfLumi(s.couleur)>0.62, ct=clair?'#222222':'#ffffff', cons=dr?T.consigneDrap:T.consigne, nomT=dr?T.nomDrap:T.nom;
   var hh=44, cy=oy+hh+6, chb=44, gy=cy+chb+6, pied=etab?14:2, cw=bw/4, ch=(oy+bh-pied-gy)/4, fw=cw-14, k, g, id, it, rep, x, y, s1, s2, se, txtN=nb+' / '+s.n;
   pRect(P,ox,oy,bw,hh,s.couleur);
@@ -1612,7 +1629,7 @@ function assemblerPdf(pages){
 function construirePdf(s,avecCorrige,etab){
   var pages=[], b; PDFT=tailleCommune(s);
   for(b=1;b<=s.n;b+=4) pages.push(pageBalises(s,b,Math.min(s.n,b+3),etab||''));
-  if(avecCorrige) for(b=1;b<=s.n;b+=4) pages.push(pageCorrige(s,b,Math.min(s.n,b+3)));
+  if(avecCorrige&&s.theme) for(b=1;b<=s.n;b+=4) pages.push(pageCorrige(s,b,Math.min(s.n,b+3)));
   return assemblerPdf(pages);
 }
 function nomPdf(s){ return 'CO_EPS_balises_'+(s.nom.replace(/[^A-Za-z0-9À-ÿ_-]/g,'')||'jeu')+'_'+aujourdhui()+'.pdf'; }
@@ -1620,7 +1637,7 @@ function modalePdf(id){
   var s=getSet(id); if(!s) return;
   var h='<div class="modale-header"><h3>PDF des balises</h3><button class="btn-fermer" data-act="fermer">&times;</button></div>';
   h+='<p><b>'+esc(s.nom)+'</b> · '+s.n+' balises : <b>4 balises par feuille A4</b> ('+Math.ceil(s.n/4)+' feuille'+(s.n>4?'s':'')+'), à imprimer <b>en couleur</b>, découper suivant les pointillés, puis plastifier.</p><p class="petit">'+(S.etab?'Établissement imprimé sous chaque balise : <b>'+esc(S.etab)+'</b>.':'Aucun nom d\'établissement : tu peux l\'ajouter dans Réglages › Établissement, il s\'imprimera sous chaque balise.')+'</p>';
-  h+='<div class="rangee"><div class="corps">Ajouter le corrigé (pages pour l\'enseignante)<div class="petit">À la fin du PDF : tous les pays et leurs capitales, case par case. Ne pas plastifier.</div></div><label class="switch"><input type="checkbox" id="pdfCorrige" checked><span class="slider"></span></label></div>';
+  if(s.theme) h+='<div class="rangee"><div class="corps">Ajouter le corrigé (pages pour l\'enseignante)<div class="petit">À la fin du PDF : tous les pays et leurs capitales, case par case. Ne pas plastifier.</div></div><label class="switch"><input type="checkbox" id="pdfCorrige" checked><span class="slider"></span></label></div>';
   h+='<button class="bouton bouton-primaire" data-act="pdfpartage" data-id="'+esc(id)+'">📤 Enregistrer dans Drive / Partager</button><button class="bouton bouton-secondaire" data-act="pdftelech" data-id="'+esc(id)+'">⬇️ Télécharger le PDF</button>';
   h+='<p class="petit">« Enregistrer dans Drive / Partager » ouvre la feuille de partage de la tablette : choisis Drive, puis imprime en couleur depuis l\'ordinateur ou l\'imprimante de ton choix. Le PDF ne change pas : tu peux le regénérer à tout moment depuis les Réglages.</p>';
   ouvrirModale(h);
@@ -1667,7 +1684,7 @@ function vueReglages(){
   h+=rub('cartes','Cartes',sectionCartes());
   /* 6. Jeux de balises */
   c='<p class="petit">Les 10 couleurs × 8 balises du PDF sont intégrées et ne sont pas modifiables (balises plastifiées). Ajoute ici un jeu personnalisé (ex. 12 balises imprimées en 3D avec d\'autres codes) ou un jeu thématique (capitales, drapeaux) à imprimer en PDF.</p>';
-  tousLesSets().forEach(function(s){ c+='<div class="rangee"><span class="puce" style="background:'+s.couleur+'"></span><div class="corps"><b>'+esc(s.nom)+'</b> <span class="petit">'+s.n+' balises'+(s.builtin?' · PDF':(s.theme&&THEMES[s.theme]?' · '+THEMES[s.theme].nom:' · personnalisé'))+'</span></div>'+(s.builtin?'':(s.theme?'<button class="chip" data-act="pdfset" data-id="'+esc(s.id)+'" style="margin:0 6px 0 0">📄 PDF</button>':'<button class="chip" data-act="editset" data-id="'+esc(s.id)+'" style="margin:0 6px 0 0">Modifier</button>')+'<button class="chip" data-act="delset" data-id="'+esc(s.id)+'" style="margin:0">🗑️</button>')+'</div>'; });
+  tousLesSets().forEach(function(s){ c+='<div class="rangee"><span class="puce" style="background:'+s.couleur+'"></span><div class="corps"><b>'+esc(s.nom)+'</b> <span class="petit">'+s.n+' balises'+(s.builtin?' · PDF':(s.theme&&THEMES[s.theme]?' · '+THEMES[s.theme].nom:' · personnalisé'))+'</span></div>'+(s.builtin?'':'<button class="chip" data-act="pdfset" data-id="'+esc(s.id)+'" style="margin:0 6px 0 0">📄 PDF</button>'+(s.theme?'':'<button class="chip" data-act="editset" data-id="'+esc(s.id)+'" style="margin:0 6px 0 0">Modifier</button>')+'<button class="chip" data-act="delset" data-id="'+esc(s.id)+'" style="margin:0">🗑️</button>')+'</div>'; });
   c+='<button class="bouton bouton-secondaire" data-act="newset">+ Nouveau jeu de balises</button><button class="bouton bouton-secondaire" data-act="newtheme">🌍 Nouveau jeu thématique (capitales, sports…)</button>';
   h+=rub('jeux','Jeux de balises',c);
   /* 7. Indices */
