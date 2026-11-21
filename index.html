@@ -310,7 +310,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.48';
+var APP_VER='2.49';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -1798,9 +1798,11 @@ function modaleSet(id){
   h+='<button class="bouton bouton-primaire" data-act="saveset" data-id="'+esc(id||'')+'">Enregistrer</button>';
   ouvrirModale(h);
 }
+/* Colonnes de la grille d'un jeu : les groupes déclarés (dans leur ordre), puis les cases A1 à D4 manquantes : une balise physique a toujours 16 cases (2.49) */
+function colsSet(){ return S.groupes.concat(GROUPES_DEFAUT.filter(function(g){ return S.groupes.indexOf(g)<0; })); }
 function grilleCodes(s,n){
-  var h='<table><tr><th></th>'+S.groupes.map(function(g){return '<th>'+esc(g)+'</th>';}).join('')+'</tr>';
-  for(var i=1;i<=n;i++){ h+='<tr><th>'+i+'</th>'+S.groupes.map(function(g){ var v=(s.codes&&s.codes[i]&&s.codes[i][g])||''; return '<td><input type="text" maxlength="1" data-cb="'+i+'" data-cg="'+esc(g)+'" value="'+esc(v)+'"></td>'; }).join('')+'</tr>'; }
+  var cols=colsSet(), h='<table><tr><th></th>'+cols.map(function(g){return '<th>'+esc(g)+'</th>';}).join('')+'</tr>';
+  for(var i=1;i<=n;i++){ h+='<tr><th>'+i+'</th>'+cols.map(function(g){ var v=(s.codes&&s.codes[i]&&s.codes[i][g])||''; return '<td><input type="text" maxlength="1" data-cb="'+i+'" data-cg="'+esc(g)+'" value="'+esc(v)+'"></td>'; }).join('')+'</tr>'; }
   return h+'</table>';
 }
 function lireGrille(){
@@ -1996,7 +1998,7 @@ document.addEventListener('click',function(e){
     case 'editset': modaleSet(el.getAttribute('data-id')); break;
     case 'delset': var sid=el.getAttribute('data-id'); confirmer('Supprimer ce jeu de balises ?',function(){ S.sets=S.sets.filter(function(s){return s.id!==sid;}); S.seance.setIds=S.seance.setIds.map(function(x){return x===sid?'':x;}); sauver(); dessiner(); },'Supprimer',true); break;
     case 'setn': var inN=$('sN'), cur=lireGrille(), nn=Math.max(1,Math.min(30,parseInt(inN.value,10)+parseInt(el.getAttribute('data-d'),10))); inN.value=nn; $('sGrille').innerHTML=grilleCodes({codes:cur},nn); break;
-    case 'importcodes': var lignes=$('sColler').value.split(/\r?\n/).filter(function(x){return x.trim();}); var cur2={}; lignes.forEach(function(ln,i){ var cs=ln.split(/\t|;|,/); cur2[i+1]={}; S.groupes.forEach(function(gg,j){ cur2[i+1][gg]=(cs[j]||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,1); }); }); var n2=Math.max(1,Math.min(30,lignes.length)); $('sN').value=n2; $('sGrille').innerHTML=grilleCodes({codes:cur2},n2); break;
+    case 'importcodes': var lignes=$('sColler').value.split(/\r?\n/).filter(function(x){return x.trim();}); var cur2={}; lignes.forEach(function(ln,i){ var cs=ln.split(/\t|;|,/); cur2[i+1]={}; colsSet().forEach(function(gg,j){ cur2[i+1][gg]=(cs[j]||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,1); }); }); var n2=Math.max(1,Math.min(30,lignes.length)); $('sN').value=n2; $('sGrille').innerHTML=grilleCodes({codes:cur2},n2); break;
     case 'saveset': var idd=el.getAttribute('data-id'), nm=$('sNom').value.trim(); if(!nm){ avertir('Donne un nom au jeu.'); break; }
       var obj={id:idd||('s'+Date.now()),nom:nm,couleur:$('sCoul').value,n:parseInt($('sN').value,10),codes:lireGrille()};
       if(idd){ S.sets=S.sets.map(function(s){return s.id===idd?obj:s;}); } else S.sets.push(obj);
