@@ -310,7 +310,7 @@ function etatInitial(){
     classes:[], cur:null, onglet:'pose', rosters:{}
   };
 }
-var APP_VER='2.49';
+var APP_VER='2.50';
 /* Protection des classes : jamais d'écrasement des données si la lecture échoue, copie de secours
    (_auto = dernier état contenant des classes, _avant_maj = état avant changement de version) et
    restauration automatique si l'état principal est trouvé vide alors qu'une copie contient des classes. */
@@ -1688,6 +1688,19 @@ function pageCorrige(s,debut,fin){
   }
   return P.join('\n');
 }
+/* Tableau des solutions d'un jeu de lettres (2.50) : une ligne par balise, une colonne par case A1 à D4 (jusqu'à 30 balises sur une page) */
+function pageSolutions(s){
+  var P=[], M=30, W=595, nl=Math.min(s.n,30), x0=M+34, cw=(W-M-x0)/16, top=84, ch=Math.min(22,(PDF_H-top-M-24)/(nl+1)), b, k, x, y, v, sz=Math.min(13,ch*0.6);
+  pTexte(P,'SOLUTIONS POUR L\'ENSEIGNANT : à ne pas plastifier ni donner aux élèves',M,M+14,true,13,'#b71c1c');
+  pTexte(P,s.nom+' · '+s.n+' balise'+(s.n>1?'s':'')+' · ligne = balise, colonne = case',M,M+30,false,10,'#555555');
+  pRect(P,M,top,34,ch,s.couleur); pTexteC(P,'N°',M+17,top+ch*0.68,true,Math.min(9,ch*0.5),pdfLumi(s.couleur)>0.62?'#222222':'#ffffff');
+  for(k=0;k<16;k++){ x=x0+k*cw; pRect(P,x,top,cw,ch,s.couleur,'#ffffff',0.5); pTexteC(P,CASES16[k],x+cw/2,top+ch*0.68,true,Math.min(9,ch*0.5),pdfLumi(s.couleur)>0.62?'#222222':'#ffffff'); }
+  for(b=1;b<=nl;b++){
+    y=top+b*ch; pRect(P,M,y,34,ch,pdfTeinte(s.couleur,0.8),s.couleur,0.5); pTexteC(P,String(b),M+17,y+ch*0.68,true,sz,'#111111');
+    for(k=0;k<16;k++){ x=x0+k*cw; v=(s.codes[b]&&s.codes[b][CASES16[k]])||''; pRect(P,x,y,cw,ch,pdfTeinte(s.couleur,b%2?0.93:0.86),s.couleur,0.5); pTexteC(P,v,x+cw/2,y+ch*0.68,true,sz,'#111111'); }
+  }
+  return P.join('\n');
+}
 function assemblerPdf(pages){
   var objs=[null], n=pages.length, i, kids=[];
   for(i=0;i<n;i++) kids.push((5+2*i)+' 0 R');
@@ -1710,7 +1723,7 @@ function assemblerPdf(pages){
 function construirePdf(s,avecCorrige,etab){
   var pages=[], b; PDFT=tailleCommune(s);
   for(b=1;b<=s.n;b+=4) pages.push(pageBalises(s,b,Math.min(s.n,b+3),etab||''));
-  if(avecCorrige&&s.theme) for(b=1;b<=s.n;b+=4) pages.push(pageCorrige(s,b,Math.min(s.n,b+3)));
+  if(avecCorrige){ if(s.theme){ for(b=1;b<=s.n;b+=4) pages.push(pageCorrige(s,b,Math.min(s.n,b+3))); } else pages.push(pageSolutions(s)); }
   return assemblerPdf(pages);
 }
 function nomPdf(s){ return 'CO_EPS_balises_'+(s.nom.replace(/[^A-Za-z0-9À-ÿ_-]/g,'')||'jeu')+'_'+aujourdhui()+'.pdf'; }
@@ -1719,6 +1732,7 @@ function modalePdf(id){
   var h='<div class="modale-header"><h3>PDF des balises</h3><button class="btn-fermer" data-act="fermer">&times;</button></div>';
   h+='<p><b>'+esc(s.nom)+'</b> · '+s.n+' balises : <b>4 balises par feuille A4</b> ('+Math.ceil(s.n/4)+' feuille'+(s.n>4?'s':'')+'), à imprimer <b>en couleur</b>, découper suivant les pointillés, puis plastifier.</p><p class="petit">'+(S.etab?'Établissement imprimé sous chaque balise : <b>'+esc(S.etab)+'</b>.':'Aucun nom d\'établissement : tu peux l\'ajouter dans Réglages › Établissement, il s\'imprimera sous chaque balise.')+'</p>';
   if(s.theme) h+='<div class="rangee"><div class="corps">Ajouter le corrigé (pages pour l\'enseignante)<div class="petit">À la fin du PDF : toutes les réponses et leurs indices, case par case. Ne pas plastifier.</div></div><label class="switch"><input type="checkbox" id="pdfCorrige" checked><span class="slider"></span></label></div>';
+  else h+='<div class="rangee"><div class="corps">Ajouter le tableau des solutions (page pour l\'enseignante)<div class="petit">À la fin du PDF : une ligne par balise, une colonne par case (A1 à D4). Ne pas plastifier.</div></div><label class="switch"><input type="checkbox" id="pdfCorrige" checked><span class="slider"></span></label></div>';
   h+='<button class="bouton bouton-primaire" data-act="pdfpartage" data-id="'+esc(id)+'">📤 Enregistrer dans Drive / Partager</button><button class="bouton bouton-secondaire" data-act="pdftelech" data-id="'+esc(id)+'">⬇️ Télécharger le PDF</button>';
   h+='<p class="petit">« Enregistrer dans Drive / Partager » ouvre la feuille de partage de la tablette : choisis Drive, puis imprime en couleur depuis l\'ordinateur ou l\'imprimante de ton choix. Le PDF ne change pas : tu peux le regénérer à tout moment depuis les Réglages.</p>';
   ouvrirModale(h);
@@ -1794,6 +1808,7 @@ function modaleSet(id){
   h+='<label>Nom (ex. Imprimé 3D)</label><input type="text" id="sNom" value="'+esc(s.nom)+'">';
   h+='<div class="grille g2"><div><label>Couleur</label><input type="color" id="sCoul" value="'+esc(s.couleur)+'" style="width:100%;height:44px"></div><div><label>Nombre de balises</label><div class="stepper-nombre"><button class="stepper-btn" data-act="setn" data-d="-1" aria-label="Moins de balises">−</button><input type="number" id="sN" value="'+s.n+'" readonly><button class="stepper-btn" data-act="setn" data-d="1" aria-label="Plus de balises">+</button></div></div></div>';
   h+='<label>Codes : une ligne par balise, une colonne par groupe</label><div class="codes-grid" id="sGrille">'+grilleCodes(s,s.n)+'</div>';
+  h+='<button class="bouton bouton-clair" data-act="gencodes">🎲 Générer les codes au hasard</button><p class="petit">Lettres sans I, O ni Q (confondus avec 1 et 0 une fois plastifié). Dans une balise, jamais deux fois la même lettre ; pour un même groupe, jamais la même lettre sur deux balises. Tu peux ensuite corriger une case à la main.</p>';
   h+='<label>Ou coller depuis Excel (lignes = balises, colonnes = groupes dans l\'ordre ci-dessus)</label><textarea id="sColler" placeholder="N\tS\tK\t..."></textarea><button class="bouton bouton-clair" data-act="importcodes">Remplir la grille avec le texte collé</button>';
   h+='<button class="bouton bouton-primaire" data-act="saveset" data-id="'+esc(id||'')+'">Enregistrer</button>';
   ouvrirModale(h);
@@ -1804,6 +1819,33 @@ function grilleCodes(s,n){
   var cols=colsSet(), h='<table><tr><th></th>'+cols.map(function(g){return '<th>'+esc(g)+'</th>';}).join('')+'</tr>';
   for(var i=1;i<=n;i++){ h+='<tr><th>'+i+'</th>'+cols.map(function(g){ var v=(s.codes&&s.codes[i]&&s.codes[i][g])||''; return '<td><input type="text" maxlength="1" data-cb="'+i+'" data-cg="'+esc(g)+'" value="'+esc(v)+'"></td>'; }).join('')+'</tr>'; }
   return h+'</table>';
+}
+/* Codes au hasard (2.50) : lettres sans I, O, Q (confondus avec 1 et 0 une fois plastifiés).
+   Dans une balise, jamais deux fois la même lettre ; pour un même groupe (colonne), jamais deux fois la même lettre d'une balise à l'autre.
+   Si le jeu est trop grand pour tenir ces règles (plus de balises que de lettres), la deuxième règle est assouplie. */
+var LETTRES_CODE='ABCDEFGHJKLMNPRSTUVWXYZ';
+function genererCodesLettres(n,cols){
+  var essai, b, j, col, ligne, pris, util, ok, choix, A=LETTRES_CODE.split(''), codes, colonnes, i, strict=(n<=A.length), ligneDist=(cols.length<=A.length);
+  for(essai=0;essai<150;essai++){
+    codes={}; colonnes={}; cols.forEach(function(g){ colonnes[g]={}; }); ok=true;
+    for(b=1;b<=n&&ok;b++){
+      ligne={}; pris={};
+      var ordre=melange(cols);
+      for(j=0;j<ordre.length;j++){
+        col=ordre[j];
+        choix=A.filter(function(l){ return (!ligneDist||!pris[l])&&(!strict||!colonnes[col][l]); });
+        if(!choix.length){ ok=false; break; }
+        util=choix[Math.floor(Math.random()*choix.length)]; ligne[col]=util; pris[util]=1; colonnes[col][util]=1;
+      }
+      codes[b]=ligne;
+    }
+    if(ok) return codes;
+  }
+  /* Repli garanti (jeux presque aussi grands que l'alphabet) : décalages cycliques d'un alphabet mélangé, colonnes et balises mélangées */
+  var perm=melange(A), dec=melange(A.map(function(l,x){ return x; })), nb=melange(A.map(function(l,x){ return x; }));
+  codes={};
+  for(b=1;b<=n;b++){ codes[b]={}; cols.forEach(function(g,x){ codes[b][g]=perm[(nb[(b-1)%A.length]+dec[x%A.length])%A.length]; }); }
+  return codes;
 }
 function lireGrille(){
   var codes={}; var ins=document.querySelectorAll('#sGrille input[data-cb]');
@@ -1998,6 +2040,9 @@ document.addEventListener('click',function(e){
     case 'editset': modaleSet(el.getAttribute('data-id')); break;
     case 'delset': var sid=el.getAttribute('data-id'); confirmer('Supprimer ce jeu de balises ?',function(){ S.sets=S.sets.filter(function(s){return s.id!==sid;}); S.seance.setIds=S.seance.setIds.map(function(x){return x===sid?'':x;}); sauver(); dessiner(); },'Supprimer',true); break;
     case 'setn': var inN=$('sN'), cur=lireGrille(), nn=Math.max(1,Math.min(30,parseInt(inN.value,10)+parseInt(el.getAttribute('data-d'),10))); inN.value=nn; $('sGrille').innerHTML=grilleCodes({codes:cur},nn); break;
+    case 'gencodes': var nG=Math.max(1,Math.min(30,parseInt($('sN').value,10)||1)), plein=Array.prototype.some.call(document.querySelectorAll('#sGrille input[data-cb]'),function(i){ return i.value; });
+      var faireGen=function(){ $('sGrille').innerHTML=grilleCodes({codes:genererCodesLettres(nG,colsSet())},nG); };
+      if(plein) confirmer('Remplacer tous les codes déjà saisis par des codes tirés au hasard ?',faireGen,'Remplacer',true); else faireGen(); break;
     case 'importcodes': var lignes=$('sColler').value.split(/\r?\n/).filter(function(x){return x.trim();}); var cur2={}; lignes.forEach(function(ln,i){ var cs=ln.split(/\t|;|,/); cur2[i+1]={}; colsSet().forEach(function(gg,j){ cur2[i+1][gg]=(cs[j]||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,1); }); }); var n2=Math.max(1,Math.min(30,lignes.length)); $('sN').value=n2; $('sGrille').innerHTML=grilleCodes({codes:cur2},n2); break;
     case 'saveset': var idd=el.getAttribute('data-id'), nm=$('sNom').value.trim(); if(!nm){ avertir('Donne un nom au jeu.'); break; }
       var obj={id:idd||('s'+Date.now()),nom:nm,couleur:$('sCoul').value,n:parseInt($('sN').value,10),codes:lireGrille()};
